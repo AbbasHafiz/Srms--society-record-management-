@@ -47,3 +47,7 @@ export async function nextReceiptNumber() {
 export async function nextOpenFileNumber() {
   return nextSequence("open_file", "OF", 4);
 }
+
+export async function nextEmployeeCode() {
+  return nextSequence("employee", "EMP", 3);
+}

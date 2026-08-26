@@ -53,6 +53,11 @@ async function main() {
       { code: "EMP-006", name: "Tariq Mehmood", cnic: "35202-6666666-6", designation: "TRACTOR_DRIVER" as const, dept: "Works", salary: 40000 },
       { code: "EMP-007", name: "Farooq Shah", cnic: "35202-7777777-7", designation: "GM" as const, dept: "Management", salary: 150000 },
       { code: "EMP-008", name: "Ayesha Malik", cnic: "35202-8888888-8", designation: "SECRETARY" as const, dept: "Management", salary: 120000 },
+      { code: "EMP-009", name: "Rashid Khan", cnic: "35202-9090909-9", designation: "COOK" as const, dept: "Mess", salary: 32000 },
+      { code: "EMP-010", name: "Zainab Ali", cnic: "35202-1010101-0", designation: "COMPUTER_OPERATOR" as const, dept: "Admin", salary: 45000 },
+      { code: "EMP-011", name: "Kamran Shah", cnic: "35202-1111112-1", designation: "DRIVER" as const, dept: "Transport", salary: 38000 },
+      { code: "EMP-012", name: "Hassan Mali", cnic: "35202-1212121-2", designation: "MALI" as const, dept: "Horticulture", salary: 28000 },
+      { code: "EMP-013", name: "Ali Ahmad", cnic: "35202-1313131-3", designation: "SWEEPER" as const, dept: "Sanitation", salary: 26000 },
     ].map((e) =>
       prisma.employee.create({
         data: {
@@ -158,6 +163,7 @@ async function main() {
       { key: "physical_file", prefix: "PF", nextValue: 500, padLength: 4 },
       { key: "receipt", prefix: "RCPT", nextValue: 1000, padLength: 5 },
       { key: "open_file", prefix: "OF", nextValue: 90, padLength: 4 },
+      { key: "employee", prefix: "EMP", nextValue: 14, padLength: 3 },
     ],
   });
 

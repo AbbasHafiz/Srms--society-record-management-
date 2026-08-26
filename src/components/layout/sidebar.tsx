@@ -44,6 +44,7 @@ const NAV = [
   { href: "/payments", label: "Payments", icon: Wallet },
   { href: "/physical-files", label: "Physical Files", icon: Archive },
   { href: "/employees", label: "Employees", icon: UserCog },
+  { href: "/hr", label: "HR", icon: Users },
   { href: "/attendance", label: "Attendance", icon: CalendarCheck },
   { href: "/tankers", label: "Water Tankers", icon: Droplets },
   { href: "/vehicles", label: "Vehicles", icon: Truck },

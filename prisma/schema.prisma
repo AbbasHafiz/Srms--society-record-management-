@@ -197,11 +197,19 @@ enum ShiftType {
 enum PlotType {
   RESIDENTIAL
   COMMERCIAL
+  FLAT
+  SHOP
   AMENITY
   PARK
   MOSQUE
   SCHOOL
   OTHER
+}
+
+enum PlotStaffStatus {
+  ACTIVE
+  ENDED
+  SUSPENDED
 }
 
 enum PaymentMethod {
@@ -332,12 +340,34 @@ model Plot {
   payments         Payment[]
   tankerDeliveries TankerDelivery[]
   auditLogs        AuditLog[]
+  staffAssignments PlotStaffAssignment[]
 
   @@unique([sector, block, plotNumber])
   @@index([plotNumber])
   @@index([sector])
   @@index([street])
   @@index([ownershipStatus])
+  @@index([plotType])
+  @@index([possessionStatus])
+  @@index([developmentStatus])
+}
+
+model PlotStaffAssignment {
+  id         String          @id @default(cuid())
+  plotId     String
+  plot       Plot            @relation(fields: [plotId], references: [id])
+  employeeId String
+  employee   Employee        @relation(fields: [employeeId], references: [id])
+  roleLabel  String?
+  startDate  DateTime        @default(now())
+  endDate    DateTime?
+  status     PlotStaffStatus @default(ACTIVE)
+  remarks    String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([plotId, status])
+  @@index([employeeId, status])
 }
 
 // ─── Ownership & Membership (immutable history) ──────────────────────────────
@@ -817,8 +847,9 @@ model Employee {
   replacements   GuardShift[]     @relation("ReplacementGuard")
   vehicleDrivers Vehicle[]
   tankerDrivers  WaterTanker[]
-  fuelLogs       FuelLog[]
-  usageLogs      VehicleUsage[]
+  fuelLogs           FuelLog[]
+  usageLogs          VehicleUsage[]
+  plotStaffAssignments PlotStaffAssignment[]
 
   @@index([designation])
   @@index([status])

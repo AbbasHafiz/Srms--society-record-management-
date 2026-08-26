@@ -101,6 +101,7 @@ export function canAccessModule(role: Role, module: string): boolean {
     ],
     "physical-files": ["SUPER_ADMIN", "SECRETARY", "GM", "RECORD_MANAGER", "TRANSFER_OFFICER", "VIEWER", "PRESIDENT"],
     employees: ["SUPER_ADMIN", "PRESIDENT", "SECRETARY", "GM", "HR_ADMIN", "VIEWER"],
+    hr: ["SUPER_ADMIN", "PRESIDENT", "SECRETARY", "GM", "HR_ADMIN", "VIEWER"],
     attendance: ["SUPER_ADMIN", "HR_ADMIN", "SECURITY", "GM", "SECRETARY", "VIEWER"],
     tankers: ["SUPER_ADMIN", "GM", "SECRETARY", "FINANCE", "VIEWER", "PRESIDENT"],
     vehicles: ["SUPER_ADMIN", "GM", "SECRETARY", "HR_ADMIN", "VIEWER"],
