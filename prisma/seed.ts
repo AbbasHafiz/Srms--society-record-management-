@@ -17,6 +17,7 @@ async function main() {
   await prisma.vehicleUsage.deleteMany();
   await prisma.vehicle.deleteMany();
   await prisma.guardShift.deleteMany();
+  await prisma.plotStaffAssignment.deleteMany();
   await prisma.attendance.deleteMany();
   await prisma.fileMovement.deleteMany();
   await prisma.physicalFile.deleteMany();
@@ -75,7 +76,7 @@ async function main() {
     )
   );
 
-  const [ahmed, sara, bilal, imran, naveed, tariq, farooq, ayesha] = employees;
+  const [ahmed, sara, bilal, imran, naveed, tariq, farooq, ayesha, , , , hassanMali, aliAhmad] = employees;
 
   const admin = await prisma.user.create({
     data: {
@@ -495,6 +496,128 @@ async function main() {
     },
   });
 
+  // Diverse property types: flat, shop, park, masjid
+  const plotFlat = await prisma.plot.create({
+    data: {
+      plotNumber: "A-12",
+      sector: "E-17",
+      block: "C",
+      street: "Central Avenue",
+      sizeMarla: 4,
+      sizeSqYd: 100,
+      plotType: "FLAT",
+      ownershipStatus: "ACTIVE",
+      possessionStatus: "ISSUED",
+      developmentStatus: "DEVELOPED",
+      annualChargesStatus: "PAID",
+      remarks: "Residential flat — 2nd floor",
+    },
+  });
+
+  await prisma.ownership.create({
+    data: {
+      plotId: plotFlat.id,
+      ownerName: "Saima Noor",
+      cnic: "35202-6206206-6",
+      contact: "0333-2211445",
+      membershipNumber: "M-2410",
+      allotmentNumber: "AL-2410",
+      startDate: new Date("2024-03-01"),
+      status: "ACTIVE",
+    },
+  });
+
+  const plotShop = await prisma.plot.create({
+    data: {
+      plotNumber: "S-05",
+      sector: "E-17",
+      block: "Comm",
+      street: "Commercial Plaza",
+      sizeMarla: 2,
+      sizeSqYd: 50,
+      plotType: "SHOP",
+      ownershipStatus: "ACTIVE",
+      possessionStatus: "ISSUED",
+      developmentStatus: "DEVELOPED",
+      annualChargesStatus: "PAID",
+      remarks: "Ground-floor commercial shop",
+    },
+  });
+
+  await prisma.ownership.create({
+    data: {
+      plotId: plotShop.id,
+      ownerName: "Bashir Traders",
+      cnic: "35202-6306306-6",
+      contact: "0345-8877665",
+      membershipNumber: "M-2411",
+      allotmentNumber: "AL-2411",
+      startDate: new Date("2023-09-15"),
+      status: "ACTIVE",
+    },
+  });
+
+  const plotPark = await prisma.plot.create({
+    data: {
+      plotNumber: "PARK-01",
+      sector: "E-17",
+      block: "Amenity",
+      street: "Community Park",
+      sizeMarla: 20,
+      plotType: "PARK",
+      ownershipStatus: "ACTIVE",
+      possessionStatus: "ISSUED",
+      developmentStatus: "DEVELOPED",
+      annualChargesStatus: "WAIVED",
+      remarks: "Society community park — society-held amenity",
+    },
+  });
+
+  const plotMosque = await prisma.plot.create({
+    data: {
+      plotNumber: "MSJ-01",
+      sector: "E-17",
+      block: "Amenity",
+      street: "Jamia Masjid Road",
+      sizeMarla: 8,
+      plotType: "MOSQUE",
+      ownershipStatus: "ACTIVE",
+      possessionStatus: "ISSUED",
+      developmentStatus: "DEVELOPED",
+      annualChargesStatus: "WAIVED",
+      remarks: "Society masjid — caretaker assigned",
+    },
+  });
+
+  await prisma.plotStaffAssignment.createMany({
+    data: [
+      {
+        plotId: plotPark.id,
+        employeeId: hassanMali.id,
+        roleLabel: "Park Mali",
+        startDate: new Date("2022-04-01"),
+        status: "ACTIVE",
+        remarks: "Maintains lawns and irrigation",
+      },
+      {
+        plotId: plotMosque.id,
+        employeeId: aliAhmad.id,
+        roleLabel: "Masjid Caretaker",
+        startDate: new Date("2021-06-01"),
+        status: "ACTIVE",
+        remarks: "Cleaning and daily upkeep",
+      },
+      {
+        plotId: plotShop.id,
+        employeeId: imran.id,
+        roleLabel: "Commercial Block Security",
+        startDate: new Date("2024-01-01"),
+        status: "ACTIVE",
+        remarks: "Evening patrol — commercial plaza",
+      },
+    ],
+  });
+
   // More plots for dashboard counts
   const extraPlots = [];
   for (let i = 1; i <= 20; i++) {
@@ -505,7 +628,14 @@ async function main() {
         block: String((i % 5) + 1),
         street: `Street ${(i % 10) + 1}`,
         sizeMarla: i % 3 === 0 ? 10 : 5,
-        plotType: i % 7 === 0 ? "COMMERCIAL" : "RESIDENTIAL",
+        plotType:
+          i % 11 === 0
+            ? "FLAT"
+            : i % 13 === 0
+              ? "SHOP"
+              : i % 7 === 0
+                ? "COMMERCIAL"
+                : "RESIDENTIAL",
         ownershipStatus: "ACTIVE",
         possessionStatus: i % 4 === 0 ? "ISSUED" : "NOT_APPLIED",
         developmentStatus: i % 4 === 0 ? "DEVELOPED" : i % 5 === 0 ? "UNDER_CONSTRUCTION" : "DEVELOPED",

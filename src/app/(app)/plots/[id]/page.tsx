@@ -1,16 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { WarningBanner } from "@/components/ui/page";
 import { QrCodeDisplay } from "@/components/qr-code-display";
+import { PlotStatusBadges } from "@/components/plots/plot-status-badges";
+import { PlotStaffAssignForm } from "@/components/plots/plot-staff-form";
+import { endPlotStaffAssignment } from "@/app/(app)/plots/actions";
 import { getScanPath } from "@/lib/qr";
+import { plotTypeLabel } from "@/lib/plots";
+import { hasPermission } from "@/lib/rbac";
 import { formatCurrency, formatDate, formatDateTime, daysUntil, labelize } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 const TABS = [
   "overview",
+  "staff",
   "owner",
   "history",
   "transfers",
@@ -39,6 +47,9 @@ export default async function PlotProfilePage({
   const sp = await searchParams;
   const tab = (TABS.includes(sp.tab as Tab) ? sp.tab : "overview") as Tab;
 
+  const session = await auth();
+  const canEdit = session?.user && hasPermission(session.user.role, "edit");
+
   const plot = await prisma.plot.findUnique({
     where: { id },
     include: {
@@ -66,10 +77,22 @@ export default async function PlotProfilePage({
         orderBy: { createdAt: "desc" },
         take: 50,
       },
+      staffAssignments: {
+        include: { employee: true },
+        orderBy: [{ status: "asc" }, { startDate: "desc" }],
+      },
     },
   });
 
   if (!plot) notFound();
+
+  const activeEmployees = canEdit
+    ? await prisma.employee.findMany({
+        where: { status: "ACTIVE" },
+        orderBy: [{ designation: "asc" }, { name: "asc" }],
+        select: { id: true, name: true, employeeCode: true, designation: true },
+      })
+    : [];
 
   const plotId = plot.id;
   const activeOwner = plot.ownerships.find((o) => o.status === "ACTIVE");
@@ -96,8 +119,14 @@ export default async function PlotProfilePage({
             PLOT #{plot.sector}/{plot.block}-{plot.plotNumber}
           </h1>
           <p className="mt-2 text-sm text-teal-100/90">
-            {plot.street || "—"} · {Number(plot.sizeMarla)} marla · {labelize(plot.plotType)}
+            {plot.street || "—"} · {Number(plot.sizeMarla)} marla · {plotTypeLabel(plot.plotType)}
           </p>
+          <div className="mt-3">
+            <PlotStatusBadges
+              plot={plot}
+              className="[&_span]:border-teal-700/30 [&_span]:bg-white/10 [&_span]:text-teal-50"
+            />
+          </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs text-teal-200/70">Current Owner</p>
@@ -155,6 +184,7 @@ export default async function PlotProfilePage({
               <InfoBlock title="Plot Master">
                 <Row label="Internal Plot ID" value={plot.id} mono />
                 <Row label="Sector / Block" value={`${plot.sector} / ${plot.block || "—"}`} />
+                <Row label="Property Type" value={plotTypeLabel(plot.plotType)} />
                 <Row label="Street" value={plot.street || "—"} />
                 <Row label="Size" value={`${Number(plot.sizeMarla)} marla`} />
                 <Row label="Development" value={labelize(plot.developmentStatus)} />
@@ -180,6 +210,107 @@ export default async function PlotProfilePage({
                 <h3 className="font-display mb-3 text-lg font-semibold">Ownership Timeline</h3>
                 <OwnershipTimeline ownerships={plot.ownerships} />
               </div>
+              <div className="md:col-span-2">
+                <h3 className="font-display mb-3 text-lg font-semibold">Assigned Staff</h3>
+                {plot.staffAssignments.filter((a) => a.status === "ACTIVE").length === 0 ? (
+                  <p className="text-sm text-slate-500">No staff currently assigned to this property.</p>
+                ) : (
+                  <table className="data-table mb-4">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Role</th>
+                        <th>Designation</th>
+                        <th>Since</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plot.staffAssignments
+                        .filter((a) => a.status === "ACTIVE")
+                        .map((a) => (
+                          <tr key={a.id}>
+                            <td>
+                              <Link
+                                href={`/employees/${a.employee.id}`}
+                                className="font-medium text-teal-900 hover:underline"
+                              >
+                                {a.employee.name}
+                              </Link>
+                              <div className="text-xs text-slate-500">{a.employee.employeeCode}</div>
+                            </td>
+                            <td>{a.roleLabel || "—"}</td>
+                            <td>{labelize(a.employee.designation)}</td>
+                            <td>{formatDate(a.startDate)}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                )}
+                <Link href={tabHref("staff")} className="text-sm text-teal-800 hover:underline">
+                  View all staff assignments →
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {tab === "staff" && (
+            <div className="space-y-6">
+              {canEdit ? (
+                <PlotStaffAssignForm plotId={plot.id} employees={activeEmployees} />
+              ) : null}
+
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Role</th>
+                    <th>Designation</th>
+                    <th>Period</th>
+                    <th>Status</th>
+                    {canEdit ? <th /> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {plot.staffAssignments.length === 0 ? (
+                    <tr>
+                      <td colSpan={canEdit ? 6 : 5} className="text-slate-500">
+                        No staff assignments for this property.
+                      </td>
+                    </tr>
+                  ) : (
+                    plot.staffAssignments.map((a) => (
+                      <tr key={a.id}>
+                        <td>
+                          <div className="font-medium">{a.employee.name}</div>
+                          <div className="text-xs text-slate-500">{a.employee.employeeCode}</div>
+                        </td>
+                        <td>{a.roleLabel || "—"}</td>
+                        <td>{labelize(a.employee.designation)}</td>
+                        <td>
+                          {formatDate(a.startDate)}
+                          {a.endDate ? ` → ${formatDate(a.endDate)}` : a.status === "ACTIVE" ? " → Current" : ""}
+                        </td>
+                        <td>
+                          <Badge status={a.status} />
+                        </td>
+                        {canEdit && a.status === "ACTIVE" ? (
+                          <td>
+                            <form action={endPlotStaffAssignment}>
+                              <input type="hidden" name="assignmentId" value={a.id} />
+                              <input type="hidden" name="plotId" value={plot.id} />
+                              <Button type="submit" variant="outline" size="sm">
+                                End
+                              </Button>
+                            </form>
+                          </td>
+                        ) : canEdit ? (
+                          <td />
+                        ) : null}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
 
