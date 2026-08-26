@@ -27,7 +27,9 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { SessionProvider } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -81,7 +83,7 @@ export function AppSidebar({ userName, role }: { userName: string; role: string 
   );
 
   return (
-    <>
+    <SessionProvider>
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
         <div>
           <p className="font-display text-sm font-semibold text-teal-900">Society Records</p>
@@ -115,7 +117,7 @@ export function AppSidebar({ userName, role }: { userName: string; role: string 
         {nav}
         <SidebarUser name={userName} role={role} />
       </aside>
-    </>
+    </SessionProvider>
   );
 }
 
@@ -140,11 +142,9 @@ function SidebarUser({ name, role }: { name: string; role: string }) {
     <div className="border-t border-white/10 px-4 py-4">
       <p className="truncate text-sm font-medium text-white">{name}</p>
       <p className="truncate text-xs text-slate-400">{role.replace(/_/g, " ")}</p>
-      <form action="/api/auth/signout" method="POST" className="mt-2">
-        <button type="submit" className="text-xs text-slate-400 underline hover:text-white">
-          Sign out
-        </button>
-      </form>
+      <div className="mt-2">
+        <SignOutButton />
+      </div>
     </div>
   );
 }
