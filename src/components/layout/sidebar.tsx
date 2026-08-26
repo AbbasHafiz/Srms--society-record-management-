@@ -34,6 +34,8 @@ import {
   MessageCircle,
   Receipt,
   UtensilsCrossed,
+  Zap,
+  Wrench,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -60,6 +62,8 @@ const NAV = [
   { href: "/payments", label: "Payments", icon: Wallet, module: "payments" },
   { href: "/annual-charges", label: "Annual Charges", icon: Receipt, module: "annual-charges" },
   { href: "/finance", label: "Revenue & Expenses", icon: CircleDollarSign, module: "finance" },
+  { href: "/electricity", label: "Electricity", icon: Zap, module: "electricity" },
+  { href: "/maintenance", label: "Maintenance", icon: Wrench, module: "maintenance" },
   { href: "/physical-files", label: "Physical Files", icon: Archive, module: "physical-files" },
   { href: "/employees", label: "Employees", icon: UserCog, module: "employees" },
   { href: "/mess", label: "Mess", icon: UtensilsCrossed, module: "mess" },

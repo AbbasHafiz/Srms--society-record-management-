@@ -22,7 +22,7 @@ import {
   cancelMaintenanceWork,
   postMaintenanceToFinanceAction,
   uploadMaintenanceScan,
-} from "./actions";
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 

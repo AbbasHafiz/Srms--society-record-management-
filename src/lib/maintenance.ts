@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { createFinanceTransaction } from "@/lib/finance";
+import { canManageMaintenance as canManageMaintenanceRole } from "@/lib/rbac";
 import type {
   MaintenanceWorkStatus,
   PaymentMethod,
@@ -36,10 +37,8 @@ export const MAINTENANCE_PAYMENT_STATUSES: PaymentStatus[] = [
   "UNPAID",
 ];
 
-const MAINTENANCE_MANAGER_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "FINANCE", "GM", "RECORD_MANAGER"];
-
 export function canManageMaintenance(role: Role) {
-  return MAINTENANCE_MANAGER_ROLES.includes(role);
+  return canManageMaintenanceRole(role);
 }
 
 export function canViewMaintenance(role: Role) {

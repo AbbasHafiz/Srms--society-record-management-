@@ -1,14 +1,13 @@
 import { prisma } from "@/lib/db";
 import { createFinanceTransaction } from "@/lib/finance";
+import { canManageElectricity as canManageElectricityRole } from "@/lib/rbac";
 import type { PaymentMethod, Role, UtilityBillStatus } from "@/generated/prisma/client";
 import { endOfDay, startOfDay } from "date-fns";
 
 export const UTILITY_BILL_STATUSES: UtilityBillStatus[] = ["PENDING", "PAID", "OVERDUE", "CANCELLED"];
 
-const ELECTRICITY_MANAGER_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "FINANCE", "GM", "RECORD_MANAGER"];
-
 export function canManageElectricity(role: Role) {
-  return ELECTRICITY_MANAGER_ROLES.includes(role);
+  return canManageElectricityRole(role);
 }
 
 export function canViewElectricity(role: Role) {

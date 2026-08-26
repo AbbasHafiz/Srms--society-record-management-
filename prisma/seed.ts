@@ -16,6 +16,9 @@ async function main() {
   await prisma.notifyTemplate.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.garbageCollection.deleteMany();
+  await prisma.maintenanceWork.deleteMany();
+  await prisma.electricityBill.deleteMany();
+  await prisma.messMeal.deleteMany();
   await prisma.tankerFill.deleteMany();
   await prisma.tankerBulkPurchase.deleteMany();
   await prisma.tankerDelivery.deleteMany();
@@ -33,7 +36,6 @@ async function main() {
   await prisma.fileLocation.deleteMany();
   await prisma.openFileRenewal.deleteMany();
   await prisma.document.deleteMany();
-  await prisma.messMeal.deleteMany();
   await prisma.financeTransaction.deleteMany();
   await prisma.financeCategory.deleteMany();
   await prisma.payment.deleteMany();
@@ -1535,6 +1537,56 @@ async function main() {
     plot123Id: plot123.id,
     owner3Id: owner3.id,
     transferPaymentId: transferPayment.id,
+  });
+
+  const javed = supervisor;
+  const now = new Date();
+  const billMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+  const billYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+  await prisma.electricityBill.create({
+    data: {
+      periodMonth: billMonth,
+      periodYear: billYear,
+      meterNo: "GV-MAIN-01",
+      accountNo: "IESCO-8844221",
+      units: 4850,
+      amount: 128500,
+      dueDate: new Date(now.getFullYear(), now.getMonth(), 15),
+      status: "PENDING",
+      vendor: "IESCO",
+      remarks: "Main office & street lighting — seeded sample bill",
+      createdById: saraUser!.id,
+    },
+  });
+
+  await prisma.maintenanceWork.createMany({
+    data: [
+      {
+        workDate: today,
+        workType: "ELECTRICAL",
+        description: "Street light repairs — Block 3 main avenue",
+        location: "Block 3, Street 12",
+        contractorName: "GreenBuild Maintenance Co.",
+        cost: 18500,
+        status: "COMPLETED",
+        paymentStatus: "PAID",
+        remarks: "Matches seeded finance contractor payment",
+        createdById: saraUser!.id,
+      },
+      {
+        workDate: today,
+        workType: "Boundary wall repainting",
+        description: "Park boundary wall repainting and crack filling",
+        location: "Central Park",
+        employeeId: javed.id,
+        cost: 9200,
+        status: "IN_PROGRESS",
+        paymentStatus: "PENDING",
+        remarks: "Custom maintenance type example",
+        createdById: saraUser!.id,
+      },
+    ],
   });
 
   await prisma.auditLog.createMany({

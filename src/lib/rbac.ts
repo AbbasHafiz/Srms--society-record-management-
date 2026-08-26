@@ -87,6 +87,20 @@ export function canManageMess(role: Role): boolean {
   return canManageFleetRecords(role);
 }
 
+const SOCIETY_EXPENSE_MANAGER_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "FINANCE", "GM", "RECORD_MANAGER"];
+
+export function canManageSocietyExpenses(role: Role): boolean {
+  return SOCIETY_EXPENSE_MANAGER_ROLES.includes(role);
+}
+
+export function canManageElectricity(role: Role): boolean {
+  return canManageSocietyExpenses(role);
+}
+
+export function canManageMaintenance(role: Role): boolean {
+  return canManageSocietyExpenses(role);
+}
+
 export function canViewFuelSpending(role: Role): boolean {
   return canManageFleetRecords(role) || role === "TANKER_OPERATOR";
 }
@@ -122,6 +136,8 @@ const PATH_MODULES = ([
   ["/tankers", "tankers"],
   ["/garbage", "garbage"],
   ["/vehicles", "vehicles"],
+  ["/electricity", "electricity"],
+  ["/maintenance", "maintenance"],
   ["/mess", "mess"],
   ["/audit", "audit"],
   ["/plots", "plots"],
@@ -215,6 +231,8 @@ export function canAccessModule(role: Role, module: string): boolean {
     garbage: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "VIEWER", "PRESIDENT", "TANKER_OPERATOR"],
     vehicles: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "FINANCE", "VIEWER", "TANKER_OPERATOR"],
     mess: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "FINANCE", "VIEWER", "PRESIDENT"],
+    electricity: ["SUPER_ADMIN", "ADMIN", "GM", "FINANCE", "RECORD_MANAGER", "VIEWER", "PRESIDENT", "SECRETARY"],
+    maintenance: ["SUPER_ADMIN", "ADMIN", "GM", "FINANCE", "RECORD_MANAGER", "VIEWER", "PRESIDENT", "SECRETARY"],
     reports: [
       "SUPER_ADMIN",
       "ADMIN",
