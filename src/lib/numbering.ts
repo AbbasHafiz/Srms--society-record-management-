@@ -64,3 +64,7 @@ export async function nextNocNumber(sector?: string) {
 export async function nextFinanceTxnNumber() {
   return nextSequence("finance_txn", "FIN", 4);
 }
+
+export async function nextTankerBookingNumber() {
+  return nextSequence("tanker_booking", "TB", 4);
+}

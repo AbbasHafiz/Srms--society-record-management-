@@ -11,7 +11,9 @@ async function main() {
   console.log("Seeding Society Records…");
 
   await prisma.auditLog.deleteMany();
+  await prisma.garbageCollection.deleteMany();
   await prisma.tankerDelivery.deleteMany();
+  await prisma.tankerTimeSlot.deleteMany();
   await prisma.waterTanker.deleteMany();
   await prisma.maintenanceLog.deleteMany();
   await prisma.fuelLog.deleteMany();
@@ -235,7 +237,24 @@ async function main() {
       { feeType: "NOC", name: "NOC Fee", amount: 5000, effectiveFrom: new Date("2025-01-01"), status: "ACTIVE", createdById: admin.id },
       { feeType: "NEC", name: "NEC Fee", amount: 5000, effectiveFrom: new Date("2025-01-01"), status: "ACTIVE", createdById: admin.id },
       { feeType: "POSSESSION", name: "Possession Fee", amount: 15000, effectiveFrom: new Date("2025-01-01"), status: "ACTIVE", createdById: admin.id },
-      { feeType: "WATER_TANKER", name: "Water Tanker Delivery", amount: 2500, effectiveFrom: new Date("2025-01-01"), status: "ACTIVE", createdById: admin.id },
+      {
+        feeType: "WATER_TANKER",
+        tankerType: "CLEAN_WATER",
+        name: "Clean Water Tanker Delivery",
+        amount: 2500,
+        effectiveFrom: new Date("2025-01-01"),
+        status: "ACTIVE",
+        createdById: admin.id,
+      },
+      {
+        feeType: "WATER_TANKER",
+        tankerType: "CONSTRUCTION_WATER",
+        name: "Construction Water Tanker Delivery",
+        amount: 3500,
+        effectiveFrom: new Date("2025-01-01"),
+        status: "ACTIVE",
+        createdById: admin.id,
+      },
     ],
   });
 
@@ -250,6 +269,16 @@ async function main() {
       { key: "employee", prefix: "EMP", nextValue: 15, padLength: 3 },
       { key: "noc_application", prefix: "NOC", nextValue: 300, padLength: 4 },
       { key: "noc_issue", prefix: "NOC-E17", nextValue: 250, padLength: 4 },
+      { key: "tanker_booking", prefix: "TB", nextValue: 4, padLength: 4 },
+    ],
+  });
+
+  await prisma.tankerTimeSlot.createMany({
+    data: [
+      { label: "Morning", startTime: "08:00", endTime: "10:00", sortOrder: 10, maxBookingsPerDay: 8, maxPerTanker: 2 },
+      { label: "Late Morning", startTime: "10:00", endTime: "12:00", sortOrder: 20, maxBookingsPerDay: 8, maxPerTanker: 2 },
+      { label: "Afternoon", startTime: "14:00", endTime: "16:00", sortOrder: 30, maxBookingsPerDay: 8, maxPerTanker: 2 },
+      { label: "Evening", startTime: "16:00", endTime: "18:00", sortOrder: 40, maxBookingsPerDay: 6, maxPerTanker: 2 },
     ],
   });
 
@@ -1044,6 +1073,18 @@ async function main() {
   });
 
   // Water tankers
+  const [slotMorning, slotLateMorning, slotAfternoon] = await Promise.all([
+    prisma.tankerTimeSlot.findFirst({ where: { startTime: "08:00" } }),
+    prisma.tankerTimeSlot.findFirst({ where: { startTime: "10:00" } }),
+    prisma.tankerTimeSlot.findFirst({ where: { startTime: "14:00" } }),
+  ]);
+  const cleanWaterFee = await prisma.feeConfiguration.findFirst({
+    where: { feeType: "WATER_TANKER", tankerType: "CLEAN_WATER", status: "ACTIVE" },
+  });
+  const constructionWaterFee = await prisma.feeConfiguration.findFirst({
+    where: { feeType: "WATER_TANKER", tankerType: "CONSTRUCTION_WATER", status: "ACTIVE" },
+  });
+
   const tanker1 = await prisma.waterTanker.create({
     data: { tankerCode: "WT-01", capacityLiters: 5000, driverId: tariq.id },
   });
@@ -1054,33 +1095,83 @@ async function main() {
   await prisma.tankerDelivery.createMany({
     data: [
       {
+        bookingNumber: "TB-0001",
+        tankerType: "CLEAN_WATER",
         tankerId: tanker1.id,
+        driverId: tariq.id,
         plotId: plot123.id,
+        bookerName: "Fatima Khan",
+        customerName: "Fatima Khan",
         streetArea: "E-17 Street 12",
         distributionDate: today,
+        timeSlotId: slotMorning!.id,
+        slotLabel: slotMorning!.label,
+        slotStartTime: slotMorning!.startTime,
+        slotEndTime: slotMorning!.endTime,
         charges: 2500,
+        feeConfigId: cleanWaterFee!.id,
         paymentStatus: "PAID",
         receiptNumber: "RCPT-00980",
         status: "COMPLETED",
+        bookedById: admin.id,
       },
       {
+        bookingNumber: "TB-0002",
+        tankerType: "CLEAN_WATER",
         tankerId: tanker1.id,
         plotId: plot456.id,
+        bookerName: "Usman Tariq",
+        customerName: "Usman Tariq",
         streetArea: "E-17 Street 4",
         distributionDate: today,
+        timeSlotId: slotLateMorning!.id,
+        slotLabel: slotLateMorning!.label,
+        slotStartTime: slotLateMorning!.startTime,
+        slotEndTime: slotLateMorning!.endTime,
         charges: 2500,
+        feeConfigId: cleanWaterFee!.id,
         paymentStatus: "UNPAID",
         status: "SCHEDULED",
+        bookedById: admin.id,
       },
       {
+        bookingNumber: "TB-0003",
+        tankerType: "CONSTRUCTION_WATER",
         tankerId: tanker2.id,
+        driverId: tariq.id,
         customerName: "Walk-in",
+        bookerName: "Walk-in Customer",
         streetArea: "F-11 Street 7",
         distributionDate: today,
-        charges: 2500,
+        timeSlotId: slotAfternoon!.id,
+        slotLabel: slotAfternoon!.label,
+        slotStartTime: slotAfternoon!.startTime,
+        slotEndTime: slotAfternoon!.endTime,
+        charges: 3500,
+        feeConfigId: constructionWaterFee!.id,
         paymentStatus: "PAID",
         receiptNumber: "RCPT-00981",
         status: "COMPLETED",
+        bookedById: admin.id,
+      },
+    ],
+  });
+
+  await prisma.garbageCollection.createMany({
+    data: [
+      {
+        collectionDate: today,
+        area: "Sector E-17",
+        street: "Street 12",
+        collectorId: aliAhmad.id,
+        status: "COMPLETED",
+      },
+      {
+        collectionDate: today,
+        area: "Sector E-17",
+        street: "Street 4",
+        collectorId: aliAhmad.id,
+        status: "PENDING",
       },
     ],
   });

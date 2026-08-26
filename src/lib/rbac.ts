@@ -133,6 +133,7 @@ export function canAccessModule(role: Role, module: string): boolean {
     hr: ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM", "HR_ADMIN", "FINANCE", "VIEWER"],
     attendance: ["SUPER_ADMIN", "ADMIN", "HR_ADMIN", "SECURITY", "GM", "SECRETARY", "VIEWER"],
     tankers: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "FINANCE", "VIEWER", "PRESIDENT"],
+    garbage: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "VIEWER", "PRESIDENT"],
     vehicles: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "VIEWER"],
     reports: [
       "SUPER_ADMIN",
