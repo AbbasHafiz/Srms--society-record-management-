@@ -79,6 +79,11 @@ export default async function TankerBookingDetailPage({ params }: { params: Prom
         description={`${TANKER_TYPE_LABELS[booking.tankerType]} delivery`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/tankers/${booking.id}/slip`}>
+              <Button type="button" variant="outline">
+                Print slip
+              </Button>
+            </Link>
             {session?.user ? (
               <WhatsAppNotifyAction
                 userRole={session.user.role}
