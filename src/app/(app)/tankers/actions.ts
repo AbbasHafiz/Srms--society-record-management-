@@ -129,6 +129,7 @@ export async function createTankerBooking(formData: FormData) {
   });
 
   revalidatePath("/tankers");
+  revalidatePath("/tankers/driver");
   revalidatePath(`/tankers/${booking.id}`);
   redirect(`/tankers/${booking.id}/slip?new=1`);
 }

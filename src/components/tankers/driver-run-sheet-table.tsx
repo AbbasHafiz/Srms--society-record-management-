@@ -16,12 +16,14 @@ function TankerGroupTable({
   returnTo,
   canEdit,
   showDriver,
+  hideType = false,
 }: {
   group: DriverRunSheetTankerGroup;
   slotLabel: string;
   returnTo: string;
   canEdit: boolean;
   showDriver: boolean;
+  hideType?: boolean;
 }) {
   if (group.deliveries.length === 0) return null;
 
@@ -48,7 +50,7 @@ function TankerGroupTable({
               <th>Plot / House</th>
               <th>Street</th>
               <th>Block</th>
-              <th>Type</th>
+              {hideType ? null : <th>Type</th>}
               {showDriver ? <th>Driver</th> : null}
               <th>Status</th>
               <th>Charges</th>
@@ -69,13 +71,15 @@ function TankerGroupTable({
                 <td>{d.plotHouse}</td>
                 <td>{d.street}</td>
                 <td>{d.block}</td>
-                <td>
-                  <span
-                    className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${tankerTypeBadgeClass(d.tankerType)}`}
-                  >
-                    {TANKER_TYPE_LABELS[d.tankerType]}
-                  </span>
-                </td>
+                {hideType ? null : (
+                  <td>
+                    <span
+                      className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${tankerTypeBadgeClass(d.tankerType)}`}
+                    >
+                      {TANKER_TYPE_LABELS[d.tankerType]}
+                    </span>
+                  </td>
+                )}
                 {showDriver ? <td>{d.driver?.name ?? "—"}</td> : null}
                 <td>
                   <Badge status={d.status} />
@@ -107,6 +111,8 @@ export function DriverRunSheetContent({
   canEdit,
   showDriver,
   compact = false,
+  hideType = false,
+  emptyMessage = "No deliveries scheduled for this date.",
 }: {
   slots: DriverRunSheetSlotGroup[];
   unslotted: DriverRunSheetTankerGroup[];
@@ -114,6 +120,8 @@ export function DriverRunSheetContent({
   canEdit: boolean;
   showDriver: boolean;
   compact?: boolean;
+  hideType?: boolean;
+  emptyMessage?: string;
 }) {
   const slotsWithBookings = slots.filter((s) => s.deliveryCount > 0);
   const unslottedCount = unslotted.reduce((sum, g) => sum + g.deliveries.length, 0);
@@ -121,7 +129,7 @@ export function DriverRunSheetContent({
     slotsWithBookings.reduce((sum, s) => sum + s.deliveryCount, 0) + unslottedCount;
 
   if (totalCount === 0) {
-    return <p className="text-sm text-slate-500">No deliveries scheduled for this date.</p>;
+    return <p className="text-sm text-slate-500">{emptyMessage}</p>;
   }
 
   return (
@@ -149,6 +157,7 @@ export function DriverRunSheetContent({
                   returnTo={returnTo}
                   canEdit={canEdit}
                   showDriver={showDriver}
+                  hideType={hideType}
                 />
               ))}
             </div>
@@ -180,6 +189,7 @@ export function DriverRunSheetContent({
                 returnTo={returnTo}
                 canEdit={canEdit}
                 showDriver={showDriver}
+                hideType={hideType}
               />
             ))}
           </div>

@@ -11,17 +11,20 @@ import {
   getTankerPriceMap,
   listActiveTankers,
   listTankerDrivers,
+  parseTankerScheduleDate,
+  parseWaterTypeListFilter,
+  tankerListHref,
   TANKER_TYPE_LABELS,
 } from "@/lib/tankers";
 import { formatCurrency } from "@/lib/utils";
-import { format, parseISO, startOfDay } from "date-fns";
+import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewTankerBookingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; type?: string }>;
 }) {
   const session = await auth();
   if (!session?.user || !hasPermission(session.user.role, "create")) {
@@ -29,13 +32,10 @@ export default async function NewTankerBookingPage({
   }
 
   const sp = await searchParams;
-  const defaultDate = sp.date
-    ? (() => {
-        const parsed = parseISO(sp.date);
-        return Number.isNaN(parsed.getTime()) ? startOfDay(new Date()) : startOfDay(parsed);
-      })()
-    : startOfDay(new Date());
+  const defaultDate = parseTankerScheduleDate(sp.date);
   const dateValue = format(defaultDate, "yyyy-MM-dd");
+  const typeFilter = parseWaterTypeListFilter(sp.type);
+  const defaultTankerType = typeFilter === "all" ? "CLEAN_WATER" : typeFilter;
 
   const [prices, tankers, drivers] = await Promise.all([
     getTankerPriceMap(),
@@ -46,7 +46,7 @@ export default async function NewTankerBookingPage({
   return (
     <div>
       <div className="mb-4">
-        <Link href="/tankers" className="text-sm text-teal-800 hover:underline">
+        <Link href={tankerListHref("/tankers", { date: dateValue, type: typeFilter })} className="text-sm text-teal-800 hover:underline">
           ← Tanker schedule
         </Link>
       </div>
@@ -78,7 +78,7 @@ export default async function NewTankerBookingPage({
             </label>
             <label className="text-sm">
               <span className="mb-1 block font-medium text-slate-700">Tanker type *</span>
-              <select name="tankerType" required defaultValue="CLEAN_WATER" className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
+              <select name="tankerType" required defaultValue={defaultTankerType} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
                 {Object.entries(TANKER_TYPE_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label} — {formatCurrency(prices[value as keyof typeof prices])}
@@ -125,7 +125,7 @@ export default async function NewTankerBookingPage({
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="submit">Create booking</Button>
-            <Link href={`/tankers?date=${dateValue}`}>
+            <Link href={tankerListHref("/tankers", { date: dateValue, type: typeFilter })}>
               <Button type="button" variant="outline">
                 Cancel
               </Button>

@@ -38,7 +38,7 @@ export default async function DashboardPage() {
     employees,
     presentToday,
     absentToday,
-    todayTankers,
+    todayTankersByType,
     tankerCollection,
     overdueTransfers,
     overduePossession,
@@ -77,7 +77,11 @@ export default async function DashboardPage() {
     prisma.employee.count({ where: { status: "ACTIVE" } }),
     prisma.attendance.count({ where: { date: today, status: "PRESENT" } }),
     prisma.attendance.count({ where: { date: today, status: "ABSENT" } }),
-    prisma.tankerDelivery.count({ where: { distributionDate: today } }),
+    prisma.tankerDelivery.groupBy({
+      by: ["tankerType"],
+      where: { distributionDate: today },
+      _count: { _all: true },
+    }),
     prisma.tankerDelivery.aggregate({
       where: { distributionDate: today, paymentStatus: { in: ["PAID", "VERIFIED"] } },
       _sum: { charges: true },
@@ -111,6 +115,12 @@ export default async function DashboardPage() {
       where: { isRead: false, priority: { in: ["HIGH", "URGENT"] } },
     }),
   ]);
+
+  const todayClean =
+    todayTankersByType.find((row) => row.tankerType === "CLEAN_WATER")?._count._all ?? 0;
+  const todayConstruction =
+    todayTankersByType.find((row) => row.tankerType === "CONSTRUCTION_WATER")?._count._all ?? 0;
+  const todayTankers = todayClean + todayConstruction;
 
   const recentNotifications = await prisma.notification.findMany({
     where: { isRead: false },
@@ -166,7 +176,11 @@ export default async function DashboardPage() {
         <StatCard label="Employees" value={employees} />
         <StatCard label="Present Today" value={presentToday} tone="success" />
         <StatCard label="Absent" value={absentToday} tone={absentToday ? "warn" : "default"} />
-        <StatCard label="Today's Tankers" value={todayTankers} />
+        <StatCard
+          label="Today's Tankers"
+          value={todayTankers}
+          hint={`Clean ${todayClean} · Construction ${todayConstruction}`}
+        />
         <StatCard
           label="Today's Tanker Collection"
           value={formatCurrency(tankerCollection._sum.charges ?? 0)}

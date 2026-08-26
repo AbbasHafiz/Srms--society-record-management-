@@ -1,35 +1,34 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { PageHeader } from "@/components/ui/page";
+import { PageHeader, StatCard } from "@/components/ui/page";
 import { Button } from "@/components/ui/button";
 import { DriverRunSheetContent } from "@/components/tankers/driver-run-sheet-table";
 import { TankerNav } from "@/components/tankers/tanker-nav";
-import { getDriverRunSheet, listTankerDrivers } from "@/lib/tankers";
-import { format, parseISO, startOfDay } from "date-fns";
+import { WaterTypeSection, WaterTypeTabs } from "@/components/tankers/water-type-tabs";
+import {
+  filterRunSheetByTankerType,
+  getDriverRunSheet,
+  listTankerDrivers,
+  parseTankerScheduleDate,
+  parseWaterTypeListFilter,
+  tankerListHref,
+  visibleWaterTypeSections,
+  waterTypeSlug,
+} from "@/lib/tankers";
+import { format, startOfDay } from "date-fns";
 
 export const dynamic = "force-dynamic";
-
-function parseScheduleDate(value?: string) {
-  if (!value) return startOfDay(new Date());
-  const parsed = parseISO(value);
-  return Number.isNaN(parsed.getTime()) ? startOfDay(new Date()) : startOfDay(parsed);
-}
-
-function buildReturnTo(dateParam: string, driverId?: string) {
-  const params = new URLSearchParams({ date: dateParam });
-  if (driverId) params.set("driverId", driverId);
-  return `/tankers/driver?${params.toString()}`;
-}
 
 export default async function DriverRunSheetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; driverId?: string }>;
+  searchParams: Promise<{ date?: string; driverId?: string; type?: string }>;
 }) {
   const sp = await searchParams;
-  const scheduleDate = parseScheduleDate(sp.date);
+  const scheduleDate = parseTankerScheduleDate(sp.date);
   const dateParam = format(scheduleDate, "yyyy-MM-dd");
+  const typeFilter = parseWaterTypeListFilter(sp.type);
   const session = await auth();
   if (!session?.user) return null;
 
@@ -50,10 +49,23 @@ export default async function DriverRunSheetPage({
   ]);
 
   const selectedDriver = driverId ? drivers.find((d) => d.id === driverId) : null;
-  const returnTo = buildReturnTo(dateParam, canPickDriver ? sp.driverId : undefined);
-  const printParams = new URLSearchParams({ date: dateParam });
-  if (driverId) printParams.set("driverId", driverId);
+  const returnTo = tankerListHref("/tankers/driver", {
+    date: dateParam,
+    type: typeFilter,
+    driverId: canPickDriver ? sp.driverId : undefined,
+  });
+  const printHref = tankerListHref("/tankers/driver/print", {
+    date: dateParam,
+    type: typeFilter,
+    driverId,
+  });
   const isToday = scheduleDate.getTime() === startOfDay(new Date()).getTime();
+  const typeCounts = {
+    CLEAN_WATER: runSheet.deliveries.filter((d) => d.tankerType === "CLEAN_WATER").length,
+    CONSTRUCTION_WATER: runSheet.deliveries.filter((d) => d.tankerType === "CONSTRUCTION_WATER").length,
+  };
+  const sections = visibleWaterTypeSections(typeFilter);
+  const showDriver = canPickDriver && (!driverId || sp.driverId === "all");
 
   return (
     <div>
@@ -66,10 +78,18 @@ export default async function DriverRunSheetPage({
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/tankers/driver/print?${printParams.toString()}`} target="_blank">
+            <Link href={printHref} target="_blank">
               <Button variant="outline">Print driver sheet</Button>
             </Link>
-            <Link href="/tankers">
+            {typeFilter !== "all" ? (
+              <Link
+                href={tankerListHref("/tankers/driver/print", { date: dateParam, driverId })}
+                target="_blank"
+              >
+                <Button variant="outline">Print both types</Button>
+              </Link>
+            ) : null}
+            <Link href={tankerListHref("/tankers", { date: dateParam, type: typeFilter })}>
               <Button variant="outline">Office schedule</Button>
             </Link>
           </div>
@@ -78,11 +98,27 @@ export default async function DriverRunSheetPage({
 
       <TankerNav active="driver" />
 
+      <div className="mb-6 grid gap-3 sm:grid-cols-2">
+        <StatCard
+          label="Clean water"
+          value={typeCounts.CLEAN_WATER}
+          hint="Bookings on this driver list"
+        />
+        <StatCard
+          label="Construction water"
+          value={typeCounts.CONSTRUCTION_WATER}
+          hint="Bookings on this driver list"
+        />
+      </div>
+
       <form
         action="/tankers/driver"
         method="get"
         className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
       >
+        {waterTypeSlug(typeFilter) ? (
+          <input type="hidden" name="type" value={waterTypeSlug(typeFilter)} />
+        ) : null}
         <label className="text-sm">
           <span className="mb-1 block font-medium text-slate-700">Delivery date</span>
           <input
@@ -120,32 +156,60 @@ export default async function DriverRunSheetPage({
 
         <Button type="submit">View deliveries</Button>
         {!isToday ? (
-          <Link href="/tankers/driver" className="text-sm text-teal-800 hover:underline">
+          <Link
+            href={tankerListHref("/tankers/driver", {
+              type: typeFilter,
+              driverId: canPickDriver ? sp.driverId : undefined,
+            })}
+            className="text-sm text-teal-800 hover:underline"
+          >
             Jump to today
           </Link>
         ) : null}
       </form>
+
+      <WaterTypeTabs
+        pathname="/tankers/driver"
+        date={dateParam}
+        driverId={canPickDriver ? sp.driverId : undefined}
+        active={typeFilter}
+        counts={typeCounts}
+      />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
         <p>
           <span className="font-medium text-slate-900">{runSheet.totalCount}</span>{" "}
           {runSheet.totalCount === 1 ? "delivery" : "deliveries"}
           {selectedDriver ? ` for ${selectedDriver.name}` : isLinkedDriver ? " assigned to you" : ""}
+          {typeFilter === "all" ? " · separate clean and construction lists" : ""}
         </p>
         {runSheet.totalCount > 0 ? (
-          <p className="text-slate-500">
-            Grouped by time slot, then tanker
-          </p>
+          <p className="text-slate-500">Grouped by time slot, then tanker</p>
         ) : null}
       </div>
 
-      <DriverRunSheetContent
-        slots={runSheet.slots}
-        unslotted={runSheet.unslotted}
-        returnTo={returnTo}
-        canEdit={canEdit}
-        showDriver={canPickDriver && (!driverId || sp.driverId === "all")}
-      />
+      <div className="space-y-6">
+        {sections.map((section) => {
+          const typeSheet = filterRunSheetByTankerType(runSheet, section.tankerType);
+          return (
+            <WaterTypeSection
+              key={section.tankerType}
+              tankerType={section.tankerType}
+              count={typeSheet.totalCount}
+            >
+              <DriverRunSheetContent
+                slots={typeSheet.slots}
+                unslotted={typeSheet.unslotted}
+                returnTo={returnTo}
+                canEdit={canEdit}
+                showDriver={showDriver}
+                hideType
+                emptyMessage={`No ${section.label.toLowerCase()} deliveries for this date.`}
+              />
+            </WaterTypeSection>
+          );
+        })}
+      </div>
     </div>
   );
 }

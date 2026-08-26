@@ -1,11 +1,95 @@
 import { prisma } from "@/lib/db";
 import type { Designation, TankerStatus, TankerType } from "@/generated/prisma/client";
-import { startOfDay } from "date-fns";
+import { parseISO, startOfDay } from "date-fns";
 
 export const TANKER_TYPE_LABELS: Record<TankerType, string> = {
   CLEAN_WATER: "Clean Water",
   CONSTRUCTION_WATER: "Construction Water",
 };
+
+export const WATER_TYPE_LIST_SECTIONS = [
+  {
+    tankerType: "CLEAN_WATER" as const,
+    slug: "clean",
+    label: "Clean water",
+    tabActiveClass: "bg-sky-800 text-white border-sky-800",
+    tabIdleClass: "border-sky-200 bg-white text-sky-900 hover:bg-sky-50",
+    sectionClass: "border-sky-200",
+    headerClass: "border-sky-100 bg-sky-50 text-sky-950",
+  },
+  {
+    tankerType: "CONSTRUCTION_WATER" as const,
+    slug: "construction",
+    label: "Construction water",
+    tabActiveClass: "bg-orange-800 text-white border-orange-800",
+    tabIdleClass: "border-orange-200 bg-white text-orange-950 hover:bg-orange-50",
+    sectionClass: "border-orange-200",
+    headerClass: "border-orange-100 bg-orange-50 text-orange-950",
+  },
+] as const;
+
+export type WaterTypeListFilter = "all" | TankerType;
+
+export function parseTankerScheduleDate(value?: string | null) {
+  if (!value) return startOfDay(new Date());
+  const parsed = parseISO(value);
+  return Number.isNaN(parsed.getTime()) ? startOfDay(new Date()) : startOfDay(parsed);
+}
+
+export function parseWaterTypeListFilter(value?: string | null): WaterTypeListFilter {
+  if (!value) return "all";
+  const v = value.trim().toLowerCase();
+  if (v === "clean" || v === "clean_water") return "CLEAN_WATER";
+  if (v === "construction" || v === "construction_water") return "CONSTRUCTION_WATER";
+  if (value === "CLEAN_WATER" || value === "CONSTRUCTION_WATER") return value;
+  return "all";
+}
+
+export function waterTypeSlug(type: WaterTypeListFilter): string | undefined {
+  if (type === "all") return undefined;
+  return type === "CLEAN_WATER" ? "clean" : "construction";
+}
+
+export function tankerListHref(
+  path: string,
+  opts: { date?: string; type?: WaterTypeListFilter | string | null; driverId?: string | null } = {}
+) {
+  const sp = new URLSearchParams();
+  if (opts.date) sp.set("date", opts.date);
+  const typeFilter: WaterTypeListFilter =
+    opts.type === "CLEAN_WATER" || opts.type === "CONSTRUCTION_WATER" || opts.type === "all"
+      ? opts.type
+      : parseWaterTypeListFilter(opts.type);
+  const slug = waterTypeSlug(typeFilter);
+  if (slug) sp.set("type", slug);
+  if (opts.driverId && opts.driverId !== "all") sp.set("driverId", opts.driverId);
+  const q = sp.toString();
+  return q ? `${path}?${q}` : path;
+}
+
+export function visibleWaterTypeSections(filter: WaterTypeListFilter) {
+  if (filter === "all") return [...WATER_TYPE_LIST_SECTIONS];
+  return WATER_TYPE_LIST_SECTIONS.filter((s) => s.tankerType === filter);
+}
+
+export function tankerDestinationLabel(d: {
+  plot?: { sector: string; block: string | null; plotNumber: string; street?: string | null } | null;
+  houseNo?: string | null;
+  streetNo?: string | null;
+  streetArea?: string | null;
+}) {
+  if (d.plot) {
+    const plot = `${d.plot.sector}/${d.plot.block ?? "—"}-${d.plot.plotNumber}`;
+    const street = d.plot.street?.trim();
+    return street ? `${plot} · ${street}` : plot;
+  }
+  const parts = [d.houseNo, d.streetNo, d.streetArea].filter(Boolean);
+  return parts.length ? parts.join(", ") : "—";
+}
+
+export function tankerBookerLabel(d: { bookerName?: string | null; customerName?: string | null }) {
+  return d.bookerName?.trim() || d.customerName?.trim() || "—";
+}
 
 export const TANKER_DRIVER_DESIGNATIONS: Designation[] = ["DRIVER", "TRACTOR_DRIVER"];
 
@@ -297,7 +381,7 @@ export async function getDailySchedule(distributionDate: Date) {
       include: {
         tanker: { select: { id: true, tankerCode: true, capacityLiters: true } },
         driver: { select: { id: true, name: true, employeeCode: true } },
-        plot: { select: { id: true, sector: true, block: true, plotNumber: true } },
+        plot: { select: { id: true, sector: true, block: true, plotNumber: true, street: true } },
         timeSlot: true,
       },
       orderBy: [{ timeSlot: { sortOrder: "asc" } }, { createdAt: "asc" }],
@@ -316,6 +400,86 @@ export async function getDailySchedule(distributionDate: Date) {
   });
 
   return { day, slots: bySlot, unslotted };
+}
+
+export type DailySchedule = Awaited<ReturnType<typeof getDailySchedule>>;
+export type DriverRunSheet = Awaited<ReturnType<typeof getDriverRunSheet>>;
+
+export function filterDailyScheduleByTankerType(
+  schedule: DailySchedule,
+  tankerType: TankerType
+): DailySchedule {
+  return {
+    ...schedule,
+    slots: schedule.slots.map((group) => {
+      const deliveries = group.deliveries.filter((d) => d.tankerType === tankerType);
+      return {
+        ...group,
+        deliveries,
+        booked: deliveries.length,
+      };
+    }),
+    unslotted: schedule.unslotted.filter((d) => d.tankerType === tankerType),
+  };
+}
+
+export function filterRunSheetByTankerType(sheet: DriverRunSheet, tankerType: TankerType): DriverRunSheet {
+  const filterGroups = (groups: DriverRunSheetTankerGroup[]) =>
+    groups
+      .map((g) => ({
+        ...g,
+        deliveries: g.deliveries.filter((d) => d.tankerType === tankerType),
+      }))
+      .filter((g) => g.deliveries.length > 0);
+
+  const slots = sheet.slots.map((s) => {
+    const tankerGroups = filterGroups(s.tankerGroups);
+    return {
+      ...s,
+      tankerGroups,
+      deliveryCount: tankerGroups.reduce((n, g) => n + g.deliveries.length, 0),
+    };
+  });
+  const deliveries = sheet.deliveries.filter((d) => d.tankerType === tankerType);
+  return {
+    ...sheet,
+    slots,
+    unslotted: filterGroups(sheet.unslotted),
+    deliveries,
+    totalCount: deliveries.length,
+  };
+}
+
+export function flattenDailyScheduleDeliveries(schedule: DailySchedule) {
+  return [...schedule.slots.flatMap((s) => s.deliveries), ...schedule.unslotted];
+}
+
+export function waterTypeStatsFromDeliveries(
+  deliveries: Array<{
+    tankerType: TankerType;
+    status: string;
+    paymentStatus: string;
+    charges: { toString(): string } | number;
+  }>
+) {
+  const forType = (tankerType: TankerType) => {
+    const rows = deliveries.filter((d) => d.tankerType === tankerType);
+    return {
+      total: rows.length,
+      scheduled: rows.filter(
+        (d) => d.status === "SCHEDULED" || d.status === "ASSIGNED" || d.status === "IN_PROGRESS"
+      ).length,
+      completed: rows.filter((d) => d.status === "COMPLETED").length,
+      collection: rows
+        .filter((d) => d.paymentStatus === "PAID" || d.paymentStatus === "VERIFIED")
+        .reduce((sum, d) => sum + Number(d.charges), 0),
+    };
+  };
+
+  return {
+    CLEAN_WATER: forType("CLEAN_WATER"),
+    CONSTRUCTION_WATER: forType("CONSTRUCTION_WATER"),
+  };
 }
 
 export async function listTankerDrivers() {
