@@ -6,6 +6,8 @@ import { hasPermission } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TankerDestinationFields } from "@/components/tankers/tanker-destination-fields";
+import { TankerScheduleFields } from "@/components/tankers/tanker-schedule-fields";
 import { updateTankerBooking } from "../actions";
 import {
   formatTimeSlotLabel,
@@ -18,6 +20,7 @@ import {
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import { plotLabel } from "@/lib/plots";
 import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
+import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +62,9 @@ export default async function TankerBookingDetailPage({ params }: { params: Prom
       : booking.slotLabel && booking.slotStartTime && booking.slotEndTime
         ? `${booking.slotLabel} (${formatTimeSlotWindow(booking.slotStartTime, booking.slotEndTime)})`
         : "—";
+
+  const distributionDateValue = format(booking.distributionDate, "yyyy-MM-dd");
+  const plotLabelText = booking.plot ? plotLabel(booking.plot) : null;
 
   return (
     <div>
@@ -147,7 +153,7 @@ export default async function TankerBookingDetailPage({ params }: { params: Prom
                 </span>
               }
             />
-            <Row label="Charges" value={formatCurrency(booking.charges)} />
+            <Row label="Charges (snapshot)" value={formatCurrency(booking.charges)} />
             <Row label="Receipt" value={booking.receiptNumber ?? "—"} />
             <Row label="Booked by" value={booking.bookedBy?.name ?? "—"} />
             {booking.remarks ? <Row label="Remarks" value={booking.remarks} /> : null}
@@ -162,7 +168,7 @@ export default async function TankerBookingDetailPage({ params }: { params: Prom
               value={
                 booking.plot ? (
                   <Link href={`/plots/${booking.plotId}`} className="text-teal-900 hover:underline">
-                    {booking.plot.sector}/{booking.plot.block}-{booking.plot.plotNumber}
+                    {plotLabel(booking.plot)}
                   </Link>
                 ) : (
                   "Walk-in / no plot linked"
@@ -183,66 +189,111 @@ export default async function TankerBookingDetailPage({ params }: { params: Prom
         </section>
 
         {canEdit ? (
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-            <h2 className="font-display mb-4 text-lg font-semibold">Update assignment & status</h2>
-            <form action={updateTankerBooking} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <input type="hidden" name="id" value={booking.id} />
-              <label className="text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Status</span>
-                <select name="status" defaultValue={booking.status} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
-                  {["SCHEDULED", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].map((s) => (
-                    <option key={s} value={s}>{labelize(s)}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Payment</span>
-                <select name="paymentStatus" defaultValue={booking.paymentStatus} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
-                  {["UNPAID", "PENDING", "PAID", "VERIFIED", "PARTIAL"].map((s) => (
-                    <option key={s} value={s}>{labelize(s)}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Receipt no.</span>
-                <input
-                  name="receiptNumber"
-                  defaultValue={booking.receiptNumber ?? ""}
-                  className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+          <>
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+              <h2 className="font-display mb-4 text-lg font-semibold">Edit booking details</h2>
+              <form action={updateTankerBooking} className="grid gap-4 sm:grid-cols-2">
+                <input type="hidden" name="id" value={booking.id} />
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Booker name *</span>
+                  <input
+                    name="bookerName"
+                    required
+                    defaultValue={booking.bookerName ?? booking.customerName ?? ""}
+                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Contact</span>
+                  <input
+                    name="bookerContact"
+                    defaultValue={booking.bookerContact ?? ""}
+                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  />
+                </label>
+
+                <TankerDestinationFields
+                  initialMode={booking.plotId ? "plot" : "house"}
+                  initialPlotId={booking.plotId}
+                  initialPlotLabel={plotLabelText}
+                  initialHouseNo={booking.houseNo}
+                  initialStreetNo={booking.streetNo}
+                  initialStreetArea={booking.streetArea}
                 />
-              </label>
-              <label className="text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Tanker</span>
-                <select name="tankerId" defaultValue={booking.tankerId ?? ""} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
-                  <option value="">Unassigned</option>
-                  {tankers.map((t) => (
-                    <option key={t.id} value={t.id}>{t.tankerCode}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Driver</span>
-                <select name="driverId" defaultValue={booking.driverId ?? ""} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
-                  <option value="">Unassigned</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm sm:col-span-2 lg:col-span-3">
-                <span className="mb-1 block font-medium text-slate-700">Remarks</span>
-                <textarea
-                  name="remarks"
-                  defaultValue={booking.remarks ?? ""}
-                  rows={2}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+
+                <TankerScheduleFields
+                  initialDate={distributionDateValue}
+                  initialTimeSlotId={booking.timeSlotId}
+                  excludeBookingId={booking.id}
                 />
-              </label>
-              <div className="sm:col-span-2 lg:col-span-3">
-                <Button type="submit">Save changes</Button>
-              </div>
-            </form>
-          </section>
+
+                <div className="sm:col-span-2">
+                  <Button type="submit">Save booking details</Button>
+                </div>
+              </form>
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+              <h2 className="font-display mb-4 text-lg font-semibold">Update assignment & status</h2>
+              <form action={updateTankerBooking} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <input type="hidden" name="id" value={booking.id} />
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Status</span>
+                  <select name="status" defaultValue={booking.status} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
+                    {["SCHEDULED", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].map((s) => (
+                      <option key={s} value={s}>{labelize(s)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Payment</span>
+                  <select name="paymentStatus" defaultValue={booking.paymentStatus} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
+                    {["UNPAID", "PENDING", "PAID", "VERIFIED", "PARTIAL"].map((s) => (
+                      <option key={s} value={s}>{labelize(s)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Receipt no.</span>
+                  <input
+                    name="receiptNumber"
+                    defaultValue={booking.receiptNumber ?? ""}
+                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Tanker</span>
+                  <select name="tankerId" defaultValue={booking.tankerId ?? ""} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
+                    <option value="">Unassigned</option>
+                    {tankers.map((t) => (
+                      <option key={t.id} value={t.id}>{t.tankerCode}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Driver</span>
+                  <select name="driverId" defaultValue={booking.driverId ?? ""} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
+                    <option value="">Unassigned</option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm sm:col-span-2 lg:col-span-3">
+                  <span className="mb-1 block font-medium text-slate-700">Remarks</span>
+                  <textarea
+                    name="remarks"
+                    defaultValue={booking.remarks ?? ""}
+                    rows={2}
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                  />
+                </label>
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <Button type="submit">Save changes</Button>
+                </div>
+              </form>
+            </section>
+          </>
         ) : null}
       </div>
     </div>

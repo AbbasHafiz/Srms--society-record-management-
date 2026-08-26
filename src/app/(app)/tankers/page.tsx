@@ -10,9 +10,11 @@ import {
   formatTimeSlotLabel,
   formatTimeSlotWindow,
   getDailySchedule,
+  getTotalBulkStockRemaining,
   TANKER_TYPE_LABELS,
   tankerTypeBadgeClass,
 } from "@/lib/tankers";
+import { TankerNav } from "@/components/tankers/tanker-nav";
 import { format, parseISO, startOfDay } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +36,7 @@ export default async function TankersPage({
   const session = await auth();
   const canCreate = session?.user && hasPermission(session.user.role, "create");
 
-  const [schedule, scheduled, completed, collection] = await Promise.all([
+  const [schedule, scheduled, completed, collection, bulkStockRemaining] = await Promise.all([
     getDailySchedule(scheduleDate),
     prisma.tankerDelivery.count({
       where: {
@@ -52,6 +54,7 @@ export default async function TankersPage({
       },
       _sum: { charges: true },
     }),
+    getTotalBulkStockRemaining(),
   ]);
 
   const isToday = scheduleDate.getTime() === startOfDay(new Date()).getTime();
@@ -62,13 +65,43 @@ export default async function TankersPage({
         title="Water Tankers"
         description={`Daily delivery schedule${isToday ? " — today" : ""} (${scheduleDate.toLocaleDateString("en-GB")})`}
         actions={
-          canCreate ? (
-            <Link href="/tankers/new">
-              <Button>New booking</Button>
-            </Link>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {canCreate ? (
+              <Link href="/tankers/new">
+                <Button>New booking</Button>
+              </Link>
+            ) : null}
+            {session?.user && hasPermission(session.user.role, "edit") ? (
+              <>
+                <Link href="/tankers/fleet">
+                  <Button variant="outline">Fleet</Button>
+                </Link>
+                <Link href="/tankers/slots">
+                  <Button variant="outline">Time slots</Button>
+                </Link>
+              </>
+            ) : null}
+          </div>
         }
       />
+
+      <TankerNav active="schedule" />
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Bulk water in stock"
+          value={`${bulkStockRemaining.toLocaleString()} L`}
+          tone={bulkStockRemaining > 0 ? "success" : "warn"}
+          hint="Manage bulk stock on Bulk stock tab"
+        />
+        <StatCard label="Scheduled / Assigned" value={scheduled} />
+        <StatCard label="Completed" value={completed} tone="success" />
+        <StatCard
+          label="Collection"
+          value={formatCurrency(collection._sum.charges ?? 0)}
+          tone="success"
+        />
+      </div>
 
       <form action="/tankers" method="get" className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="text-sm">
@@ -87,16 +120,6 @@ export default async function TankersPage({
           </Link>
         ) : null}
       </form>
-
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <StatCard label="Scheduled / Assigned" value={scheduled} />
-        <StatCard label="Completed" value={completed} tone="success" />
-        <StatCard
-          label="Collection"
-          value={formatCurrency(collection._sum.charges ?? 0)}
-          tone="success"
-        />
-      </div>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-5 py-4">

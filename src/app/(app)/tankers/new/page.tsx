@@ -4,10 +4,10 @@ import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page";
 import { Button } from "@/components/ui/button";
+import { TankerDestinationFields } from "@/components/tankers/tanker-destination-fields";
+import { TankerScheduleFields, TankerSlotAvailabilityList } from "@/components/tankers/tanker-schedule-fields";
 import { createTankerBooking } from "../actions";
 import {
-  formatTimeSlotLabel,
-  getSlotAvailabilityForDate,
   getTankerPriceMap,
   listActiveTankers,
   listTankerDrivers,
@@ -37,11 +37,10 @@ export default async function NewTankerBookingPage({
     : startOfDay(new Date());
   const dateValue = format(defaultDate, "yyyy-MM-dd");
 
-  const [prices, tankers, drivers, slotAvailability] = await Promise.all([
+  const [prices, tankers, drivers] = await Promise.all([
     getTankerPriceMap(),
     listActiveTankers(),
     listTankerDrivers(),
-    getSlotAvailabilityForDate(defaultDate),
   ]);
 
   return (
@@ -54,7 +53,7 @@ export default async function NewTankerBookingPage({
 
       <PageHeader
         title="New tanker booking"
-        description="Book a water tanker delivery with date and time slot. Price is taken from the active fee configuration."
+        description="Book against a society plot or a walk-in house address. Price is snapshotted from the active fee configuration."
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -87,44 +86,11 @@ export default async function NewTankerBookingPage({
                 ))}
               </select>
             </label>
-            <label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">House no.</span>
-              <input name="houseNo" className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Street no.</span>
-              <input name="streetNo" className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" />
-            </label>
-            <label className="text-sm sm:col-span-2">
-              <span className="mb-1 block font-medium text-slate-700">Street / area</span>
-              <input
-                name="streetArea"
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                placeholder="e.g. E-17 Street 12"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Delivery date *</span>
-              <input
-                name="distributionDate"
-                type="date"
-                required
-                defaultValue={dateValue}
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Delivery time slot *</span>
-              <select name="timeSlotId" required className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
-                <option value="">Select slot…</option>
-                {slotAvailability.map((slot) => (
-                  <option key={slot.id} value={slot.id} disabled={slot.isFull}>
-                    {formatTimeSlotLabel(slot)}
-                    {slot.isFull ? " (full)" : ` — ${slot.remaining} left`}
-                  </option>
-                ))}
-              </select>
-            </label>
+
+            <TankerDestinationFields />
+
+            <TankerScheduleFields initialDate={dateValue} />
+
             <label className="text-sm">
               <span className="mb-1 block font-medium text-slate-700">Assign tanker (optional)</span>
               <select name="tankerId" className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
@@ -166,26 +132,11 @@ export default async function NewTankerBookingPage({
             </Link>
           </div>
           <p className="text-xs text-slate-500">
-            Change the delivery date above and refresh this page to see updated slot availability for that day.
+            Slot capacity is enforced when saving. Changing the delivery date updates available slots automatically.
           </p>
         </form>
 
-        <aside className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
-          <h2 className="font-display mb-3 font-semibold text-slate-900">Slot availability</h2>
-          <p className="mb-3 text-slate-600">
-            For {defaultDate.toLocaleDateString("en-GB")}:
-          </p>
-          <ul className="space-y-2">
-            {slotAvailability.map((slot) => (
-              <li key={slot.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                <div className="font-medium">{formatTimeSlotLabel(slot)}</div>
-                <div className={slot.isFull ? "text-rose-700" : "text-emerald-700"}>
-                  {slot.isFull ? "Full" : `${slot.remaining} of ${slot.maxBookingsPerDay} available`}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        <TankerSlotAvailabilityList initialDate={dateValue} />
       </div>
     </div>
   );

@@ -220,3 +220,145 @@ export function tankerTypeBadgeClass(tankerType: TankerType) {
     ? "bg-sky-100 text-sky-800 border-sky-200"
     : "bg-orange-100 text-orange-800 border-orange-200";
 }
+
+export type TankerDestinationMode = "plot" | "house";
+
+export function plotDeliveryAddress(plot: {
+  sector: string;
+  block?: string | null;
+  plotNumber: string;
+  street?: string | null;
+}) {
+  const streetArea =
+    plot.street?.trim() ||
+    [plot.sector, plot.block ? `Block ${plot.block}` : null, `Plot ${plot.plotNumber}`]
+      .filter(Boolean)
+      .join(" · ");
+
+  return {
+    houseNo: plot.plotNumber,
+    streetNo: plot.block ?? "",
+    streetArea,
+  };
+}
+
+export async function searchPlotsForTanker(q: string, limit = 20) {
+  const query = q.trim();
+  if (!query) return [];
+
+  return prisma.plot.findMany({
+    where: {
+      OR: [
+        { plotNumber: { contains: query, mode: "insensitive" } },
+        { sector: { contains: query, mode: "insensitive" } },
+        { block: { contains: query, mode: "insensitive" } },
+        { street: { contains: query, mode: "insensitive" } },
+        {
+          ownerships: {
+            some: {
+              status: "ACTIVE",
+              OR: [
+                { ownerName: { contains: query, mode: "insensitive" } },
+                { membershipNumber: { contains: query, mode: "insensitive" } },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    include: {
+      ownerships: { where: { status: "ACTIVE" }, take: 1 },
+    },
+    take: limit,
+    orderBy: [{ sector: "asc" }, { plotNumber: "asc" }],
+  });
+}
+
+export async function listAllTimeSlots() {
+  return prisma.tankerTimeSlot.findMany({
+    orderBy: { sortOrder: "asc" },
+  });
+}
+
+export async function listAllTankers() {
+  return prisma.waterTanker.findMany({
+    include: { driver: { select: { id: true, name: true, employeeCode: true } } },
+    orderBy: { tankerCode: "asc" },
+  });
+}
+
+export async function listDistributionTankers() {
+  return prisma.waterTanker.findMany({
+    where: { isActive: true, tankerClass: "DISTRIBUTION" },
+    include: { driver: { select: { id: true, name: true, employeeCode: true } } },
+    orderBy: { tankerCode: "asc" },
+  });
+}
+
+export async function listBulkMotherTankers() {
+  return prisma.waterTanker.findMany({
+    where: { isActive: true, tankerClass: "BULK" },
+    include: { driver: { select: { id: true, name: true, employeeCode: true } } },
+    orderBy: { tankerCode: "asc" },
+  });
+}
+
+export function computePurchaseRemaining(volumeLiters: number, filledLiters: number) {
+  return Math.max(0, volumeLiters - filledLiters);
+}
+
+export async function getPurchaseFilledLiters(purchaseId: string) {
+  const agg = await prisma.tankerFill.aggregate({
+    where: { purchaseId },
+    _sum: { volumeLiters: true },
+  });
+  return agg._sum.volumeLiters ?? 0;
+}
+
+export async function getPurchaseRemainingLiters(purchaseId: string) {
+  const purchase = await prisma.tankerBulkPurchase.findUnique({
+    where: { id: purchaseId },
+    select: { volumeLiters: true },
+  });
+  if (!purchase) return 0;
+  const filled = await getPurchaseFilledLiters(purchaseId);
+  return computePurchaseRemaining(purchase.volumeLiters, filled);
+}
+
+export async function listBulkPurchasesWithRemaining() {
+  const purchases = await prisma.tankerBulkPurchase.findMany({
+    include: {
+      motherTanker: { select: { id: true, tankerCode: true, capacityLiters: true } },
+      createdBy: { select: { id: true, name: true } },
+      fills: { select: { volumeLiters: true } },
+    },
+    orderBy: [{ purchaseDate: "desc" }, { createdAt: "desc" }],
+  });
+
+  return purchases.map((p) => {
+    const filledLiters = p.fills.reduce((sum, f) => sum + f.volumeLiters, 0);
+    const remainingLiters = computePurchaseRemaining(p.volumeLiters, filledLiters);
+    return {
+      ...p,
+      filledLiters,
+      remainingLiters,
+    };
+  });
+}
+
+export async function getTotalBulkStockRemaining() {
+  const purchases = await listBulkPurchasesWithRemaining();
+  return purchases.reduce((sum, p) => sum + p.remainingLiters, 0);
+}
+
+export async function listRecentTankerFills(limit = 20) {
+  return prisma.tankerFill.findMany({
+    take: limit,
+    include: {
+      purchase: { select: { id: true, purchaseNumber: true, sourceVendor: true } },
+      toTanker: { select: { id: true, tankerCode: true, capacityLiters: true } },
+      filledBy: { select: { id: true, name: true } },
+    },
+    orderBy: { filledAt: "desc" },
+  });
+}

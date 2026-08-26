@@ -16,6 +16,8 @@ async function main() {
   await prisma.notifyTemplate.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.garbageCollection.deleteMany();
+  await prisma.tankerFill.deleteMany();
+  await prisma.tankerBulkPurchase.deleteMany();
   await prisma.tankerDelivery.deleteMany();
   await prisma.tankerTimeSlot.deleteMany();
   await prisma.waterTanker.deleteMany();
@@ -277,6 +279,7 @@ async function main() {
       { key: "noc_application", prefix: "NOC", nextValue: 300, padLength: 4 },
       { key: "noc_issue", prefix: "NOC-E17", nextValue: 250, padLength: 4 },
       { key: "tanker_booking", prefix: "TB", nextValue: 4, padLength: 4 },
+      { key: "tanker_bulk_purchase", prefix: "TBP", nextValue: 2, padLength: 4 },
     ],
   });
 
@@ -1282,11 +1285,39 @@ async function main() {
     where: { feeType: "WATER_TANKER", tankerType: "CONSTRUCTION_WATER", status: "ACTIVE" },
   });
 
+  const motherTanker = await prisma.waterTanker.create({
+    data: { tankerCode: "WT-MOTHER", capacityLiters: 50000, tankerClass: "BULK", driverId: tariq.id },
+  });
   const tanker1 = await prisma.waterTanker.create({
-    data: { tankerCode: "WT-01", capacityLiters: 5000, driverId: tariq.id },
+    data: { tankerCode: "WT-01", capacityLiters: 5000, tankerClass: "DISTRIBUTION", driverId: tariq.id },
   });
   const tanker2 = await prisma.waterTanker.create({
-    data: { tankerCode: "WT-02", capacityLiters: 3000, driverId: tariq.id },
+    data: { tankerCode: "WT-02", capacityLiters: 3000, tankerClass: "DISTRIBUTION", driverId: tariq.id },
+  });
+
+  const bulkPurchase = await prisma.tankerBulkPurchase.create({
+    data: {
+      purchaseNumber: "TBP-0001",
+      purchaseDate: today,
+      sourceVendor: "CDA Bulk Water Supply",
+      volumeLiters: 50000,
+      amount: 45000,
+      paymentStatus: "PAID",
+      motherTankerId: motherTanker.id,
+      remarks: "Weekly bulk intake for society distribution fleet",
+      createdById: admin.id,
+    },
+  });
+
+  await prisma.tankerFill.create({
+    data: {
+      purchaseId: bulkPurchase.id,
+      toTankerId: tanker1.id,
+      volumeLiters: 5000,
+      filledAt: today,
+      filledById: admin.id,
+      remarks: "Morning fill for WT-01",
+    },
   });
 
   await prisma.tankerDelivery.createMany({

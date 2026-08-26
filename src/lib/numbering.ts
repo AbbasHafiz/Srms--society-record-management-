@@ -69,6 +69,10 @@ export async function nextTankerBookingNumber() {
   return nextSequence("tanker_booking", "TB", 4);
 }
 
+export async function nextTankerBulkPurchaseNumber() {
+  return nextSequence("tanker_bulk_purchase", "TBP", 4);
+}
+
 export async function nextPossessionApplicationNumber() {
   return nextSequence("possession_application", "POS", 4);
 }
