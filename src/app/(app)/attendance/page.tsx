@@ -5,9 +5,8 @@ import { hasPermission } from "@/lib/rbac";
 import { PageHeader, StatCard } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DesignationBadge } from "@/components/employees/designation-badge";
+import { RoleBadge } from "@/components/employees/designation-badge";
 import { markAttendance, bulkMarkAttendance } from "./actions";
-import { ALL_DESIGNATIONS, QUICK_FILTER_DESIGNATIONS } from "@/lib/hr";
 import { formatDateTime, labelize } from "@/lib/utils";
 import { startOfDay } from "date-fns";
 
@@ -20,11 +19,12 @@ export default async function AttendancePage() {
   const session = await auth();
   const canMark = session?.user && hasPermission(session.user.role, "mark_attendance");
 
-  const [activeEmployees, todayAttendance, guardShifts, presentCount, absentCount, onLeaveCount, departments] =
+  const [activeEmployees, todayAttendance, guardShifts, presentCount, absentCount, onLeaveCount, departments, orgRoles] =
     await Promise.all([
       prisma.employee.findMany({
         where: { status: "ACTIVE" },
-        orderBy: [{ designation: "asc" }, { name: "asc" }],
+        include: { orgRole: true },
+        orderBy: [{ orgRole: { sortOrder: "asc" } }, { name: "asc" }],
       }),
       prisma.attendance.findMany({
         where: { date: today },
@@ -46,6 +46,10 @@ export default async function AttendancePage() {
         select: { department: true },
         distinct: ["department"],
         orderBy: { department: "asc" },
+      }),
+      prisma.orgRole.findMany({
+        where: { isActive: true },
+        orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
       }),
     ]);
 
@@ -73,15 +77,15 @@ export default async function AttendancePage() {
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="font-display text-lg font-semibold">Bulk mark attendance</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Mark all active staff present (or another status) by designation or department.
+            Mark all active staff present (or another status) by role or department.
           </p>
           <form action={bulkMarkAttendance} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Designation</span>
-              <select name="designation" className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 sm:w-48">
+              <span className="mb-1 block font-medium text-slate-700">Role</span>
+              <select name="orgRoleId" className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 sm:w-48">
                 <option value="">All active staff</option>
-                {ALL_DESIGNATIONS.map((d) => (
-                  <option key={d} value={d}>{labelize(d)}</option>
+                {orgRoles.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
             </label>
@@ -107,12 +111,14 @@ export default async function AttendancePage() {
             <Button type="submit">Apply bulk mark</Button>
           </form>
           <div className="mt-3 flex flex-wrap gap-2">
-            {QUICK_FILTER_DESIGNATIONS.slice(0, 6).map((d) => (
-              <form key={d} action={bulkMarkAttendance} className="inline">
-                <input type="hidden" name="designation" value={d} />
+            {orgRoles
+              .filter((r) => ["COOK", "DRIVER", "MALI", "SWEEPER", "SECURITY_GUARD", "COMPUTER_OPERATOR"].includes(r.code))
+              .map((r) => (
+              <form key={r.id} action={bulkMarkAttendance} className="inline">
+                <input type="hidden" name="orgRoleId" value={r.id} />
                 <input type="hidden" name="status" value="PRESENT" />
                 <Button type="submit" variant="outline" size="sm">
-                  All {labelize(d)} present
+                  All {r.name} present
                 </Button>
               </form>
             ))}
@@ -134,7 +140,7 @@ export default async function AttendancePage() {
             <thead>
               <tr>
                 <th>Employee</th>
-                <th>Designation</th>
+                <th>Role</th>
                 <th>Today&apos;s status</th>
                 {canMark ? <th>Mark</th> : null}
               </tr>
@@ -149,7 +155,7 @@ export default async function AttendancePage() {
                       <div className="text-xs text-slate-500">{emp.employeeCode}</div>
                     </td>
                     <td>
-                      <DesignationBadge designation={emp.designation} />
+                      <RoleBadge orgRole={emp.orgRole} designation={emp.designation} />
                     </td>
                     <td>
                       {record ? (

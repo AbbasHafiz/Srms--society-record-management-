@@ -2,6 +2,7 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { seedFinance } from "./seed-finance";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -24,6 +25,8 @@ async function main() {
   await prisma.fileLocation.deleteMany();
   await prisma.openFileRenewal.deleteMany();
   await prisma.document.deleteMany();
+  await prisma.financeTransaction.deleteMany();
+  await prisma.financeCategory.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.plotCharge.deleteMany();
   await prisma.openFile.deleteMany();
@@ -41,25 +44,59 @@ async function main() {
   await prisma.numberSequence.deleteMany();
   await prisma.systemSetting.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.salaryPayment.deleteMany();
   await prisma.employee.deleteMany();
+  await prisma.orgRole.deleteMany();
 
   const passwordHash = await bcrypt.hash("password123", 10);
 
+  const ORG_ROLES = [
+    { code: "PRESIDENT", name: "President", category: "PANEL" as const, sortOrder: 10 },
+    { code: "SECRETARY", name: "Secretary", category: "PANEL" as const, sortOrder: 20 },
+    { code: "EXECUTIVE_MEMBER", name: "Executive Member", category: "PANEL" as const, sortOrder: 30 },
+    { code: "KHAZANCHI", name: "Khazanchi / Finance", category: "PANEL" as const, sortOrder: 40 },
+    { code: "GM", name: "General Manager", category: "MANAGEMENT" as const, sortOrder: 50 },
+    { code: "TRANSFER_OFFICER", name: "Transfer Officer", category: "MANAGEMENT" as const, sortOrder: 60 },
+    { code: "ASSOCIATE_TRANSFER_OFFICER", name: "Associate Transfer Officer", category: "MANAGEMENT" as const, sortOrder: 70 },
+    { code: "RECORD_KEEPER", name: "Record Keeper", category: "MANAGEMENT" as const, sortOrder: 80 },
+    { code: "SUPERVISOR", name: "Supervisor", category: "TECHNICAL" as const, sortOrder: 110 },
+    { code: "COOK", name: "Cook", category: "OPERATIONAL" as const, sortOrder: 200 },
+    { code: "DRIVER", name: "Driver", category: "OPERATIONAL" as const, sortOrder: 210 },
+    { code: "COMPUTER_OPERATOR", name: "Computer Operator", category: "OPERATIONAL" as const, sortOrder: 220 },
+    { code: "MALI", name: "Mali (Gardener)", category: "OPERATIONAL" as const, sortOrder: 230 },
+    { code: "SWEEPER", name: "Sweeper", category: "OPERATIONAL" as const, sortOrder: 240 },
+    { code: "SECURITY_GUARD", name: "Security Guard", category: "OPERATIONAL" as const, sortOrder: 260 },
+    { code: "TRACTOR_DRIVER", name: "Tractor Driver", category: "OPERATIONAL" as const, sortOrder: 270 },
+    { code: "CONTRACTOR_ELECTRICAL", name: "Electrical Contractor", category: "CONTRACTOR" as const, sortOrder: 300 },
+    { code: "CONTRACTOR_MAINTENANCE", name: "Maintenance Contractor", category: "CONTRACTOR" as const, sortOrder: 310 },
+  ];
+
+  const orgRoles = await Promise.all(
+    ORG_ROLES.map((r) =>
+      prisma.orgRole.create({
+        data: { ...r, isSystem: true, isActive: true },
+      })
+    )
+  );
+  const roleId = (code: string) => orgRoles.find((r) => r.code === code)!.id;
+
   const employees = await Promise.all(
     [
-      { code: "EMP-001", name: "Ahmed Raza", cnic: "35202-1111111-1", designation: "TRANSFER_OFFICER" as const, dept: "Transfers", salary: 85000 },
-      { code: "EMP-002", name: "Sara Khan", cnic: "35202-2222222-2", designation: "FINANCE" as const, dept: "Finance", salary: 75000 },
-      { code: "EMP-003", name: "Bilal Hussain", cnic: "35202-3333333-3", designation: "RECORD_MANAGER" as const, dept: "Records", salary: 70000 },
-      { code: "EMP-004", name: "Imran Ali", cnic: "35202-4444444-4", designation: "SECURITY_GUARD" as const, dept: "Security", salary: 35000 },
-      { code: "EMP-005", name: "Naveed Iqbal", cnic: "35202-5555555-5", designation: "SECURITY_GUARD" as const, dept: "Security", salary: 35000 },
-      { code: "EMP-006", name: "Tariq Mehmood", cnic: "35202-6666666-6", designation: "TRACTOR_DRIVER" as const, dept: "Works", salary: 40000 },
-      { code: "EMP-007", name: "Farooq Shah", cnic: "35202-7777777-7", designation: "GM" as const, dept: "Management", salary: 150000 },
-      { code: "EMP-008", name: "Ayesha Malik", cnic: "35202-8888888-8", designation: "SECRETARY" as const, dept: "Management", salary: 120000 },
-      { code: "EMP-009", name: "Rashid Khan", cnic: "35202-9090909-9", designation: "COOK" as const, dept: "Mess", salary: 32000 },
-      { code: "EMP-010", name: "Zainab Ali", cnic: "35202-1010101-0", designation: "COMPUTER_OPERATOR" as const, dept: "Admin", salary: 45000 },
-      { code: "EMP-011", name: "Kamran Shah", cnic: "35202-1111112-1", designation: "DRIVER" as const, dept: "Transport", salary: 38000 },
-      { code: "EMP-012", name: "Hassan Mali", cnic: "35202-1212121-2", designation: "MALI" as const, dept: "Horticulture", salary: 28000 },
-      { code: "EMP-013", name: "Ali Ahmad", cnic: "35202-1313131-3", designation: "SWEEPER" as const, dept: "Sanitation", salary: 26000 },
+      { code: "EMP-001", name: "Ahmed Raza", cnic: "35202-1111111-1", role: "TRANSFER_OFFICER", dept: "Transfers", salary: 85000, type: "STAFF" as const },
+      { code: "EMP-002", name: "Sara Khan", cnic: "35202-2222222-2", role: "KHAZANCHI", dept: "Finance", salary: 75000, type: "PANEL_MEMBER" as const },
+      { code: "EMP-003", name: "Bilal Hussain", cnic: "35202-3333333-3", role: "RECORD_KEEPER", dept: "Records", salary: 70000, type: "STAFF" as const },
+      { code: "EMP-004", name: "Imran Ali", cnic: "35202-4444444-4", role: "SECURITY_GUARD", dept: "Security", salary: 35000, type: "STAFF" as const },
+      { code: "EMP-005", name: "Naveed Iqbal", cnic: "35202-5555555-5", role: "SECURITY_GUARD", dept: "Security", salary: 35000, type: "STAFF" as const },
+      { code: "EMP-006", name: "Tariq Mehmood", cnic: "35202-6666666-6", role: "TRACTOR_DRIVER", dept: "Works", salary: 40000, type: "STAFF" as const },
+      { code: "EMP-007", name: "Farooq Shah", cnic: "35202-7777777-7", role: "GM", dept: "Management", salary: 150000, type: "STAFF" as const },
+      { code: "EMP-008", name: "Ayesha Malik", cnic: "35202-8888888-8", role: "SECRETARY", dept: "Management", salary: 120000, type: "PANEL_MEMBER" as const },
+      { code: "EMP-P01", name: "Dr. Khalid Mehmood", cnic: "35202-0000001-1", role: "PRESIDENT", dept: "Panel", salary: null, type: "PANEL_MEMBER" as const },
+      { code: "EMP-009", name: "Rashid Khan", cnic: "35202-9090909-9", role: "COOK", dept: "Mess", salary: 32000, type: "STAFF" as const },
+      { code: "EMP-010", name: "Zainab Ali", cnic: "35202-1010101-0", role: "COMPUTER_OPERATOR", dept: "Admin", salary: 45000, type: "STAFF" as const },
+      { code: "EMP-011", name: "Kamran Shah", cnic: "35202-1111112-1", role: "DRIVER", dept: "Transport", salary: 38000, type: "STAFF" as const },
+      { code: "EMP-012", name: "Hassan Mali", cnic: "35202-1212121-2", role: "MALI", dept: "Horticulture", salary: 28000, type: "STAFF" as const },
+      { code: "EMP-013", name: "Ali Ahmad", cnic: "35202-1313131-3", role: "SWEEPER", dept: "Sanitation", salary: 26000, type: "STAFF" as const },
+      { code: "EMP-014", name: "Javed Akhtar", cnic: "35202-1414141-4", role: "SUPERVISOR", dept: "Works", salary: 55000, type: "STAFF" as const },
     ].map((e) =>
       prisma.employee.create({
         data: {
@@ -67,7 +104,8 @@ async function main() {
           name: e.name,
           cnic: e.cnic,
           contact: "0300-1234567",
-          designation: e.designation,
+          orgRoleId: roleId(e.role),
+          employmentType: e.type,
           department: e.dept,
           joiningDate: new Date("2020-01-15"),
           salary: e.salary,
@@ -77,7 +115,51 @@ async function main() {
     )
   );
 
-  const [ahmed, sara, bilal, imran, naveed, tariq, farooq, ayesha, , , , hassanMali, aliAhmad] = employees;
+  const [ahmed, sara, bilal, imran, naveed, tariq, farooq, ayesha, , , , , hassanMali, aliAhmad, supervisor] = employees;
+
+  await prisma.employee.update({
+    where: { id: supervisor.id },
+    data: { supervisorId: farooq.id },
+  });
+  await prisma.employee.updateMany({
+    where: { id: { in: [hassanMali.id, aliAhmad.id] } },
+    data: { supervisorId: supervisor.id },
+  });
+
+  await prisma.employee.createMany({
+    data: [
+      {
+        employeeCode: "CTR-001",
+        name: "PowerLine Electrical Services",
+        cnic: "35202-9900001-1",
+        contact: "0300-9900001",
+        orgRoleId: roleId("CONTRACTOR_ELECTRICAL"),
+        employmentType: "CONTRACTOR",
+        contractorTrade: "ELECTRICAL",
+        companyName: "PowerLine Electrical Services",
+        contractStart: new Date("2025-01-01"),
+        contractEnd: new Date("2026-12-31"),
+        department: "Works",
+        joiningDate: new Date("2025-01-01"),
+        status: "ACTIVE",
+      },
+      {
+        employeeCode: "CTR-002",
+        name: "GreenBuild Maintenance Co.",
+        cnic: "35202-9900002-2",
+        contact: "0300-9900002",
+        orgRoleId: roleId("CONTRACTOR_MAINTENANCE"),
+        employmentType: "CONTRACTOR",
+        contractorTrade: "MAINTENANCE",
+        companyName: "GreenBuild Maintenance Co.",
+        contractStart: new Date("2025-06-01"),
+        contractEnd: new Date("2026-05-31"),
+        department: "Works",
+        joiningDate: new Date("2025-06-01"),
+        status: "ACTIVE",
+      },
+    ],
+  });
 
   const admin = await prisma.user.create({
     data: {
@@ -165,7 +247,7 @@ async function main() {
       { key: "physical_file", prefix: "PF", nextValue: 500, padLength: 4 },
       { key: "receipt", prefix: "RCPT", nextValue: 1000, padLength: 5 },
       { key: "open_file", prefix: "OF", nextValue: 90, padLength: 4 },
-      { key: "employee", prefix: "EMP", nextValue: 14, padLength: 3 },
+      { key: "employee", prefix: "EMP", nextValue: 15, padLength: 3 },
       { key: "noc_application", prefix: "NOC", nextValue: 300, padLength: 4 },
       { key: "noc_issue", prefix: "NOC-E17", nextValue: 250, padLength: 4 },
     ],
@@ -808,10 +890,11 @@ async function main() {
     },
   });
 
-  await prisma.payment.create({
+  const transferPayment = await prisma.payment.create({
     data: {
       receiptNumber: "RCPT-00950",
       plotId: plot123.id,
+      ownershipId: owner3.id,
       feeType: "TRANSFER",
       feeConfigId: transferFee.id,
       amount: 50000,
@@ -819,8 +902,11 @@ async function main() {
       poNumber: "PO-88991",
       bankName: "Meezan Bank",
       poDate: new Date(),
-      status: "SUBMITTED",
+      paymentDate: new Date(),
+      status: "VERIFIED",
       paymentMethod: "PO",
+      verifiedAt: new Date(),
+      verifiedById: admin.id,
     },
   });
 
@@ -1006,6 +1092,15 @@ async function main() {
       vehicleType: "TRACTOR",
       driverId: tariq.id,
     },
+  });
+
+  const saraUser = await prisma.user.findUnique({ where: { email: "finance@society.local" } });
+  await seedFinance(prisma, {
+    adminId: admin.id,
+    saraId: saraUser!.id,
+    plot123Id: plot123.id,
+    owner3Id: owner3.id,
+    transferPaymentId: transferPayment.id,
   });
 
   await prisma.auditLog.createMany({

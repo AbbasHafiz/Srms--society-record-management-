@@ -60,3 +60,7 @@ export async function nextNocNumber(sector?: string) {
   const prefix = sector ? `NOC-${sector.replace(/[^A-Za-z0-9]/g, "")}` : "NOC";
   return nextSequence("noc_issue", prefix, 4);
 }
+
+export async function nextFinanceTxnNumber() {
+  return nextSequence("finance_txn", "FIN", 4);
+}

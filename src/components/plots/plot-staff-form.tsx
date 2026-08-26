@@ -2,14 +2,16 @@
 
 import { Button } from "@/components/ui/button";
 import { assignPlotStaff } from "@/app/(app)/plots/actions";
-import { labelize } from "@/lib/utils";
+import { employeeRoleLabel } from "@/lib/hr";
+
 import type { Designation } from "@/generated/prisma/client";
 
 type EmployeeOption = {
   id: string;
   name: string;
   employeeCode: string;
-  designation: Designation;
+  orgRole?: { name: string } | null;
+  designation?: Designation | null;
 };
 
 export function PlotStaffAssignForm({
@@ -35,7 +37,7 @@ export function PlotStaffAssignForm({
             <option value="">Select employee…</option>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.name} ({e.employeeCode}) — {labelize(e.designation)}
+                {e.name} ({e.employeeCode}) — {employeeRoleLabel(e)}
               </option>
             ))}
           </select>

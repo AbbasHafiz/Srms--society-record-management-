@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
@@ -88,7 +89,12 @@ export default async function SettingsPage() {
     <div>
       <PageHeader
         title="Settings"
-        description="Fee configurations, number sequences, and system parameters."
+        description="Fee configurations, organization roles, number sequences, and system parameters."
+        actions={
+          <Link href="/settings/roles" className="text-sm text-teal-800 hover:underline">
+            Organization roles
+          </Link>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-3">

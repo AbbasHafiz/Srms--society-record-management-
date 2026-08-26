@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
 import { nextAllotmentNumber, nextMembershipNumber, nextReceiptNumber } from "@/lib/numbering";
+import { AUTO_POST_FEE_TYPES, postRevenueFromPayment } from "@/lib/finance";
 import type { Prisma } from "@/generated/prisma/client";
 
 /**
@@ -154,6 +155,15 @@ export async function verifyPayment(paymentId: string, userId: string) {
     oldValue: { status: payment.status },
     newValue: { status: "VERIFIED" },
   });
+
+  if (AUTO_POST_FEE_TYPES.includes(payment.feeType)) {
+    try {
+      await postRevenueFromPayment(paymentId, userId);
+    } catch (err) {
+      // Payment is verified; ledger posting can be retried manually from Payments or Finance.
+      console.warn("Auto-post revenue failed:", err);
+    }
+  }
 
   return updated;
 }

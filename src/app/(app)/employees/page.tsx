@@ -5,14 +5,15 @@ import { hasPermission } from "@/lib/rbac";
 import { PageHeader, EmptyState, StatCard } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DesignationBadge } from "@/components/employees/designation-badge";
+import { RoleBadge } from "@/components/employees/designation-badge";
+import { EmploymentTypeBadge } from "@/components/employees/employment-type-badge";
 import {
-  ALL_DESIGNATIONS,
-  QUICK_FILTER_DESIGNATIONS,
-  isManagementDesignation,
+  EMPLOYMENT_TYPES,
+  ORG_ROLE_CATEGORIES,
+  isManagementCategory,
 } from "@/lib/hr";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
-import type { Designation, EmployeeStatus } from "@/generated/prisma/client";
+import type { EmployeeStatus, EmploymentType, OrgRoleCategory } from "@/generated/prisma/client";
 import { startOfDay } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +23,20 @@ const STATUSES: EmployeeStatus[] = ["ACTIVE", "ON_LEAVE", "SUSPENDED", "RESIGNED
 export default async function EmployeesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; designation?: string; group?: string; q?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    orgRoleId?: string;
+    employmentType?: string;
+    category?: string;
+    group?: string;
+    q?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const status = sp.status?.trim() as EmployeeStatus | undefined;
-  const designation = sp.designation?.trim() as Designation | undefined;
+  const orgRoleId = sp.orgRoleId?.trim();
+  const employmentType = sp.employmentType?.trim() as EmploymentType | undefined;
+  const category = sp.category?.trim() as OrgRoleCategory | undefined;
   const group = sp.group?.trim();
   const q = sp.q?.trim();
   const today = startOfDay(new Date());
@@ -34,21 +44,25 @@ export default async function EmployeesPage({
   const session = await auth();
   const canManage = session?.user && hasPermission(session.user.role, "manage_employees");
 
-  const designationFilter =
-    designation && ALL_DESIGNATIONS.includes(designation) ? designation : undefined;
-
-  const groupFilter =
-    group === "management"
-      ? { designation: { in: ALL_DESIGNATIONS.filter((d) => isManagementDesignation(d)) } }
-      : group === "operational"
-        ? { designation: { in: ALL_DESIGNATIONS.filter((d) => !isManagementDesignation(d)) } }
-        : {};
+  const categoryFilter =
+    category && ORG_ROLE_CATEGORIES.includes(category)
+      ? { orgRole: { category } }
+      : group === "management"
+        ? { orgRole: { category: { in: ["PANEL", "MANAGEMENT"] as OrgRoleCategory[] } } }
+        : group === "operational"
+          ? { orgRole: { category: { in: ["OPERATIONAL", "TECHNICAL"] as OrgRoleCategory[] } } }
+          : group === "contractors"
+            ? { employmentType: "CONTRACTOR" as EmploymentType }
+            : group === "panel"
+              ? { employmentType: "PANEL_MEMBER" as EmploymentType }
+              : {};
 
   const employees = await prisma.employee.findMany({
     where: {
       ...(status && STATUSES.includes(status) ? { status } : {}),
-      ...(designationFilter ? { designation: designationFilter } : {}),
-      ...groupFilter,
+      ...(orgRoleId ? { orgRoleId } : {}),
+      ...(employmentType && EMPLOYMENT_TYPES.includes(employmentType) ? { employmentType } : {}),
+      ...categoryFilter,
       ...(q
         ? {
             OR: [
@@ -56,36 +70,53 @@ export default async function EmployeesPage({
               { employeeCode: { contains: q, mode: "insensitive" } },
               { cnic: { contains: q } },
               { department: { contains: q, mode: "insensitive" } },
+              { companyName: { contains: q, mode: "insensitive" } },
             ],
           }
         : {}),
+    },
+    include: {
+      orgRole: true,
+      supervisor: { select: { name: true, employeeCode: true } },
     },
     orderBy: [{ status: "asc" }, { name: "asc" }],
     take: 200,
   });
 
-  const [designationCounts, presentToday, absentToday, onLeaveToday] = await Promise.all([
+  const [orgRoles, roleCounts, presentToday, absentToday, onLeaveToday, contractorCount] = await Promise.all([
+    prisma.orgRole.findMany({
+      where: { isActive: true },
+      orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
+    }),
     prisma.employee.groupBy({
-      by: ["designation"],
-      where: { status: "ACTIVE" },
+      by: ["orgRoleId"],
+      where: { status: "ACTIVE", orgRoleId: { not: null } },
       _count: { _all: true },
     }),
     prisma.attendance.count({ where: { date: today, status: "PRESENT" } }),
     prisma.attendance.count({ where: { date: today, status: "ABSENT" } }),
     prisma.attendance.count({ where: { date: today, status: "LEAVE" } }),
+    prisma.employee.count({ where: { status: "ACTIVE", employmentType: "CONTRACTOR" } }),
   ]);
 
-  const countMap = new Map(designationCounts.map((d) => [d.designation, d._count._all]));
+  const countMap = new Map(roleCounts.map((d) => [d.orgRoleId, d._count._all]));
+  const activeStaff = roleCounts.reduce((n, d) => n + d._count._all, 0);
 
   return (
     <div>
       <PageHeader
         title="Employees"
-        description="Society staff register — management and operational roles including cooks, drivers, guards, and support staff."
+        description="Society staff register — panel, management, operational staff, and contractors."
         actions={
           <>
             <Link href="/hr" className="text-sm text-teal-800 hover:underline">
               HR summary
+            </Link>
+            <Link href="/hr/payroll" className="text-sm text-teal-800 hover:underline">
+              Payroll
+            </Link>
+            <Link href="/settings/roles" className="text-sm text-teal-800 hover:underline">
+              Roles
             </Link>
             {canManage ? (
               <Link href="/employees/new">
@@ -96,24 +127,30 @@ export default async function EmployeesPage({
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Present Today" value={presentToday} tone="success" />
         <StatCard label="Absent Today" value={absentToday} tone={absentToday ? "warn" : "default"} />
         <StatCard label="On Leave Today" value={onLeaveToday} />
-        <StatCard
-          label="Active Staff"
-          value={designationCounts.reduce((n, d) => n + d._count._all, 0)}
-        />
+        <StatCard label="Active Staff" value={activeStaff} />
+        <StatCard label="Contractors" value={contractorCount} tone={contractorCount ? "warn" : "default"} />
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
           href="/employees"
           className={`rounded-full border px-3 py-1 text-xs font-medium ${
-            !group && !designationFilter ? "border-teal-800 bg-teal-800 text-white" : "border-slate-300 bg-white text-slate-700"
+            !group && !orgRoleId && !employmentType ? "border-teal-800 bg-teal-800 text-white" : "border-slate-300 bg-white text-slate-700"
           }`}
         >
           All
+        </Link>
+        <Link
+          href="/employees?group=panel"
+          className={`rounded-full border px-3 py-1 text-xs font-medium ${
+            group === "panel" ? "border-purple-700 bg-purple-700 text-white" : "border-slate-300 bg-white text-slate-700"
+          }`}
+        >
+          Panel
         </Link>
         <Link
           href="/employees?group=management"
@@ -131,36 +168,59 @@ export default async function EmployeesPage({
         >
           Operational
         </Link>
-        {QUICK_FILTER_DESIGNATIONS.map((d) => (
-          <Link
-            key={d}
-            href={`/employees?designation=${d}`}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${
-              designationFilter === d ? "border-teal-800 bg-teal-800 text-white" : "border-slate-300 bg-white text-slate-700"
-            }`}
-          >
-            {labelize(d)}
-            {countMap.get(d) ? ` (${countMap.get(d)})` : ""}
-          </Link>
-        ))}
+        <Link
+          href="/employees?group=contractors"
+          className={`rounded-full border px-3 py-1 text-xs font-medium ${
+            group === "contractors" ? "border-orange-700 bg-orange-700 text-white" : "border-slate-300 bg-white text-slate-700"
+          }`}
+        >
+          Contractors
+        </Link>
+        {orgRoles
+          .filter((r) => (countMap.get(r.id) ?? 0) > 0 && !isManagementCategory(r.category))
+          .slice(0, 8)
+          .map((r) => (
+            <Link
+              key={r.id}
+              href={`/employees?orgRoleId=${r.id}`}
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                orgRoleId === r.id ? "border-teal-800 bg-teal-800 text-white" : "border-slate-300 bg-white text-slate-700"
+              }`}
+            >
+              {r.name}
+              {countMap.get(r.id) ? ` (${countMap.get(r.id)})` : ""}
+            </Link>
+          ))}
       </div>
 
       <form className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end">
         <input
           name="q"
-          placeholder="Search name, code, CNIC…"
+          placeholder="Search name, code, CNIC, company…"
           defaultValue={q}
           className="flex h-10 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm"
         />
         <select
-          name="designation"
-          defaultValue={designationFilter ?? ""}
+          name="orgRoleId"
+          defaultValue={orgRoleId ?? ""}
           className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
         >
-          <option value="">All designations</option>
-          {ALL_DESIGNATIONS.map((d) => (
-            <option key={d} value={d}>
-              {labelize(d)}
+          <option value="">All roles</option>
+          {orgRoles.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+        <select
+          name="employmentType"
+          defaultValue={employmentType ?? ""}
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+        >
+          <option value="">All types</option>
+          {EMPLOYMENT_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {labelize(t)}
             </option>
           ))}
         </select>
@@ -189,8 +249,9 @@ export default async function EmployeesPage({
               <tr>
                 <th>Code</th>
                 <th>Name</th>
-                <th>CNIC</th>
-                <th>Designation</th>
+                <th>Role</th>
+                <th>Type</th>
+                <th>Supervisor</th>
                 <th>Department</th>
                 <th>Joined</th>
                 <th>Salary</th>
@@ -210,9 +271,14 @@ export default async function EmployeesPage({
                       {e.name}
                     </Link>
                   </td>
-                  <td>{e.cnic}</td>
                   <td>
-                    <DesignationBadge designation={e.designation} />
+                    <RoleBadge orgRole={e.orgRole} designation={e.designation} />
+                  </td>
+                  <td>
+                    <EmploymentTypeBadge type={e.employmentType} />
+                  </td>
+                  <td className="text-sm text-slate-600">
+                    {e.supervisor ? `${e.supervisor.name}` : "—"}
                   </td>
                   <td>{e.department ?? "—"}</td>
                   <td>{formatDate(e.joiningDate)}</td>

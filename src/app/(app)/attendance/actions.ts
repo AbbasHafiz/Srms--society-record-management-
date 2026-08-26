@@ -4,8 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
 import { hasPermission } from "@/lib/rbac";
-import { ALL_DESIGNATIONS } from "@/lib/hr";
-import type { AttendanceStatus, Designation, ShiftType } from "@/generated/prisma/client";
+import { isSecurityGuardEmployee } from "@/lib/hr";
+import type { AttendanceStatus, ShiftType } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { startOfDay } from "date-fns";
 
@@ -28,11 +28,17 @@ export async function markAttendance(formData: FormData) {
   const notes = String(formData.get("notes") || "").trim() || null;
   const date = todayDate();
 
-  const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    include: { orgRole: { select: { code: true } } },
+  });
   if (!employee) throw new Error("Employee not found");
 
-  const defaultShift: ShiftType =
-    employee.designation === "SECURITY_GUARD" ? (shift === "GENERAL" ? "DAY" : shift) : "GENERAL";
+  const defaultShift: ShiftType = isSecurityGuardEmployee(employee)
+    ? shift === "GENERAL"
+      ? "DAY"
+      : shift
+    : "GENERAL";
 
   const existing = await prisma.attendance.findUnique({
     where: { employeeId_date: { employeeId, date } },
@@ -40,7 +46,7 @@ export async function markAttendance(formData: FormData) {
 
   const checkIn =
     status === "PRESENT" || status === "LATE" || status === "HALF_DAY"
-      ? existing?.checkIn ?? new Date()
+      ? (existing?.checkIn ?? new Date())
       : null;
 
   const attendance = await prisma.attendance.upsert({
@@ -85,22 +91,18 @@ export async function bulkMarkAttendance(formData: FormData) {
   const status = String(formData.get("status") || "PRESENT") as AttendanceStatus;
   if (!ATTENDANCE_STATUSES.includes(status)) throw new Error("Invalid status");
 
-  const designationRaw = String(formData.get("designation") || "").trim();
+  const orgRoleId = String(formData.get("orgRoleId") || "").trim() || undefined;
   const department = String(formData.get("department") || "").trim();
   const date = todayDate();
   const now = new Date();
 
-  const designation =
-    designationRaw && ALL_DESIGNATIONS.includes(designationRaw as Designation)
-      ? (designationRaw as Designation)
-      : undefined;
-
   const employees = await prisma.employee.findMany({
     where: {
       status: "ACTIVE",
-      ...(designation ? { designation } : {}),
+      ...(orgRoleId ? { orgRoleId } : {}),
       ...(department ? { department: { equals: department, mode: "insensitive" } } : {}),
     },
+    include: { orgRole: { select: { code: true } } },
   });
 
   if (employees.length === 0) throw new Error("No matching active employees");
@@ -113,7 +115,7 @@ export async function bulkMarkAttendance(formData: FormData) {
           employeeId: emp.id,
           date,
           status,
-          shift: emp.designation === "SECURITY_GUARD" ? "DAY" : "GENERAL",
+          shift: isSecurityGuardEmployee(emp) ? "DAY" : "GENERAL",
           checkIn: status === "PRESENT" || status === "LATE" || status === "HALF_DAY" ? now : null,
           markedById: session.user.id,
         },
@@ -132,7 +134,7 @@ export async function bulkMarkAttendance(formData: FormData) {
     module: "attendance",
     newValue: {
       status,
-      designation: designation ?? "all",
+      orgRoleId: orgRoleId ?? "all",
       department: department || "all",
       count: employees.length,
     },

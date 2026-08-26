@@ -79,7 +79,7 @@ export default async function PlotProfilePage({
         take: 50,
       },
       staffAssignments: {
-        include: { employee: true },
+        include: { employee: { include: { orgRole: true } } },
         orderBy: [{ status: "asc" }, { startDate: "desc" }],
       },
     },
@@ -90,8 +90,14 @@ export default async function PlotProfilePage({
   const activeEmployees = canEdit
     ? await prisma.employee.findMany({
         where: { status: "ACTIVE" },
-        orderBy: [{ designation: "asc" }, { name: "asc" }],
-        select: { id: true, name: true, employeeCode: true, designation: true },
+        orderBy: [{ orgRole: { name: "asc" } }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          employeeCode: true,
+          orgRole: { select: { name: true } },
+          designation: true,
+        },
       })
     : [];
 
@@ -240,7 +246,7 @@ export default async function PlotProfilePage({
                               <div className="text-xs text-slate-500">{a.employee.employeeCode}</div>
                             </td>
                             <td>{a.roleLabel || "—"}</td>
-                            <td>{labelize(a.employee.designation)}</td>
+                            <td>{a.employee.orgRole?.name ?? (a.employee.designation ? labelize(a.employee.designation) : "—")}</td>
                             <td>{formatDate(a.startDate)}</td>
                           </tr>
                         ))}
@@ -286,7 +292,7 @@ export default async function PlotProfilePage({
                           <div className="text-xs text-slate-500">{a.employee.employeeCode}</div>
                         </td>
                         <td>{a.roleLabel || "—"}</td>
-                        <td>{labelize(a.employee.designation)}</td>
+                        <td>{a.employee.orgRole?.name ?? (a.employee.designation ? labelize(a.employee.designation) : "—")}</td>
                         <td>
                           {formatDate(a.startDate)}
                           {a.endDate ? ` → ${formatDate(a.endDate)}` : a.status === "ACTIVE" ? " → Current" : ""}

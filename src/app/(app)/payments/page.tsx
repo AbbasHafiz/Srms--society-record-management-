@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { verifyPayment } from "@/lib/services";
 import { hasPermission } from "@/lib/rbac";
+import { postPaymentToLedgerAction } from "@/app/(app)/finance/actions";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,12 +50,14 @@ export default async function PaymentsPage({
   const status = sp.status?.trim() as PaymentStatus | undefined;
   const session = await auth();
   const canVerify = session?.user && hasPermission(session.user.role, "verify_payment");
+  const canManageFinance = session?.user && hasPermission(session.user.role, "manage_finance");
 
   const payments = await prisma.payment.findMany({
     where: status && STATUSES.includes(status) ? { status } : undefined,
     include: {
       plot: true,
       verifiedBy: { select: { name: true } },
+      financeTransaction: { select: { txnNumber: true } },
     },
     orderBy: { createdAt: "desc" },
     take: 100,
@@ -98,7 +101,8 @@ export default async function PaymentsPage({
                 <th>Date</th>
                 <th>Status</th>
                 <th>Verified By</th>
-                {canVerify ? <th>Action</th> : null}
+                <th>Ledger</th>
+                {(canVerify || canManageFinance) ? <th>Action</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -142,18 +146,38 @@ export default async function PaymentsPage({
                       "—"
                     )}
                   </td>
-                  {canVerify ? (
+                  <td>
+                    {p.financeTransaction ? (
+                      <Link href="/finance" className="text-teal-900 hover:underline">
+                        {p.financeTransaction.txnNumber}
+                      </Link>
+                    ) : p.status === "VERIFIED" ? (
+                      <span className="text-xs text-amber-700">Not posted</span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  {canVerify || canManageFinance ? (
                     <td>
-                      {["PENDING", "SUBMITTED", "PAID"].includes(p.status) ? (
-                        <form action={verifyPaymentAction}>
-                          <input type="hidden" name="paymentId" value={p.id} />
-                          <Button type="submit" size="sm" variant="outline">
-                            Verify
-                          </Button>
-                        </form>
-                      ) : (
-                        "—"
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {canVerify && ["PENDING", "SUBMITTED", "PAID"].includes(p.status) ? (
+                          <form action={verifyPaymentAction}>
+                            <input type="hidden" name="paymentId" value={p.id} />
+                            <Button type="submit" size="sm" variant="outline">
+                              Verify
+                            </Button>
+                          </form>
+                        ) : null}
+                        {canManageFinance && p.status === "VERIFIED" && !p.financeTransaction ? (
+                          <form action={postPaymentToLedgerAction}>
+                            <input type="hidden" name="paymentId" value={p.id} />
+                            <Button type="submit" size="sm" variant="outline">
+                              Post to ledger
+                            </Button>
+                          </form>
+                        ) : null}
+                        {!canVerify && !canManageFinance ? "—" : null}
+                      </div>
                     </td>
                   ) : null}
                 </tr>
