@@ -101,3 +101,12 @@ export function plotStatusBadges(plot: {
 export function isAmenityPlotType(type: PlotType | string): boolean {
   return ["PARK", "MOSQUE", "SCHOOL", "AMENITY"].includes(type);
 }
+
+export function plotLabel(plot: {
+  sector: string;
+  block?: string | null;
+  plotNumber: string;
+}): string {
+  const block = plot.block ? `${plot.block}-` : "";
+  return `${plot.sector}/${block}${plot.plotNumber}`;
+}

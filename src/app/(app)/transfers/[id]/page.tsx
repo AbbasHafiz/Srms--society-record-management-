@@ -10,6 +10,8 @@ import { PageHeader, WarningBanner } from "@/components/ui/page";
 import { SlaBadge, AllotmentSlaBadge } from "@/components/sla-badge";
 import { formatCurrency, formatDate, formatDateTime, labelize } from "@/lib/utils";
 import { hasPermission } from "@/lib/rbac";
+import { plotLabel } from "@/lib/plots";
+import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import {
   DEATH_TRANSFER_DOCUMENTS,
   HEIR_RELATION_LABELS,
@@ -110,9 +112,69 @@ export default async function TransferDetailPage({
         title={`${isDeath ? "Succession " : ""}Transfer ${transfer.transferNumber}`}
         description={`Plot ${transfer.plot.sector}/${transfer.plot.block}-${transfer.plot.plotNumber} · ${labelize(transfer.transferType)}`}
         actions={
-          <Link href={`/plots/${transfer.plotId}`} className="text-sm text-teal-800 hover:underline">
-            Open plot profile
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {session?.user ? (
+              <WhatsAppNotifyAction
+                userRole={session.user.role}
+                relatedModule="transfers"
+                relatedRecordId={transfer.id}
+                plotId={transfer.plotId}
+                transferId={transfer.id}
+                defaultTemplateKey={
+                  transfer.status === "PAYMENT_PENDING"
+                    ? "transfer_payment_pending"
+                    : transfer.status === "COMPLETED"
+                      ? "transfer_completed"
+                      : isDeath
+                        ? "transfer_death_succession"
+                        : "transfer_seller_verification"
+                }
+                templateVars={{
+                  transferNumber: transfer.transferNumber,
+                  plotLabel: plotLabel(transfer.plot),
+                  membershipNumber: transfer.newMembershipNumber ?? "",
+                  amount: pendingPay ? formatCurrency(pendingPay.amount) : "",
+                }}
+                presets={[
+                  ...(transfer.sellerContact
+                    ? [
+                        {
+                          key: "seller",
+                          label: "Seller",
+                          name: transfer.sellerName,
+                          phone: transfer.sellerContact,
+                          type: "OWNER" as const,
+                        },
+                      ]
+                    : []),
+                  ...(transfer.purchaserContact && transfer.purchaserName
+                    ? [
+                        {
+                          key: "purchaser",
+                          label: "Purchaser",
+                          name: transfer.purchaserName,
+                          phone: transfer.purchaserContact,
+                          type: "OWNER" as const,
+                        },
+                      ]
+                    : []),
+                  ...transfer.heirs
+                    .filter((h) => h.contact)
+                    .map((h) => ({
+                      key: `heir-${h.id}`,
+                      label: `Heir (${labelize(h.relationToDeceased)})`,
+                      name: h.name,
+                      phone: h.contact!,
+                      type: "HEIR" as const,
+                    })),
+                ]}
+                allowedModes={["preset", "custom"]}
+              />
+            ) : null}
+            <Link href={`/plots/${transfer.plotId}`} className="text-sm text-teal-800 hover:underline">
+              Open plot profile
+            </Link>
+          </div>
         }
       />
 

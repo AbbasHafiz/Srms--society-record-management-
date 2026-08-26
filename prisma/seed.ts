@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { seedFinance } from "./seed-finance";
+import { DEFAULT_TEMPLATE_BODIES, WHATSAPP_TEMPLATE_KEYS } from "../src/lib/whatsapp";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -11,6 +12,8 @@ async function main() {
   console.log("Seeding Society Records…");
 
   await prisma.auditLog.deleteMany();
+  await prisma.whatsAppOutbox.deleteMany();
+  await prisma.notifyTemplate.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.garbageCollection.deleteMany();
   await prisma.tankerDelivery.deleteMany();
@@ -316,7 +319,44 @@ async function main() {
       { key: "sla_noc_days", value: "7", label: "NOC issuance (days)" },
       { key: "sla_nec_days", value: "7", label: "NEC issuance (days)" },
       { key: "sla_utility_noc_days", value: "7", label: "Utility connection NOC (days)" },
+      { key: "whatsapp_enabled", value: "true", label: "WhatsApp notifications enabled" },
+      { key: "whatsapp_default_country_code", value: "92", label: "WhatsApp default country code (PK)" },
     ],
+  });
+
+  const templateModules: Record<string, string | undefined> = {
+    transfer_seller_verification: "transfers",
+    transfer_payment_pending: "transfers",
+    transfer_completed: "transfers",
+    transfer_death_succession: "transfers",
+    possession_submitted: "possession",
+    possession_issued: "possession",
+    possession_sla_reminder: "possession",
+    noc_submitted: "noc",
+    noc_issued: "noc",
+    noc_sla_reminder: "noc",
+    nec_submitted: "nec",
+    nec_issued: "nec",
+    nec_sla_reminder: "nec",
+    utility_noc_reminder: "noc",
+    open_file_expiry: "open-files",
+    mortgage_warning: "plots",
+    annual_charge_overdue: "annual-charges",
+    tanker_confirmed: "tankers",
+    tanker_assigned_driver: "tankers",
+    tanker_out_for_delivery: "tankers",
+    guard_shift_reminder: "attendance",
+    custom_message: undefined,
+  };
+
+  await prisma.notifyTemplate.createMany({
+    data: WHATSAPP_TEMPLATE_KEYS.map((key, i) => ({
+      key,
+      name: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      body: DEFAULT_TEMPLATE_BODIES[key],
+      module: templateModules[key] ?? null,
+      sortOrder: i * 10,
+    })),
   });
 
   // File locations
@@ -1437,6 +1477,49 @@ async function main() {
         title: "System maintenance window",
         message: "Scheduled backup runs nightly at 02:00 PKT. No action required.",
         href: "/settings",
+      },
+    ],
+  });
+
+  await prisma.whatsAppOutbox.createMany({
+    data: [
+      {
+        recipientName: "Ahmed Raza (Owner)",
+        recipientPhone: "923001234567",
+        recipientType: "OWNER",
+        plotId: plot123.id,
+        relatedModule: "plots",
+        relatedRecordId: plot123.id,
+        templateKey: "custom_message",
+        messageBody:
+          "Green Valley Society: Sample WhatsApp notify — plot E-17/3-123 annual charges reminder.",
+        status: "LINK_GENERATED",
+        deepLinkUrl:
+          "https://wa.me/923001234567?text=Green%20Valley%20Society%3A%20Sample%20WhatsApp%20notify",
+        createdById: admin.id,
+      },
+      {
+        recipientName: imran.name,
+        recipientPhone: "923001234567",
+        recipientType: "GUARD",
+        recipientEmployeeId: imran.id,
+        relatedModule: "attendance",
+        templateKey: "guard_shift_reminder",
+        messageBody: `Green Valley Security: Shift reminder — DAY duty on ${new Date().toLocaleDateString("en-GB")}. Post: Main gate.`,
+        status: "LINK_GENERATED",
+        deepLinkUrl: "https://wa.me/923001234567?text=Green%20Valley%20Security%3A%20Shift%20reminder",
+        createdById: admin.id,
+      },
+      {
+        recipientName: "Finance contact",
+        recipientPhone: "923009876543",
+        recipientType: "CUSTOM",
+        relatedModule: "notifications",
+        templateKey: "annual_charge_overdue",
+        messageBody: "Green Valley Society: Annual plot charges overdue for plot E-17/3-123. Amount due: PKR 2,000.",
+        status: "LINK_GENERATED",
+        deepLinkUrl: "https://wa.me/923009876543?text=Annual%20charges%20overdue",
+        createdById: admin.id,
       },
     ],
   });

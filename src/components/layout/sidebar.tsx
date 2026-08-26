@@ -29,6 +29,7 @@ import {
   X,
   Bell,
   IdCard,
+  MessageCircle,
   Receipt,
 } from "lucide-react";
 import { useState } from "react";
@@ -38,6 +39,7 @@ import { SignOutButton } from "@/components/layout/sign-out-button";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/notifications/whatsapp", label: "WhatsApp Outbox", icon: MessageCircle },
   { href: "/plots", label: "Plots", icon: MapPinned },
   { href: "/transfers", label: "Transfers", icon: ArrowLeftRight },
   { href: "/owners", label: "Ownership", icon: Users },

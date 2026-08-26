@@ -357,6 +357,28 @@ enum NotificationPriority {
   URGENT
 }
 
+enum NotifyChannel {
+  WHATSAPP
+}
+
+enum NotifyRecipientType {
+  OWNER
+  EMPLOYEE
+  GUARD
+  DEALER
+  BOOKER
+  HEIR
+  CUSTOM
+  OTHER
+}
+
+enum NotifyOutboxStatus {
+  DRAFT
+  LINK_GENERATED
+  SENT
+  FAILED
+}
+
 // ─── Auth & Users ────────────────────────────────────────────────────────────
 
 model User {
@@ -386,6 +408,7 @@ model User {
   attendanceMarked    Attendance[]        @relation("AttendanceMarkedBy")
   financeTransactionsCreated FinanceTransaction[] @relation("FinanceTxnCreatedBy")
   tankerBookingsCreated TankerDelivery[]  @relation("TankerBookedBy")
+  whatsappOutboxCreated WhatsAppOutbox[]  @relation("WhatsAppOutboxCreatedBy")
 
   @@index([role])
   @@index([email])
@@ -452,6 +475,7 @@ model Plot {
   auditLogs        AuditLog[]
   staffAssignments PlotStaffAssignment[]
   notifications    Notification[]
+  whatsappOutbox   WhatsAppOutbox[]
 
   @@unique([sector, block, plotNumber])
   @@index([plotNumber])
@@ -584,6 +608,7 @@ model Transfer {
   fileMovements FileMovement[]
   openFiles     OpenFile[]
   heirs         TransferHeir[]
+  whatsappOutbox WhatsAppOutbox[]
 
   @@index([plotId])
   @@index([status])
@@ -1055,6 +1080,7 @@ model Employee {
   plotStaffAssignments PlotStaffAssignment[]
   salaryPayments       SalaryPayment[]
   financeTransactions  FinanceTransaction[]
+  whatsappOutbox       WhatsAppOutbox[]
 
   @@index([designation])
   @@index([orgRoleId])
@@ -1382,4 +1408,51 @@ model Notification {
   @@index([isRead, createdAt])
   @@index([type])
   @@index([plotId])
+}
+
+// ─── WhatsApp Notify Outbox (separate from in-app Notification alerts) ───────
+
+model NotifyTemplate {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  body      String
+  module    String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([module, isActive, sortOrder])
+}
+
+model WhatsAppOutbox {
+  id                  String               @id @default(cuid())
+  channel             NotifyChannel        @default(WHATSAPP)
+  recipientName       String
+  recipientPhone      String
+  recipientType       NotifyRecipientType
+  recipientEmployeeId String?
+  recipientEmployee   Employee?            @relation(fields: [recipientEmployeeId], references: [id])
+  plotId              String?
+  plot                Plot?                @relation(fields: [plotId], references: [id])
+  transferId          String?
+  transfer            Transfer?            @relation(fields: [transferId], references: [id])
+  relatedModule       String?
+  relatedRecordId     String?
+  templateKey         String?
+  messageBody         String
+  status              NotifyOutboxStatus   @default(DRAFT)
+  deepLinkUrl         String?
+  providerResponse    String?
+  createdById         String?
+  createdBy           User?                @relation("WhatsAppOutboxCreatedBy", fields: [createdById], references: [id])
+  createdAt           DateTime             @default(now())
+
+  @@index([status, createdAt])
+  @@index([recipientType])
+  @@index([plotId])
+  @@index([transferId])
+  @@index([relatedModule, relatedRecordId])
+  @@index([createdById])
 }

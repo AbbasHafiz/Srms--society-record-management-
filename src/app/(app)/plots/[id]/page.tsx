@@ -10,7 +10,8 @@ import { PlotStatusBadges } from "@/components/plots/plot-status-badges";
 import { PlotStaffAssignForm } from "@/components/plots/plot-staff-form";
 import { endPlotStaffAssignment } from "@/app/(app)/plots/actions";
 import { getScanPath } from "@/lib/qr";
-import { plotTypeLabel } from "@/lib/plots";
+import { plotTypeLabel, plotLabel } from "@/lib/plots";
+import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import { plotSizeDisplay, NOC_PURPOSE_LABELS } from "@/lib/property-sizes";
 import { hasPermission } from "@/lib/rbac";
 import { formatCurrency, formatDate, formatDateTime, daysUntil, labelize } from "@/lib/utils";
@@ -134,6 +135,37 @@ export default async function PlotProfilePage({
               className="[&_span]:border-teal-700/30 [&_span]:bg-white/10 [&_span]:text-teal-50"
             />
           </div>
+          {session?.user ? (
+            <div className="mt-4">
+              <WhatsAppNotifyAction
+                userRole={session.user.role}
+                relatedModule="plots"
+                relatedRecordId={plotId}
+                plotId={plotId}
+                defaultTemplateKey="custom_message"
+                templateVars={{
+                  plotLabel: plotLabel(plot),
+                  ownerName: activeOwner?.ownerName ?? "",
+                  membershipNumber: activeOwner?.membershipNumber ?? "",
+                  message: "",
+                }}
+                presets={
+                  activeOwner?.contact
+                    ? [
+                        {
+                          key: "owner",
+                          label: "Plot owner",
+                          name: activeOwner.ownerName,
+                          phone: activeOwner.contact,
+                          type: "OWNER",
+                        },
+                      ]
+                    : []
+                }
+                allowedModes={["preset", "custom"]}
+              />
+            </div>
+          ) : null}
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs text-teal-200/70">Current Owner</p>

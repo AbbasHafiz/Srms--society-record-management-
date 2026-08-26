@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
+import { plotLabel } from "@/lib/plots";
+import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import { generateChargesAction, markChargePaidAction } from "./actions";
 import type { ChargePeriodStatus } from "@/generated/prisma/client";
 
@@ -58,7 +60,7 @@ export default async function AnnualChargesPage({
       },
       include: {
         plot: true,
-        ownership: { select: { ownerName: true, membershipNumber: true } },
+        ownership: { select: { ownerName: true, membershipNumber: true, contact: true } },
         feeConfig: { select: { name: true } },
       },
       orderBy: [{ year: "desc" }, { month: "desc" }, { plot: { sector: "asc" } }],
@@ -169,6 +171,7 @@ export default async function AnnualChargesPage({
                 <th>Amount</th>
                 <th>Due</th>
                 <th>Status</th>
+                <th>Notify</th>
                 {canManage ? <th>Action</th> : null}
               </tr>
             </thead>
@@ -192,6 +195,34 @@ export default async function AnnualChargesPage({
                   <td>{formatCurrency(c.amount)}</td>
                   <td>{c.dueDate ? formatDate(c.dueDate) : "—"}</td>
                   <td><Badge status={c.status} /></td>
+                  <td>
+                    {session?.user && c.ownership?.contact ? (
+                      <WhatsAppNotifyAction
+                        userRole={session.user.role}
+                        relatedModule="annual-charges"
+                        relatedRecordId={c.id}
+                        plotId={c.plotId}
+                        defaultTemplateKey="annual_charge_overdue"
+                        templateVars={{
+                          plotLabel: plotLabel(c.plot),
+                          amount: formatCurrency(c.amount),
+                        }}
+                        presets={[
+                          {
+                            key: "owner",
+                            label: "Owner",
+                            name: c.ownership!.ownerName,
+                            phone: c.ownership!.contact!,
+                            type: "OWNER",
+                          },
+                        ]}
+                        allowedModes={["preset", "custom"]}
+                        label="WhatsApp"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </td>
                   {canManage ? (
                     <td>
                       {["PENDING", "BILLED", "OVERDUE"].includes(c.status) ? (

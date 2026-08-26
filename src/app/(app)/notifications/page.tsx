@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState, StatCard } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, labelize } from "@/lib/utils";
+import { plotLabel } from "@/lib/plots";
+import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import {
   markNotificationRead,
   markNotificationUnread,
@@ -31,6 +34,7 @@ export default async function NotificationsPage({
   const sp = await searchParams;
   const unreadOnly = sp.unread === "1";
   const type = sp.type?.trim() as NotificationType | undefined;
+  const session = await auth();
 
   const [notifications, unreadCount, urgentCount] = await Promise.all([
     prisma.notification.findMany({
@@ -38,7 +42,21 @@ export default async function NotificationsPage({
         ...(unreadOnly ? { isRead: false } : {}),
         ...(type && TYPES.includes(type) ? { type } : {}),
       },
-      include: { plot: { select: { sector: true, block: true, plotNumber: true } } },
+      include: {
+        plot: {
+          select: {
+            id: true,
+            sector: true,
+            block: true,
+            plotNumber: true,
+            ownerships: {
+              where: { status: "ACTIVE" },
+              take: 1,
+              select: { ownerName: true, contact: true },
+            },
+          },
+        },
+      },
       orderBy: [{ isRead: "asc" }, { createdAt: "desc" }],
       take: 100,
     }),
@@ -52,13 +70,21 @@ export default async function NotificationsPage({
         title="Notifications"
         description="Operational alerts — SLA overdue, open file expiry, tanker schedules, pending transfers, and mortgage warnings."
         actions={
-          unreadCount > 0 ? (
-            <form action={markAllNotificationsRead}>
-              <Button type="submit" variant="outline" size="sm">
-                Mark all read ({unreadCount})
-              </Button>
-            </form>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/notifications/whatsapp"
+              className="text-sm text-teal-800 hover:underline"
+            >
+              WhatsApp outbox
+            </Link>
+            {unreadCount > 0 ? (
+              <form action={markAllNotificationsRead}>
+                <Button type="submit" variant="outline" size="sm">
+                  Mark all read ({unreadCount})
+                </Button>
+              </form>
+            ) : null}
+          </div>
         }
       />
 
@@ -132,7 +158,31 @@ export default async function NotificationsPage({
                     ) : null}
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                  {session?.user && n.plot?.ownerships[0]?.contact ? (
+                    <WhatsAppNotifyAction
+                      userRole={session.user.role}
+                      relatedModule="notifications"
+                      relatedRecordId={n.id}
+                      plotId={n.plotId ?? undefined}
+                      defaultTemplateKey="custom_message"
+                      templateVars={{
+                        plotLabel: plotLabel(n.plot),
+                        message: n.message,
+                      }}
+                      presets={[
+                        {
+                          key: "owner",
+                          label: "Plot owner",
+                          name: n.plot.ownerships[0].ownerName,
+                          phone: n.plot.ownerships[0].contact!,
+                          type: "OWNER",
+                        },
+                      ]}
+                      allowedModes={["preset", "custom"]}
+                      label="WhatsApp"
+                    />
+                  ) : null}
                   {n.isRead ? (
                     <form action={markNotificationUnread}>
                       <input type="hidden" name="id" value={n.id} />

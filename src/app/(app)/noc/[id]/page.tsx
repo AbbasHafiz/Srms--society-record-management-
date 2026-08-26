@@ -14,6 +14,8 @@ import {
 } from "@/lib/property-sizes";
 import { canApproveNoc } from "@/lib/noc";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
+import { plotLabel } from "@/lib/plots";
+import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +54,38 @@ export default async function NocDetailPage({ params }: { params: Promise<{ id: 
             : "No Objection Certificate application"
         }
         actions={
-          <Badge status={noc.status} />
+          <div className="flex flex-wrap items-center gap-2">
+            {session?.user && noc.ownership?.contact ? (
+              <WhatsAppNotifyAction
+                userRole={session.user.role}
+                relatedModule="noc"
+                relatedRecordId={noc.id}
+                plotId={noc.plotId}
+                defaultTemplateKey={
+                  noc.status === "ISSUED" ? "noc_issued" : "noc_submitted"
+                }
+                templateVars={{
+                  applicationNumber: noc.applicationNumber,
+                  plotLabel: plotLabel(noc.plot),
+                  purpose: NOC_PURPOSE_LABELS[noc.purpose] ?? noc.purpose,
+                  nocNumber: noc.nocNumber ?? "",
+                  expiryDate: noc.expiryDate ? formatDate(noc.expiryDate) : "",
+                  dueDate: noc.slaDueAt ? formatDate(noc.slaDueAt) : "",
+                }}
+                presets={[
+                  {
+                    key: "applicant",
+                    label: "Applicant",
+                    name: noc.applicantName,
+                    phone: noc.ownership!.contact!,
+                    type: "OWNER",
+                  },
+                ]}
+                allowedModes={["preset", "custom"]}
+              />
+            ) : null}
+            <Badge status={noc.status} />
+          </div>
         }
       />
 

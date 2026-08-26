@@ -16,6 +16,8 @@ import {
   tankerTypeBadgeClass,
 } from "@/lib/tankers";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
+import { plotLabel } from "@/lib/plots";
+import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +72,55 @@ export default async function TankerBookingDetailPage({ params }: { params: Prom
         title={booking.bookingNumber}
         description={`${TANKER_TYPE_LABELS[booking.tankerType]} delivery`}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {session?.user ? (
+              <WhatsAppNotifyAction
+                userRole={session.user.role}
+                relatedModule="tankers"
+                relatedRecordId={booking.id}
+                plotId={booking.plotId ?? undefined}
+                defaultTemplateKey={
+                  booking.status === "IN_PROGRESS"
+                    ? "tanker_out_for_delivery"
+                    : booking.driverId
+                      ? "tanker_assigned_driver"
+                      : "tanker_confirmed"
+                }
+                templateVars={{
+                  bookingNumber: booking.bookingNumber,
+                  distributionDate: formatDate(booking.distributionDate),
+                  slotLabel: slotDisplay,
+                  amount: formatCurrency(booking.charges),
+                  driverName: booking.driver?.name ?? "",
+                }}
+                presets={[
+                  ...(booking.bookerContact && booking.bookerName
+                    ? [
+                        {
+                          key: "booker",
+                          label: "Booker",
+                          name: booking.bookerName,
+                          phone: booking.bookerContact,
+                          type: "BOOKER" as const,
+                        },
+                      ]
+                    : []),
+                  ...(booking.driver?.contact
+                    ? [
+                        {
+                          key: "driver",
+                          label: "Driver",
+                          name: booking.driver.name,
+                          phone: booking.driver.contact,
+                          type: "EMPLOYEE" as const,
+                          employeeId: booking.driver.id,
+                        },
+                      ]
+                    : []),
+                ]}
+                allowedModes={["preset", "custom"]}
+              />
+            ) : null}
             <Badge status={booking.status} />
             <Badge status={booking.paymentStatus} />
           </div>

@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
+import { plotLabel } from "@/lib/plots";
+import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +51,7 @@ export default async function OpenFileDetailPage({
 
   if (!openFile) notFound();
 
+  const session = await auth();
   const days = daysUntil(openFile.expiryDate);
   const expiringSoon = openFile.status === "ACTIVE" && days <= 30;
 
@@ -58,9 +61,39 @@ export default async function OpenFileDetailPage({
         title={openFile.openFileNumber}
         description={`Dealer open file · ${openFile.dealerName}`}
         actions={
-          <Link href="/open-files" className="text-sm text-teal-800 hover:underline">
-            ← Back to list
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {session?.user ? (
+              <WhatsAppNotifyAction
+                userRole={session.user.role}
+                relatedModule="open-files"
+                relatedRecordId={openFile.id}
+                plotId={openFile.plotId}
+                defaultTemplateKey="open_file_expiry"
+                templateVars={{
+                  openFileNumber: openFile.openFileNumber,
+                  plotLabel: plotLabel(openFile.plot),
+                  expiryDate: formatDate(openFile.expiryDate),
+                }}
+                presets={[
+                  ...(openFile.ownership?.contact
+                    ? [
+                        {
+                          key: "seller",
+                          label: "Seller / owner",
+                          name: openFile.sellerName,
+                          phone: openFile.ownership.contact,
+                          type: "OWNER" as const,
+                        },
+                      ]
+                    : []),
+                ]}
+                allowedModes={["preset", "custom"]}
+              />
+            ) : null}
+            <Link href="/open-files" className="text-sm text-teal-800 hover:underline">
+              ← Back to list
+            </Link>
+          </div>
         }
       />
 

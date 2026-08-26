@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { RoleBadge } from "@/components/employees/designation-badge";
 import { markAttendance, bulkMarkAttendance, createGuardShift, deleteGuardShift } from "./actions";
 import { formatDateTime, labelize } from "@/lib/utils";
+import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import { startOfDay } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -71,9 +72,40 @@ export default async function AttendancePage() {
         title="Attendance"
         description={`Daily attendance roster and guard shifts for ${today.toLocaleDateString("en-GB")}`}
         actions={
-          <Link href="/employees" className="text-sm text-teal-800 hover:underline">
-            Staff register
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            {session?.user && securityGuards.length ? (
+              <WhatsAppNotifyAction
+                userRole={session.user.role}
+                relatedModule="attendance"
+                defaultTemplateKey="guard_shift_reminder"
+                templateVars={{
+                  date: today.toLocaleDateString("en-GB"),
+                  shift: "Day/Night",
+                  post: "Security post",
+                }}
+                guardEmployees={securityGuards.map((g) => ({
+                  id: g.id,
+                  name: g.name,
+                  phone: g.contact,
+                }))}
+                allowedModes={["all_guards", "multi_guards", "preset", "custom"]}
+                presets={securityGuards
+                  .filter((g) => g.contact)
+                  .map((g) => ({
+                    key: g.id,
+                    label: g.name,
+                    name: g.name,
+                    phone: g.contact!,
+                    type: "GUARD" as const,
+                    employeeId: g.id,
+                  }))}
+                label="Notify guards"
+              />
+            ) : null}
+            <Link href="/employees" className="text-sm text-teal-800 hover:underline">
+              Staff register
+            </Link>
+          </div>
         }
       />
 
