@@ -35,6 +35,8 @@ export default async function DashboardPage() {
     overduePossession,
     overdueNocs,
     overdueNecs,
+    unreadNotifications,
+    urgentNotifications,
   ] = await Promise.all([
     prisma.plot.count(),
     prisma.ownership.count({ where: { status: "ACTIVE" } }),
@@ -95,7 +97,17 @@ export default async function DashboardPage() {
         slaDueAt: { lt: now },
       },
     }),
+    prisma.notification.count({ where: { isRead: false } }),
+    prisma.notification.count({
+      where: { isRead: false, priority: { in: ["HIGH", "URGENT"] } },
+    }),
   ]);
+
+  const recentNotifications = await prisma.notification.findMany({
+    where: { isRead: false },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+  });
 
   const recentTransfers = await prisma.transfer.findMany({
     take: 5,
@@ -150,10 +162,44 @@ export default async function DashboardPage() {
           label="Today's Tanker Collection"
           value={formatCurrency(tankerCollection._sum.charges ?? 0)}
         />
+        <StatCard
+          label="Unread Notifications"
+          value={unreadNotifications}
+          tone={unreadNotifications ? "warn" : "default"}
+        />
+        <StatCard
+          label="Urgent Alerts"
+          value={urgentNotifications}
+          tone={urgentNotifications ? "danger" : "default"}
+        />
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="mt-8 grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+        {recentNotifications.length > 0 ? (
+          <section className="rounded-xl border border-slate-200 bg-white shadow-sm xl:col-span-1">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h2 className="font-display text-lg font-semibold">Unread Alerts</h2>
+              <Link href="/notifications" className="text-sm text-teal-800 hover:underline">
+                View all
+              </Link>
+            </div>
+            <ul className="divide-y divide-slate-100 px-5 py-2">
+              {recentNotifications.map((n) => (
+                <li key={n.id} className="py-3">
+                  <p className="text-sm font-medium text-slate-900">{n.title}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{n.message}</p>
+                  {n.href ? (
+                    <Link href={n.href} className="mt-1 inline-block text-xs text-teal-800 hover:underline">
+                      Open →
+                    </Link>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        <section className={`rounded-xl border border-slate-200 bg-white shadow-sm ${recentNotifications.length > 0 ? "" : "lg:col-span-1"}`}>
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <h2 className="font-display text-lg font-semibold">Recent Transfers</h2>
             <Link href="/transfers" className="text-sm text-teal-800 hover:underline">

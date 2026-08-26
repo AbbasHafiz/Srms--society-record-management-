@@ -144,3 +144,65 @@ export async function bulkMarkAttendance(formData: FormData) {
   revalidatePath("/hr");
   revalidatePath("/employees");
 }
+
+export async function createGuardShift(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "mark_attendance")) throw new Error("Forbidden");
+
+  const employeeId = String(formData.get("employeeId") || "");
+  const shift = String(formData.get("shift") || "DAY") as ShiftType;
+  const post = String(formData.get("post") || "").trim() || null;
+  const replacementId = String(formData.get("replacementId") || "").trim() || null;
+  const isLeave = formData.get("isLeave") === "on";
+  const notes = String(formData.get("notes") || "").trim() || null;
+  const date = todayDate();
+
+  if (!employeeId) throw new Error("Guard is required");
+
+  const guard = await prisma.guardShift.upsert({
+    where: {
+      employeeId_date_shift: { employeeId, date, shift },
+    },
+    create: {
+      employeeId,
+      date,
+      shift,
+      post,
+      replacementId,
+      isLeave,
+      notes,
+    },
+    update: { post, replacementId, isLeave, notes },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "GUARD_SHIFT_SCHEDULED",
+    module: "attendance",
+    recordId: guard.id,
+    newValue: { employeeId, shift, post, isLeave },
+  });
+
+  revalidatePath("/attendance");
+}
+
+export async function deleteGuardShift(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "mark_attendance")) throw new Error("Forbidden");
+
+  const id = String(formData.get("id") || "");
+  if (!id) throw new Error("Shift ID required");
+
+  await prisma.guardShift.delete({ where: { id } });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "GUARD_SHIFT_REMOVED",
+    module: "attendance",
+    recordId: id,
+  });
+
+  revalidatePath("/attendance");
+}

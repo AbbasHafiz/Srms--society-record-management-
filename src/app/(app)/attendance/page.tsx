@@ -6,7 +6,7 @@ import { PageHeader, StatCard } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RoleBadge } from "@/components/employees/designation-badge";
-import { markAttendance, bulkMarkAttendance } from "./actions";
+import { markAttendance, bulkMarkAttendance, createGuardShift, deleteGuardShift } from "./actions";
 import { formatDateTime, labelize } from "@/lib/utils";
 import { startOfDay } from "date-fns";
 
@@ -19,7 +19,7 @@ export default async function AttendancePage() {
   const session = await auth();
   const canMark = session?.user && hasPermission(session.user.role, "mark_attendance");
 
-  const [activeEmployees, todayAttendance, guardShifts, presentCount, absentCount, onLeaveCount, departments, orgRoles] =
+  const [activeEmployees, todayAttendance, guardShifts, presentCount, absentCount, onLeaveCount, departments, orgRoles, securityGuards] =
     await Promise.all([
       prisma.employee.findMany({
         where: { status: "ACTIVE" },
@@ -50,6 +50,16 @@ export default async function AttendancePage() {
       prisma.orgRole.findMany({
         where: { isActive: true },
         orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
+      }),
+      prisma.employee.findMany({
+        where: {
+          status: "ACTIVE",
+          OR: [
+            { designation: "SECURITY_GUARD" },
+            { orgRole: { code: "SECURITY_GUARD" } },
+          ],
+        },
+        orderBy: { name: "asc" },
       }),
     ]);
 
@@ -243,6 +253,49 @@ export default async function AttendancePage() {
             <h2 className="font-display text-lg font-semibold">Guard Shifts</h2>
             <p className="text-sm text-slate-500">Security guard roster — day/night posts and replacements.</p>
           </div>
+
+          {canMark ? (
+            <form action={createGuardShift} className="border-b border-slate-100 bg-slate-50/50 px-5 py-4">
+              <p className="mb-3 text-sm font-medium text-slate-700">Schedule guard shift (today)</p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <label className="text-sm">
+                  <span className="mb-1 block text-xs text-slate-600">Guard</span>
+                  <select name="employeeId" required className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+                    <option value="">Select guard</option>
+                    {securityGuards.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name} ({g.employeeCode})</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-xs text-slate-600">Shift</span>
+                  <select name="shift" defaultValue="DAY" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+                    <option value="DAY">Day</option>
+                    <option value="NIGHT">Night</option>
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-xs text-slate-600">Post</span>
+                  <input name="post" placeholder="e.g. Main Gate" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-xs text-slate-600">Replacement</span>
+                  <select name="replacementId" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+                    <option value="">None</option>
+                    {securityGuards.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="isLeave" />
+                  On leave
+                </label>
+                <Button type="submit" size="sm">Add / update shift</Button>
+              </div>
+            </form>
+          ) : null}
+
           {guardShifts.length === 0 ? (
             <p className="px-5 py-8 text-sm text-slate-500">No guard shifts scheduled today.</p>
           ) : (
@@ -254,6 +307,7 @@ export default async function AttendancePage() {
                   <th>Post</th>
                   <th>Replacement</th>
                   <th>Leave</th>
+                  {canMark ? <th></th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -276,6 +330,14 @@ export default async function AttendancePage() {
                       )}
                     </td>
                     <td>{g.isLeave ? <Badge status="LEAVE">On Leave</Badge> : "—"}</td>
+                    {canMark ? (
+                      <td>
+                        <form action={deleteGuardShift}>
+                          <input type="hidden" name="id" value={g.id} />
+                          <Button type="submit" size="sm" variant="outline">Remove</Button>
+                        </form>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

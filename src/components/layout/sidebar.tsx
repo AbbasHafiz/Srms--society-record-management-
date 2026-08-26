@@ -27,6 +27,9 @@ import {
   Search,
   Menu,
   X,
+  Bell,
+  IdCard,
+  Receipt,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -34,9 +37,11 @@ import { SignOutButton } from "@/components/layout/sign-out-button";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/plots", label: "Plots", icon: MapPinned },
   { href: "/transfers", label: "Transfers", icon: ArrowLeftRight },
-  { href: "/owners", label: "Owners", icon: Users },
+  { href: "/owners", label: "Ownership", icon: Users },
+  { href: "/memberships", label: "Memberships", icon: IdCard },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/possession", label: "Possession", icon: Home },
   { href: "/noc", label: "NOC", icon: ShieldCheck },
@@ -44,6 +49,7 @@ const NAV = [
   { href: "/mortgages", label: "Bank / Mortgage", icon: Landmark },
   { href: "/open-files", label: "Open Files", icon: FolderOpen },
   { href: "/payments", label: "Payments", icon: Wallet },
+  { href: "/annual-charges", label: "Annual Charges", icon: Receipt },
   { href: "/finance", label: "Revenue & Expenses", icon: CircleDollarSign },
   { href: "/physical-files", label: "Physical Files", icon: Archive },
   { href: "/employees", label: "Employees", icon: UserCog },

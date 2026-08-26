@@ -340,6 +340,23 @@ enum ConstructionType {
   OTHER
 }
 
+enum NotificationType {
+  SLA_OVERDUE
+  OPEN_FILE_EXPIRY
+  TANKER_SCHEDULE
+  PENDING_TRANSFER
+  MORTGAGE_WARNING
+  ANNUAL_CHARGE_OVERDUE
+  GENERAL
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 // ─── Auth & Users ────────────────────────────────────────────────────────────
 
 model User {
@@ -434,6 +451,7 @@ model Plot {
   tankerDeliveries TankerDelivery[]
   auditLogs        AuditLog[]
   staffAssignments PlotStaffAssignment[]
+  notifications    Notification[]
 
   @@unique([sector, block, plotNumber])
   @@index([plotNumber])
@@ -1343,4 +1361,25 @@ model NumberSequence {
   nextValue Int    @default(1)
   padLength Int    @default(4)
   updatedAt DateTime @updatedAt
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+model Notification {
+  id        String               @id @default(cuid())
+  type      NotificationType
+  priority  NotificationPriority @default(NORMAL)
+  title     String
+  message   String
+  href      String?
+  plotId    String?
+  plot      Plot?                @relation(fields: [plotId], references: [id])
+  recordId  String?
+  isRead    Boolean              @default(false)
+  readAt    DateTime?
+  createdAt DateTime             @default(now())
+
+  @@index([isRead, createdAt])
+  @@index([type])
+  @@index([plotId])
 }

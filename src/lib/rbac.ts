@@ -145,6 +145,9 @@ export function canAccessModule(role: Role, module: string): boolean {
       "TRANSFER_OFFICER",
       "VIEWER",
     ],
+    notifications: ALL_ROLES,
+    memberships: ALL_ROLES,
+    "annual-charges": ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM", "FINANCE", "VIEWER"],
     audit: ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM"],
     settings: ["SUPER_ADMIN", "ADMIN", "SECRETARY", "GM"],
   };

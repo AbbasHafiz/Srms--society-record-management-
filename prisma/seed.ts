@@ -11,6 +11,7 @@ async function main() {
   console.log("Seeding Society Records…");
 
   await prisma.auditLog.deleteMany();
+  await prisma.notification.deleteMany();
   await prisma.garbageCollection.deleteMany();
   await prisma.tankerDelivery.deleteMany();
   await prisma.tankerTimeSlot.deleteMany();
@@ -1374,6 +1375,68 @@ async function main() {
         plotId: plot123.id,
         oldValue: { location: "A-2 / L-04" },
         newValue: { location: "A-1 / L-12" },
+      },
+    ],
+  });
+
+
+  await prisma.notification.createMany({
+    data: [
+      {
+        type: "SLA_OVERDUE",
+        priority: "URGENT",
+        title: "Transfer SLA overdue",
+        message: `Transfer ${t1.transferNumber} has passed its SLA due date and requires immediate attention.`,
+        href: `/transfers/${t1.id}`,
+        plotId: plot123.id,
+        recordId: t1.id,
+      },
+      {
+        type: "OPEN_FILE_EXPIRY",
+        priority: "HIGH",
+        title: "Open file expiring soon",
+        message: "Dealer open file OF-0003 expires within 30 days — seller may need renewal or closure.",
+        href: "/open-files",
+        plotId: plot456.id,
+      },
+      {
+        type: "TANKER_SCHEDULE",
+        priority: "NORMAL",
+        title: "Tanker deliveries today",
+        message: "Water tanker bookings are scheduled for today. Review dispatch and payment collection.",
+        href: "/tankers",
+      },
+      {
+        type: "PENDING_TRANSFER",
+        priority: "NORMAL",
+        title: "Pending transfer awaiting payment",
+        message: "One or more transfers are in PAYMENT_PENDING status awaiting finance verification.",
+        href: "/transfers?status=PAYMENT_PENDING",
+      },
+      {
+        type: "MORTGAGE_WARNING",
+        priority: "HIGH",
+        title: "Active mortgage on plot",
+        message: "Plot E-17/5-456 has an active HBL mortgage — transfer blocked until bank NOC is received.",
+        href: `/plots/${plot456.id}`,
+        plotId: plot456.id,
+      },
+      {
+        type: "ANNUAL_CHARGE_OVERDUE",
+        priority: "HIGH",
+        title: "Overdue annual plot charges",
+        message: "Plot E-17/8-052 has overdue monthly charges. Follow up with owner for payment.",
+        href: "/annual-charges?status=OVERDUE",
+        plotId: plot052.id,
+        isRead: true,
+        readAt: new Date(),
+      },
+      {
+        type: "GENERAL",
+        priority: "LOW",
+        title: "System maintenance window",
+        message: "Scheduled backup runs nightly at 02:00 PKT. No action required.",
+        href: "/settings",
       },
     ],
   });
