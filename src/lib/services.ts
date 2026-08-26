@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
 import { nextAllotmentNumber, nextMembershipNumber, nextReceiptNumber } from "@/lib/numbering";
 import { AUTO_POST_FEE_TYPES, postRevenueFromPayment } from "@/lib/finance";
+import { computeAllotmentLetterDue } from "@/lib/sla";
+import { validateDeathTransferReadiness } from "@/lib/death-transfer";
 import type { Prisma } from "@/generated/prisma/client";
 
 /**
@@ -49,6 +51,7 @@ export async function completeTransfer(transferId: string, userId: string) {
   const newMembership = transfer.newMembershipNumber || (await nextMembershipNumber());
   const newAllotment = transfer.newAllotmentNumber || (await nextAllotmentNumber());
   const now = new Date();
+  const allotmentLetterDueAt = await computeAllotmentLetterDue(now);
 
   const result = await prisma.$transaction(async (tx) => {
     // Close old ownership — preserve as historical TRANSFERRED record
@@ -87,6 +90,7 @@ export async function completeTransfer(transferId: string, userId: string) {
         newMembershipNumber: newMembership,
         newAllotmentNumber: newAllotment,
         sellerOwnershipId: activeOwner.id,
+        allotmentLetterDueAt,
       },
     });
 
@@ -129,6 +133,164 @@ export async function completeTransfer(transferId: string, userId: string) {
   });
 
   return result;
+}
+
+/**
+ * Completes a death / succession transfer to the nominated primary legal heir.
+ * Preserves full ownership history; deceased membership is marked TRANSFERRED.
+ */
+export async function completeDeathSuccessionTransfer(transferId: string, userId: string) {
+  const transfer = await prisma.transfer.findUnique({
+    where: { id: transferId },
+    include: {
+      plot: {
+        include: {
+          ownerships: { where: { status: "ACTIVE" }, take: 1 },
+          mortgages: { where: { status: "ACTIVE" } },
+        },
+      },
+      heirs: true,
+      documents: { where: { status: "ACTIVE" } },
+    },
+  });
+
+  if (!transfer) throw new Error("Transfer not found");
+  if (transfer.transferType !== "DEATH_SUCCESSION") {
+    throw new Error("This action is only for death / succession transfers");
+  }
+  if (transfer.status === "COMPLETED") throw new Error("Transfer already completed");
+  if (!transfer.deceasedDateOfDeath) {
+    throw new Error("Date of death is required for succession case");
+  }
+
+  const readiness = validateDeathTransferReadiness({
+    heirs: transfer.heirs,
+    documentTypes: transfer.documents.map((d) => d.documentType),
+  });
+  if (!readiness.ok) {
+    throw new Error(readiness.errors.join("; "));
+  }
+
+  const primaryHeir = transfer.heirs.find((h) => h.isPrimarySuccessor)!;
+
+  if (transfer.plot.mortgages.length > 0) {
+    throw new Error(
+      "Active bank/mortgage restriction exists. Clear bank NOC before completing succession transfer."
+    );
+  }
+
+  const activeOwner = transfer.plot.ownerships[0];
+  if (!activeOwner) throw new Error("No active ownership found for plot");
+
+  const newMembership = transfer.newMembershipNumber || (await nextMembershipNumber());
+  const newAllotment = transfer.newAllotmentNumber || (await nextAllotmentNumber());
+  const now = new Date();
+  const allotmentLetterDueAt = await computeAllotmentLetterDue(now);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const closed = await tx.ownership.update({
+      where: { id: activeOwner.id },
+      data: {
+        status: "TRANSFERRED",
+        endDate: now,
+        transferOutId: transfer.id,
+      },
+    });
+
+    const newOwnership = await tx.ownership.create({
+      data: {
+        plotId: transfer.plotId,
+        ownerName: primaryHeir.name,
+        cnic: primaryHeir.cnic,
+        contact: primaryHeir.contact,
+        address: primaryHeir.address,
+        membershipNumber: newMembership,
+        allotmentNumber: newAllotment,
+        startDate: now,
+        status: "ACTIVE",
+        transferInId: transfer.id,
+      },
+    });
+
+    const completed = await tx.transfer.update({
+      where: { id: transfer.id },
+      data: {
+        status: "COMPLETED",
+        currentStep: 14,
+        completedAt: now,
+        completedById: userId,
+        purchaserName: primaryHeir.name,
+        purchaserCnic: primaryHeir.cnic,
+        purchaserContact: primaryHeir.contact,
+        purchaserAddress: primaryHeir.address,
+        newMembershipNumber: newMembership,
+        newAllotmentNumber: newAllotment,
+        sellerOwnershipId: activeOwner.id,
+        allotmentLetterDueAt,
+      },
+    });
+
+    await tx.plot.update({
+      where: { id: transfer.plotId },
+      data: {
+        ownershipStatus: "ACTIVE",
+        hasOpenFile: false,
+      },
+    });
+
+    await tx.openFile.updateMany({
+      where: { plotId: transfer.plotId, status: "ACTIVE" },
+      data: { status: "CLOSED", closedDate: now },
+    });
+
+    return { closed, newOwnership, completed };
+  });
+
+  await writeAuditLog({
+    userId,
+    action: "DEATH_SUCCESSION_COMPLETED",
+    module: "transfers",
+    recordId: transfer.id,
+    plotId: transfer.plotId,
+    transferId: transfer.id,
+    oldValue: {
+      ownershipId: activeOwner.id,
+      membershipNumber: activeOwner.membershipNumber,
+      deceased: transfer.sellerName,
+    } as Prisma.InputJsonValue,
+    newValue: {
+      ownershipId: result.newOwnership.id,
+      membershipNumber: result.newOwnership.membershipNumber,
+      successor: primaryHeir.name,
+      heirsCount: transfer.heirs.length,
+    } as Prisma.InputJsonValue,
+    reason: `Death / succession transfer — membership transferred to primary legal heir (${primaryHeir.relationToDeceased})`,
+  });
+
+  return result;
+}
+
+export async function markAllotmentLetterPrinted(transferId: string, userId: string) {
+  const transfer = await prisma.transfer.findUnique({ where: { id: transferId } });
+  if (!transfer) throw new Error("Transfer not found");
+  if (transfer.status !== "COMPLETED") throw new Error("Transfer must be completed first");
+  if (transfer.allotmentLetterPrintedAt) throw new Error("Allotment letter already marked printed");
+
+  const updated = await prisma.transfer.update({
+    where: { id: transferId },
+    data: { allotmentLetterPrintedAt: new Date() },
+  });
+
+  await writeAuditLog({
+    userId,
+    action: "ALLOTMENT_LETTER_PRINTED",
+    module: "transfers",
+    recordId: transferId,
+    plotId: transfer.plotId,
+    transferId,
+  });
+
+  return updated;
 }
 
 export async function verifyPayment(paymentId: string, userId: string) {

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
+import { SlaBadge } from "@/components/sla-badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import { NOC_PURPOSE_LABELS } from "@/lib/property-sizes";
@@ -22,7 +23,7 @@ const STATUSES: ApplicationStatus[] = [
   "CANCELLED",
 ];
 
-const PURPOSES: NocPurpose[] = ["CONSTRUCTION", "TRANSFER", "GENERAL", "OTHER"];
+const PURPOSES: NocPurpose[] = ["CONSTRUCTION", "TRANSFER", "GENERAL", "UTILITY_CONNECTION", "OTHER"];
 
 export default async function NocPage({
   searchParams,
@@ -102,6 +103,7 @@ export default async function NocPage({
                 <th>NOC Number</th>
                 <th>Fee</th>
                 <th>Payment</th>
+                <th>SLA</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -147,6 +149,16 @@ export default async function NocPage({
                   <td>{n.fee ? formatCurrency(n.fee) : "—"}</td>
                   <td>
                     <Badge status={n.paymentStatus} />
+                  </td>
+                  <td>
+                    {n.slaDueAt ? (
+                      <SlaBadge
+                        dueAt={n.slaDueAt}
+                        completedAt={n.status === "ISSUED" ? n.issueDate : null}
+                      />
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td>
                     <Badge status={n.status} />

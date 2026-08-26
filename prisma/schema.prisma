@@ -68,6 +68,13 @@ enum PaymentStatus {
 enum DocumentType {
   CNIC
   ALLOTMENT_LETTER
+  OLD_ALLOTMENT_LETTER
+  DECEASED_CNIC
+  DEATH_CERTIFICATE
+  FRC_NADRA
+  LEGAL_HEIR_CERTIFICATE
+  SUCCESSION_DOCS
+  HEIR_CNIC
   POSSESSION_LETTER
   NOC
   NEC
@@ -302,6 +309,26 @@ enum NocPurpose {
   CONSTRUCTION
   TRANSFER
   GENERAL
+  UTILITY_CONNECTION
+  OTHER
+}
+
+enum TransferCaseType {
+  SALE
+  DEATH_SUCCESSION
+  GIFT
+  OTHER
+}
+
+enum HeirRelation {
+  WIFE
+  HUSBAND
+  SON
+  DAUGHTER
+  MOTHER
+  FATHER
+  BROTHER
+  SISTER
   OTHER
 }
 
@@ -484,10 +511,11 @@ model Transfer {
   trdNumber             String?        @unique
   plotId                String
   plot                  Plot           @relation(fields: [plotId], references: [id])
+  transferType          TransferCaseType @default(SALE)
   status                TransferStatus @default(DRAFT)
   currentStep           Int            @default(1)
 
-  // Seller
+  // Seller / deceased
   sellerOwnershipId     String?
   sellerName            String
   sellerCnic            String
@@ -501,13 +529,22 @@ model Transfer {
   sellerVerificationDate DateTime?
   sellerVerificationNotes String?
 
-  // Purchaser
+  // Death / succession intake
+  deceasedDateOfDeath   DateTime?
+  deathCertificateRef   String?
+
+  // Purchaser / primary successor
   purchaserName         String?
   purchaserCnic         String?
   purchaserContact      String?
   purchaserAddress      String?
   newMembershipNumber   String?
   newAllotmentNumber    String?
+
+  // SLA tracking
+  slaDueAt              DateTime?
+  allotmentLetterDueAt  DateTime?
+  allotmentLetterPrintedAt DateTime?
 
   // Approval / completion
   approvedById          String?
@@ -528,13 +565,34 @@ model Transfer {
   payments      Payment[]
   fileMovements FileMovement[]
   openFiles     OpenFile[]
+  heirs         TransferHeir[]
 
   @@index([plotId])
   @@index([status])
+  @@index([transferType])
   @@index([transferNumber])
   @@index([trdNumber])
   @@index([sellerCnic])
   @@index([purchaserCnic])
+  @@index([slaDueAt])
+}
+
+model TransferHeir {
+  id                 String       @id @default(cuid())
+  transferId         String
+  transfer           Transfer     @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  name               String
+  cnic               String
+  relationToDeceased HeirRelation
+  contact            String?
+  address            String?
+  isPrimarySuccessor Boolean      @default(false)
+  shareNotes         String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([transferId])
+  @@index([cnic])
 }
 
 // ─── Documents (versioned, scoped to plot/owner/transfer) ────────────────────
@@ -587,6 +645,7 @@ model Possession {
   ownership             Ownership?        @relation(fields: [ownershipId], references: [id])
   applicationNumber     String            @unique
   applicationDate       DateTime          @default(now())
+  slaDueAt              DateTime?
   applicantName         String
   possessionFee         Decimal?          @db.Decimal(12, 2)
   paymentStatus         PaymentStatus     @default(PENDING)
@@ -611,6 +670,7 @@ model Noc {
   ownership         Ownership?        @relation(fields: [ownershipId], references: [id])
   applicationNumber String            @unique
   applicationDate   DateTime          @default(now())
+  slaDueAt          DateTime?
   applicantName     String
   purpose           NocPurpose        @default(GENERAL)
   constructionType  ConstructionType?
@@ -632,6 +692,7 @@ model Noc {
   @@index([status])
   @@index([purpose])
   @@index([nocNumber])
+  @@index([slaDueAt])
 }
 
 model PropertySizeOption {
@@ -657,6 +718,7 @@ model Nec {
   ownership         Ownership?        @relation(fields: [ownershipId], references: [id])
   applicationNumber String            @unique
   applicationDate   DateTime          @default(now())
+  slaDueAt          DateTime?
   applicantName     String
   necNumber         String?
   issueDate         DateTime?
@@ -673,6 +735,7 @@ model Nec {
   @@index([plotId])
   @@index([status])
   @@index([necNumber])
+  @@index([slaDueAt])
 }
 
 // ─── Bank / Mortgage ─────────────────────────────────────────────────────────

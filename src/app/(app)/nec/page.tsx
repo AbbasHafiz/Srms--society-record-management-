@@ -2,8 +2,10 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
+import { SlaBadge } from "@/components/sla-badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { getSlaDays, SLA_SETTING_KEYS, resolveSlaDueAt } from "@/lib/sla";
 import type { ApplicationStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -27,12 +29,15 @@ export default async function NecPage({
   const sp = await searchParams;
   const status = sp.status?.trim() as ApplicationStatus | undefined;
 
-  const necs = await prisma.nec.findMany({
-    where: status && STATUSES.includes(status) ? { status } : undefined,
-    include: { plot: true },
-    orderBy: { applicationDate: "desc" },
-    take: 100,
-  });
+  const [necs, necSlaDays] = await Promise.all([
+    prisma.nec.findMany({
+      where: status && STATUSES.includes(status) ? { status } : undefined,
+      include: { plot: true },
+      orderBy: { applicationDate: "desc" },
+      take: 100,
+    }),
+    getSlaDays(SLA_SETTING_KEYS.nec, 7),
+  ]);
 
   return (
     <div>
@@ -67,6 +72,7 @@ export default async function NecPage({
                 <th>NEC Number</th>
                 <th>Fee</th>
                 <th>Payment</th>
+                <th>SLA</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -99,6 +105,12 @@ export default async function NecPage({
                   <td>{n.fee ? formatCurrency(n.fee) : "—"}</td>
                   <td>
                     <Badge status={n.paymentStatus} />
+                  </td>
+                  <td>
+                    <SlaBadge
+                      dueAt={resolveSlaDueAt(n.slaDueAt, n.applicationDate, necSlaDays)}
+                      completedAt={n.status === "ISSUED" ? n.issueDate : null}
+                    />
                   </td>
                   <td>
                     <Badge status={n.status} />

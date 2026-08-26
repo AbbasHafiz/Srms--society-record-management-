@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth";
 import { createFeeConfiguration } from "@/lib/services";
 import { hasPermission } from "@/lib/rbac";
 import { createPropertySizeOption, togglePropertySizeOption } from "./size-actions";
+import { updateSlaSettings } from "./sla-actions";
+import { SLA_DEFAULTS } from "@/lib/sla";
 import { plotTypeLabel } from "@/lib/plots";
 import { formatPropertySize } from "@/lib/property-sizes";
 import { ALL_PLOT_TYPES } from "@/lib/plots";
@@ -72,6 +74,10 @@ export default async function SettingsPage() {
     session?.user &&
     (hasPermission(session.user.role, "manage_settings") ||
       hasPermission(session.user.role, "configure_fees"));
+  const canManageSla =
+    session?.user &&
+    (hasPermission(session.user.role, "manage_settings") ||
+      hasPermission(session.user.role, "configure_fees"));
 
   const [feeConfigs, sequences, systemSettings, sizeOptions] = await Promise.all([
     prisma.feeConfiguration.findMany({
@@ -84,6 +90,8 @@ export default async function SettingsPage() {
       orderBy: [{ propertyType: "asc" }, { sortOrder: "asc" }],
     }),
   ]);
+
+  const slaSettingsMap = Object.fromEntries(systemSettings.map((s) => [s.key, s.value]));
 
   return (
     <div>
@@ -291,6 +299,52 @@ export default async function SettingsPage() {
                   </tr>
                 ))
               )}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="font-display text-lg font-semibold">Service Timelines (SLA)</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Configurable turnaround targets for transfers, possession, death cases, and NOC/NEC issuance.
+            </p>
+          </div>
+          {canManageSla ? (
+            <form action={updateSlaSettings} className="grid gap-4 border-b border-slate-100 bg-slate-50/50 px-5 py-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(SLA_DEFAULTS).map(([key, meta]) => (
+                <div key={key}>
+                  <Label htmlFor={key}>{meta.label}</Label>
+                  <Input
+                    id={key}
+                    name={key}
+                    type="number"
+                    min={1}
+                    required
+                    className="mt-1"
+                    defaultValue={slaSettingsMap[key] ?? meta.value}
+                  />
+                </div>
+              ))}
+              <div className="flex items-end sm:col-span-2 lg:col-span-3">
+                <Button type="submit">Save SLA settings</Button>
+              </div>
+            </form>
+          ) : null}
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Setting</th>
+                <th>Days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(SLA_DEFAULTS).map(([key, meta]) => (
+                <tr key={key}>
+                  <td>{meta.label}</td>
+                  <td className="font-mono">{slaSettingsMap[key] ?? meta.value}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </section>

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
 import { canApproveNoc, canCreateNocApplication } from "@/lib/noc";
 import { nextNocApplicationNumber, nextNocNumber } from "@/lib/numbering";
+import { computeNocSlaDue } from "@/lib/sla";
 import type {
   ApplicationStatus,
   ConstructionType,
@@ -13,7 +14,7 @@ import type {
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-const PURPOSES: NocPurpose[] = ["CONSTRUCTION", "TRANSFER", "GENERAL", "OTHER"];
+const PURPOSES: NocPurpose[] = ["CONSTRUCTION", "TRANSFER", "GENERAL", "UTILITY_CONNECTION", "OTHER"];
 const CONSTRUCTION_TYPES: ConstructionType[] = [
   "HOUSE",
   "BOUNDARY_WALL",
@@ -68,12 +69,16 @@ export async function createNocApplication(formData: FormData) {
 
   const feeConfig = await getActiveNocFee();
   const applicationNumber = await nextNocApplicationNumber();
+  const applicationDate = new Date();
+  const slaDueAt = await computeNocSlaDue(applicationDate, purpose);
 
   const noc = await prisma.noc.create({
     data: {
       plotId,
       ownershipId: owner.id,
       applicationNumber,
+      applicationDate,
+      slaDueAt,
       applicantName: owner.ownerName,
       purpose,
       constructionType: constructionType ?? undefined,

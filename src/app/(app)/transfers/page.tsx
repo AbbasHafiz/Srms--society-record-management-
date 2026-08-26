@@ -2,9 +2,10 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
+import { SlaBadge } from "@/components/sla-badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, labelize } from "@/lib/utils";
-import type { TransferStatus } from "@/generated/prisma/client";
+import type { TransferCaseType, TransferStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -21,18 +22,22 @@ const STATUSES: TransferStatus[] = [
   "CANCELLED",
 ];
 
+const CASE_TYPES: TransferCaseType[] = ["SALE", "DEATH_SUCCESSION", "GIFT", "OTHER"];
+
 export default async function TransfersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; type?: string }>;
 }) {
   const sp = await searchParams;
   const status = sp.status?.trim() as TransferStatus | undefined;
+  const caseType = sp.type?.trim() as TransferCaseType | undefined;
   const q = sp.q?.trim();
 
   const transfers = await prisma.transfer.findMany({
     where: {
       ...(status && STATUSES.includes(status) ? { status } : {}),
+      ...(caseType && CASE_TYPES.includes(caseType) ? { transferType: caseType } : {}),
       ...(q
         ? {
             OR: [
@@ -57,12 +62,20 @@ export default async function TransfersPage({
         title="Transfers"
         description="Ownership transfer workflow. Completed transfers preserve full history."
         actions={
-          <Link
-            href="/transfers/new"
-            className="inline-flex h-10 items-center justify-center rounded-md bg-teal-800 px-4 text-sm font-medium text-white hover:bg-teal-900"
-          >
-            New Transfer
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/transfers/death/new"
+              className="inline-flex h-10 items-center justify-center rounded-md border border-violet-300 bg-violet-50 px-4 text-sm font-medium text-violet-900 hover:bg-violet-100"
+            >
+              Death / Succession
+            </Link>
+            <Link
+              href="/transfers/new"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-teal-800 px-4 text-sm font-medium text-white hover:bg-teal-900"
+            >
+              New Sale Transfer
+            </Link>
+          </div>
         }
       />
 
@@ -73,6 +86,18 @@ export default async function TransfersPage({
           defaultValue={q}
           className="flex h-10 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm"
         />
+        <select
+          name="type"
+          defaultValue={caseType ?? ""}
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+        >
+          <option value="">All types</option>
+          {CASE_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {labelize(t)}
+            </option>
+          ))}
+        </select>
         <select
           name="status"
           defaultValue={status ?? ""}
@@ -96,9 +121,11 @@ export default async function TransfersPage({
             <thead>
               <tr>
                 <th>Transfer</th>
+                <th>Type</th>
                 <th>Plot</th>
-                <th>Seller</th>
-                <th>Purchaser</th>
+                <th>Seller / Deceased</th>
+                <th>Purchaser / Successor</th>
+                <th>SLA</th>
                 <th>Step</th>
                 <th>Updated</th>
                 <th>Status</th>
@@ -114,12 +141,22 @@ export default async function TransfersPage({
                     {t.trdNumber ? <div className="text-xs text-slate-500">{t.trdNumber}</div> : null}
                   </td>
                   <td>
+                    <Badge status={t.transferType} />
+                  </td>
+                  <td>
                     <Link href={`/plots/${t.plotId}`} className="text-teal-900 hover:underline">
                       {t.plot.sector}/{t.plot.block}-{t.plot.plotNumber}
                     </Link>
                   </td>
                   <td>{t.sellerName}</td>
                   <td>{t.purchaserName ?? "—"}</td>
+                  <td>
+                    {t.slaDueAt ? (
+                      <SlaBadge dueAt={t.slaDueAt} completedAt={t.completedAt} />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td>{t.currentStep}</td>
                   <td>{formatDate(t.updatedAt)}</td>
                   <td>

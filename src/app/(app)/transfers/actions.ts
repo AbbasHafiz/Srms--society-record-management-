@@ -4,10 +4,39 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
 import { nextTransferNumber, nextReceiptNumber } from "@/lib/numbering";
-import { completeTransfer, verifyPayment } from "@/lib/services";
+import {
+  completeTransfer,
+  completeDeathSuccessionTransfer,
+  markAllotmentLetterPrinted,
+  verifyPayment,
+} from "@/lib/services";
 import { hasPermission } from "@/lib/rbac";
+import { computeTransferSlaDue } from "@/lib/sla";
+import type { DocumentType, HeirRelation } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+const HEIR_RELATIONS: HeirRelation[] = [
+  "WIFE",
+  "HUSBAND",
+  "SON",
+  "DAUGHTER",
+  "MOTHER",
+  "FATHER",
+  "BROTHER",
+  "SISTER",
+  "OTHER",
+];
+
+const DEATH_DOC_TYPES: DocumentType[] = [
+  "OLD_ALLOTMENT_LETTER",
+  "DECEASED_CNIC",
+  "DEATH_CERTIFICATE",
+  "FRC_NADRA",
+  "LEGAL_HEIR_CERTIFICATE",
+  "SUCCESSION_DOCS",
+  "HEIR_CNIC",
+];
 
 export async function createTransferDraft(formData: FormData) {
   const session = await auth();
@@ -24,11 +53,15 @@ export async function createTransferDraft(formData: FormData) {
   if (!owner) throw new Error("No active owner");
 
   const transferNumber = await nextTransferNumber();
+  const now = new Date();
+  const slaDueAt = await computeTransferSlaDue("SALE", now);
+
   const transfer = await prisma.transfer.create({
     data: {
       transferNumber,
       trdNumber: transferNumber,
       plotId,
+      transferType: "SALE",
       status: "SELLER_VERIFICATION",
       currentStep: 3,
       sellerName: owner.ownerName,
@@ -37,6 +70,7 @@ export async function createTransferDraft(formData: FormData) {
       sellerContact: owner.contact,
       sellerAddress: owner.address,
       sellerOwnershipId: owner.id,
+      slaDueAt,
     },
   });
 
@@ -47,10 +81,192 @@ export async function createTransferDraft(formData: FormData) {
     recordId: transfer.id,
     plotId,
     transferId: transfer.id,
-    newValue: { transferNumber, seller: owner.ownerName },
+    newValue: { transferNumber, seller: owner.ownerName, transferType: "SALE" },
   });
 
   redirect(`/transfers/${transfer.id}`);
+}
+
+export async function createDeathSuccessionDraft(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "create")) throw new Error("Forbidden");
+
+  const plotId = String(formData.get("plotId") || "");
+  const dateOfDeathRaw = String(formData.get("deceasedDateOfDeath") || "");
+  const deathCertificateRef = String(formData.get("deathCertificateRef") || "").trim() || null;
+  const remarks = String(formData.get("remarks") || "").trim() || null;
+
+  if (!dateOfDeathRaw) throw new Error("Date of death is required");
+
+  const plot = await prisma.plot.findUnique({
+    where: { id: plotId },
+    include: { ownerships: { where: { status: "ACTIVE" }, take: 1 } },
+  });
+  if (!plot) throw new Error("Plot not found");
+  const owner = plot.ownerships[0];
+  if (!owner) throw new Error("No active owner on plot");
+
+  const transferNumber = await nextTransferNumber();
+  const now = new Date();
+  const slaDueAt = await computeTransferSlaDue("DEATH_SUCCESSION", now);
+
+  const transfer = await prisma.transfer.create({
+    data: {
+      transferNumber,
+      trdNumber: transferNumber,
+      plotId,
+      transferType: "DEATH_SUCCESSION",
+      status: "DOCUMENTS_PENDING",
+      currentStep: 2,
+      sellerName: owner.ownerName,
+      sellerCnic: owner.cnic,
+      sellerMembershipNo: owner.membershipNumber,
+      sellerContact: owner.contact,
+      sellerAddress: owner.address,
+      sellerOwnershipId: owner.id,
+      deceasedDateOfDeath: new Date(dateOfDeathRaw),
+      deathCertificateRef,
+      remarks,
+      slaDueAt,
+    },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "DEATH_SUCCESSION_OPENED",
+    module: "transfers",
+    recordId: transfer.id,
+    plotId,
+    transferId: transfer.id,
+    newValue: {
+      transferNumber,
+      deceased: owner.ownerName,
+      dateOfDeath: dateOfDeathRaw,
+    },
+    reason: "Death / succession case opened at society office",
+  });
+
+  redirect(`/transfers/${transfer.id}`);
+}
+
+export async function addTransferHeir(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "edit")) throw new Error("Forbidden");
+
+  const transferId = String(formData.get("transferId") || "");
+  const relation = String(formData.get("relationToDeceased") || "OTHER") as HeirRelation;
+  const isPrimary = formData.get("isPrimarySuccessor") === "yes";
+
+  if (!HEIR_RELATIONS.includes(relation)) throw new Error("Invalid relation");
+
+  const transfer = await prisma.transfer.findUnique({ where: { id: transferId } });
+  if (!transfer || transfer.transferType !== "DEATH_SUCCESSION") {
+    throw new Error("Invalid death succession case");
+  }
+  if (transfer.status === "COMPLETED") throw new Error("Case already completed");
+
+  if (isPrimary) {
+    await prisma.transferHeir.updateMany({
+      where: { transferId },
+      data: { isPrimarySuccessor: false },
+    });
+  }
+
+  await prisma.transferHeir.create({
+    data: {
+      transferId,
+      name: String(formData.get("name") || "").trim(),
+      cnic: String(formData.get("cnic") || "").trim(),
+      relationToDeceased: relation,
+      contact: String(formData.get("contact") || "").trim() || null,
+      address: String(formData.get("address") || "").trim() || null,
+      isPrimarySuccessor: isPrimary,
+      shareNotes: String(formData.get("shareNotes") || "").trim() || null,
+    },
+  });
+
+  revalidatePath(`/transfers/${transferId}`);
+}
+
+export async function removeTransferHeir(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "edit")) throw new Error("Forbidden");
+
+  const heirId = String(formData.get("heirId") || "");
+  const heir = await prisma.transferHeir.findUnique({ where: { id: heirId } });
+  if (!heir) throw new Error("Heir not found");
+
+  await prisma.transferHeir.delete({ where: { id: heirId } });
+  revalidatePath(`/transfers/${heir.transferId}`);
+}
+
+export async function registerDeathDocument(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "upload_document")) throw new Error("Forbidden");
+
+  const transferId = String(formData.get("transferId") || "");
+  const documentType = String(formData.get("documentType") || "") as DocumentType;
+  const title = String(formData.get("title") || "").trim();
+
+  if (!DEATH_DOC_TYPES.includes(documentType)) throw new Error("Invalid document type");
+
+  const transfer = await prisma.transfer.findUnique({ where: { id: transferId } });
+  if (!transfer || transfer.transferType !== "DEATH_SUCCESSION") {
+    throw new Error("Invalid death succession case");
+  }
+
+  await prisma.document.create({
+    data: {
+      plotId: transfer.plotId,
+      transferId,
+      documentType,
+      title: title || documentType.replace(/_/g, " "),
+      fileName: `${documentType.toLowerCase()}-placeholder.pdf`,
+      filePath: `/uploads/death/${transferId}/${documentType}.pdf`,
+      uploadedById: session.user.id,
+    },
+  });
+
+  revalidatePath(`/transfers/${transferId}`);
+}
+
+export async function submitDeathCaseForApproval(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "edit")) throw new Error("Forbidden");
+
+  const id = String(formData.get("id") || "");
+  const transfer = await prisma.transfer.findUnique({
+    where: { id },
+    include: { heirs: true, documents: { where: { status: "ACTIVE" } } },
+  });
+  if (!transfer || transfer.transferType !== "DEATH_SUCCESSION") {
+    throw new Error("Invalid death succession case");
+  }
+  if (transfer.heirs.length === 0) throw new Error("Add legal heirs before submission");
+  if (!transfer.heirs.some((h) => h.isPrimarySuccessor)) {
+    throw new Error("Nominate a primary successor before submission");
+  }
+
+  await prisma.transfer.update({
+    where: { id },
+    data: { status: "APPROVAL_PENDING", currentStep: 9 },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "DEATH_CASE_SUBMITTED",
+    module: "transfers",
+    recordId: id,
+    transferId: id,
+    plotId: transfer.plotId,
+  });
+
+  revalidatePath(`/transfers/${id}`);
 }
 
 export async function updateTransferStep(formData: FormData) {
@@ -163,9 +379,27 @@ export async function completeTransferAction(formData: FormData) {
   if (!hasPermission(session.user.role, "complete_transfer")) throw new Error("Forbidden");
 
   const id = String(formData.get("id"));
-  await completeTransfer(id, session.user.id);
+  const transfer = await prisma.transfer.findUnique({ where: { id } });
+  if (!transfer) throw new Error("Transfer not found");
+
+  if (transfer.transferType === "DEATH_SUCCESSION") {
+    await completeDeathSuccessionTransfer(id, session.user.id);
+  } else {
+    await completeTransfer(id, session.user.id);
+  }
+
   revalidatePath(`/transfers/${id}`);
   revalidatePath(`/plots`);
+}
+
+export async function markAllotmentPrintedAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "complete_transfer")) throw new Error("Forbidden");
+
+  const id = String(formData.get("id"));
+  await markAllotmentLetterPrinted(id, session.user.id);
+  revalidatePath(`/transfers/${id}`);
 }
 
 export async function verifyTransferPaymentAction(formData: FormData) {

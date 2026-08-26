@@ -38,6 +38,7 @@ async function main() {
   await prisma.possession.deleteMany();
   await prisma.propertySizeOption.deleteMany();
   // Break ownership↔transfer FKs carefully
+  await prisma.transferHeir.deleteMany();
   await prisma.ownership.updateMany({ data: { transferInId: null, transferOutId: null } });
   await prisma.transfer.deleteMany();
   await prisma.ownership.deleteMany();
@@ -308,6 +309,12 @@ async function main() {
       { key: "society_name", value: "Green Valley Housing Society", label: "Society Name" },
       { key: "require_bank_clearance_for_transfer", value: "true", label: "Block transfer if active mortgage" },
       { key: "open_file_expiry_alert_days", value: "30", label: "Open file expiry alert (days)" },
+      { key: "sla_transfer_allotment_days", value: "14", label: "Transfer → allotment letter printing (days)" },
+      { key: "sla_possession_days", value: "21", label: "Possession case completion (days)" },
+      { key: "sla_death_case_days", value: "30", label: "Death / succession case completion (days)" },
+      { key: "sla_noc_days", value: "7", label: "NOC issuance (days)" },
+      { key: "sla_nec_days", value: "7", label: "NEC issuance (days)" },
+      { key: "sla_utility_noc_days", value: "7", label: "Utility connection NOC (days)" },
     ],
   });
 
@@ -391,6 +398,7 @@ async function main() {
       transferNumber: "TRD-0010",
       trdNumber: "TRD-0010",
       plotId: plot123.id,
+      transferType: "SALE",
       status: "COMPLETED",
       currentStep: 14,
       sellerName: owner1.ownerName,
@@ -412,6 +420,7 @@ async function main() {
       transferNumber: "TRD-0088",
       trdNumber: "TRD-0088",
       plotId: plot123.id,
+      transferType: "SALE",
       status: "COMPLETED",
       currentStep: 14,
       sellerName: owner2.ownerName,
@@ -437,6 +446,8 @@ async function main() {
       plotId: plot123.id,
       ownershipId: owner2.id,
       applicationNumber: "POS-0045",
+      applicationDate: new Date("2022-01-15"),
+      slaDueAt: new Date("2022-02-05"),
       applicantName: owner2.ownerName,
       possessionFee: 15000,
       paymentStatus: "VERIFIED",
@@ -452,6 +463,8 @@ async function main() {
       plotId: plot123.id,
       ownershipId: owner3.id,
       applicationNumber: "NOC-0210",
+      applicationDate: new Date("2025-10-25"),
+      slaDueAt: new Date("2025-11-01"),
       applicantName: owner3.ownerName,
       purpose: "GENERAL",
       nocNumber: "NOC-E17-0210",
@@ -669,6 +682,8 @@ async function main() {
       plotId: plot500.id,
       ownershipId: owner500.id,
       applicationNumber: "NOC-0298",
+      applicationDate: new Date(),
+      slaDueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       applicantName: owner500.ownerName,
       purpose: "CONSTRUCTION",
       constructionType: "HOUSE",
@@ -737,6 +752,143 @@ async function main() {
       allotmentNumber: "AL-2411",
       startDate: new Date("2023-09-15"),
       status: "ACTIVE",
+    },
+  });
+
+  // Death / succession case demo (in progress — widow + children)
+  const plot222 = await prisma.plot.create({
+    data: {
+      plotNumber: "222",
+      sector: "F-11",
+      block: "4",
+      street: "Street 9",
+      sizeMarla: 10,
+      sizeSqYd: 250,
+      plotType: "RESIDENTIAL",
+      ownershipStatus: "ACTIVE",
+      possessionStatus: "ISSUED",
+      developmentStatus: "DEVELOPED",
+      annualChargesStatus: "PAID",
+      remarks: "Death succession case demo — legal heirs on file",
+    },
+  });
+
+  const owner222 = await prisma.ownership.create({
+    data: {
+      plotId: plot222.id,
+      ownerName: "Ghulam Rasool (deceased)",
+      cnic: "35202-5505505-5",
+      contact: "0300-5544332",
+      address: "Rawalpindi",
+      membershipNumber: "M-1988",
+      allotmentNumber: "AL-1988",
+      startDate: new Date("2019-04-10"),
+      status: "ACTIVE",
+    },
+  });
+
+  const deathTransfer = await prisma.transfer.create({
+    data: {
+      transferNumber: "TRD-0125",
+      trdNumber: "TRD-0125",
+      plotId: plot222.id,
+      transferType: "DEATH_SUCCESSION",
+      status: "DOCUMENTS_PENDING",
+      currentStep: 2,
+      sellerName: owner222.ownerName,
+      sellerCnic: owner222.cnic,
+      sellerMembershipNo: owner222.membershipNumber,
+      sellerContact: owner222.contact,
+      sellerAddress: owner222.address,
+      sellerOwnershipId: owner222.id,
+      deceasedDateOfDeath: new Date("2025-12-15"),
+      deathCertificateRef: "UC-F11-2025/4421",
+      remarks: "Widow + 2 children — society transfers to nominated primary heir with consent",
+      slaDueAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  await prisma.transferHeir.createMany({
+    data: [
+      {
+        transferId: deathTransfer.id,
+        name: "Rukhsana Bibi",
+        cnic: "35202-5515515-5",
+        relationToDeceased: "WIFE",
+        contact: "0300-5544332",
+        address: "Rawalpindi",
+        isPrimarySuccessor: true,
+        shareNotes: "Widow — nominated primary successor for membership",
+      },
+      {
+        transferId: deathTransfer.id,
+        name: "Ahmed Rasool",
+        cnic: "35202-5525525-5",
+        relationToDeceased: "SON",
+        contact: "0312-9988776",
+        shareNotes: "Eldest son — consents to widow as primary successor",
+      },
+      {
+        transferId: deathTransfer.id,
+        name: "Fatima Rasool",
+        cnic: "35202-5535535-5",
+        relationToDeceased: "DAUGHTER",
+        contact: "0333-1122334",
+        shareNotes: "Daughter — heir on FRC (NADRA)",
+      },
+    ],
+  });
+
+  await prisma.document.createMany({
+    data: [
+      {
+        plotId: plot222.id,
+        transferId: deathTransfer.id,
+        documentType: "OLD_ALLOTMENT_LETTER",
+        title: "Original allotment letter — M-1988",
+        fileName: "old-allotment-letter.pdf",
+        filePath: `/uploads/death/${deathTransfer.id}/old-allotment-letter.pdf`,
+      },
+      {
+        plotId: plot222.id,
+        transferId: deathTransfer.id,
+        documentType: "DECEASED_CNIC",
+        title: "CNIC — Ghulam Rasool",
+        fileName: "deceased-cnic.pdf",
+        filePath: `/uploads/death/${deathTransfer.id}/deceased-cnic.pdf`,
+      },
+      {
+        plotId: plot222.id,
+        transferId: deathTransfer.id,
+        documentType: "FRC_NADRA",
+        title: "FRC (NADRA) — Family Registration Certificate",
+        fileName: "frc-nadra.pdf",
+        filePath: `/uploads/death/${deathTransfer.id}/frc-nadra.pdf`,
+      },
+      {
+        plotId: plot222.id,
+        transferId: deathTransfer.id,
+        documentType: "HEIR_CNIC",
+        title: "CNIC — Rukhsana Bibi (primary successor)",
+        fileName: "heir-cnic-primary.pdf",
+        filePath: `/uploads/death/${deathTransfer.id}/heir-cnic.pdf`,
+      },
+    ],
+  });
+
+  await prisma.noc.create({
+    data: {
+      plotId: plot222.id,
+      ownershipId: owner222.id,
+      applicationNumber: "NOC-0312",
+      applicationDate: new Date(),
+      slaDueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      applicantName: owner222.ownerName,
+      purpose: "UTILITY_CONNECTION",
+      applicationNotes: "Utility connection NOC — electricity meter transfer pending succession",
+      fee: 3000,
+      paymentStatus: "PENDING",
+      status: "SUBMITTED",
     },
   });
 
@@ -902,8 +1054,10 @@ async function main() {
       transferNumber: "TRD-0119",
       trdNumber: "TRD-0119",
       plotId: plot123.id,
+      transferType: "SALE",
       status: "PAYMENT_PENDING",
       currentStep: 7,
+      slaDueAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       sellerName: owner3.ownerName,
       sellerCnic: owner3.cnic,
       sellerMembershipNo: owner3.membershipNumber,

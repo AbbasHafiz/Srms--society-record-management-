@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const today = startOfDay(new Date());
+  const now = new Date();
   const monthStart = startOfMonth(new Date());
   const in30 = new Date();
   in30.setDate(in30.getDate() + 30);
@@ -30,6 +31,10 @@ export default async function DashboardPage() {
     absentToday,
     todayTankers,
     tankerCollection,
+    overdueTransfers,
+    overduePossession,
+    overdueNocs,
+    overdueNecs,
   ] = await Promise.all([
     prisma.plot.count(),
     prisma.ownership.count({ where: { status: "ACTIVE" } }),
@@ -66,6 +71,30 @@ export default async function DashboardPage() {
       where: { distributionDate: today, paymentStatus: { in: ["PAID", "VERIFIED"] } },
       _sum: { charges: true },
     }),
+    prisma.transfer.count({
+      where: {
+        status: { notIn: ["COMPLETED", "CANCELLED", "REJECTED"] },
+        slaDueAt: { lt: now },
+      },
+    }),
+    prisma.possession.count({
+      where: {
+        approvalStatus: { notIn: ["ISSUED", "REJECTED"] },
+        slaDueAt: { lt: now },
+      },
+    }),
+    prisma.noc.count({
+      where: {
+        status: { notIn: ["ISSUED", "CANCELLED", "REJECTED", "EXPIRED"] },
+        slaDueAt: { lt: now },
+      },
+    }),
+    prisma.nec.count({
+      where: {
+        status: { notIn: ["ISSUED", "CANCELLED", "REJECTED", "EXPIRED"] },
+        slaDueAt: { lt: now },
+      },
+    }),
   ]);
 
   const recentTransfers = await prisma.transfer.findMany({
@@ -93,9 +122,13 @@ export default async function DashboardPage() {
         <StatCard label="Active Owners" value={activeOwners.toLocaleString()} />
         <StatCard label="Open Files" value={openFiles} tone="warn" />
         <StatCard label="Pending Transfers" value={pendingTransfers} tone="warn" />
+        <StatCard label="Overdue Transfer SLAs" value={overdueTransfers} tone="danger" />
         <StatCard label="Transfers This Month" value={transfersThisMonth} tone="success" />
         <StatCard label="Pending NOCs" value={pendingNocs} />
+        <StatCard label="Overdue NOC SLAs" value={overdueNocs} tone={overdueNocs ? "danger" : "default"} />
         <StatCard label="Pending NECs" value={pendingNecs} />
+        <StatCard label="Overdue NEC SLAs" value={overdueNecs} tone={overdueNecs ? "danger" : "default"} />
+        <StatCard label="Overdue Possession SLAs" value={overduePossession} tone={overduePossession ? "danger" : "default"} />
         <StatCard label="Active Bank Mortgages" value={activeMortgages} tone="danger" />
         <StatCard
           label="Outstanding Plot Charges"

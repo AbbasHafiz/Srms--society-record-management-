@@ -52,6 +52,7 @@ export const NOC_PURPOSE_LABELS: Record<string, string> = {
   CONSTRUCTION: "Construction / Build House",
   TRANSFER: "Transfer",
   GENERAL: "General",
+  UTILITY_CONNECTION: "Utility Connection NOC",
   OTHER: "Other",
 };
 

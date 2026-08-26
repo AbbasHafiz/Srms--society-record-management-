@@ -2,16 +2,21 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
+import { SlaBadge } from "@/components/sla-badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { getSlaDays, SLA_SETTING_KEYS, resolveSlaDueAt } from "@/lib/sla";
 
 export const dynamic = "force-dynamic";
 
 export default async function PossessionPage() {
-  const possessions = await prisma.possession.findMany({
-    include: { plot: true },
-    orderBy: { applicationDate: "desc" },
-    take: 100,
-  });
+  const [possessions, possessionSlaDays] = await Promise.all([
+    prisma.possession.findMany({
+      include: { plot: true },
+      orderBy: { applicationDate: "desc" },
+      take: 100,
+    }),
+    getSlaDays(SLA_SETTING_KEYS.possession, 21),
+  ]);
 
   return (
     <div>
@@ -33,6 +38,7 @@ export default async function PossessionPage() {
                 <th>Fee</th>
                 <th>Payment</th>
                 <th>Approval</th>
+                <th>SLA</th>
                 <th>Letter</th>
               </tr>
             </thead>
@@ -55,6 +61,12 @@ export default async function PossessionPage() {
                   </td>
                   <td>
                     <Badge status={p.approvalStatus} />
+                  </td>
+                  <td>
+                    <SlaBadge
+                      dueAt={resolveSlaDueAt(p.slaDueAt, p.applicationDate, possessionSlaDays)}
+                      completedAt={p.approvalStatus === "ISSUED" ? p.issueDate : null}
+                    />
                   </td>
                   <td>
                     {p.letterNumber ? (

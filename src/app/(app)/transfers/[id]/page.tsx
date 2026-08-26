@@ -7,18 +7,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, WarningBanner } from "@/components/ui/page";
-import { formatCurrency, formatDateTime, labelize } from "@/lib/utils";
+import { SlaBadge, AllotmentSlaBadge } from "@/components/sla-badge";
+import { formatCurrency, formatDate, formatDateTime, labelize } from "@/lib/utils";
 import { hasPermission } from "@/lib/rbac";
+import {
+  DEATH_TRANSFER_DOCUMENTS,
+  HEIR_RELATION_LABELS,
+  validateDeathTransferReadiness,
+} from "@/lib/death-transfer";
 import {
   updateTransferStep,
   approveTransferAction,
   completeTransferAction,
   verifyTransferPaymentAction,
+  addTransferHeir,
+  removeTransferHeir,
+  registerDeathDocument,
+  submitDeathCaseForApproval,
+  markAllotmentPrintedAction,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
 
-const STEPS = [
+const SALE_STEPS = [
   "Search Plot",
   "Verify Owner",
   "Seller Identity",
@@ -33,6 +44,15 @@ const STEPS = [
   "File Location",
   "Complete",
   "Audit Log",
+];
+
+const DEATH_STEPS = [
+  "Case Intake",
+  "Legal Heirs",
+  "Documents",
+  "Primary Successor",
+  "Approval",
+  "Completion",
 ];
 
 export default async function TransferDetailPage({
@@ -58,23 +78,37 @@ export default async function TransferDetailPage({
       completedBy: true,
       toOwnership: true,
       fromOwnership: true,
+      heirs: { orderBy: { createdAt: "asc" } },
+      documents: { where: { status: "ACTIVE" }, orderBy: { createdAt: "desc" } },
     },
   });
 
   if (!transfer) notFound();
 
+  const isDeath = transfer.transferType === "DEATH_SUCCESSION";
   const activeMortgage = transfer.plot.mortgages[0];
   const canApprove = session?.user && hasPermission(session.user.role, "approve");
   const canComplete = session?.user && hasPermission(session.user.role, "complete_transfer");
   const canVerifyPay = session?.user && hasPermission(session.user.role, "verify_payment");
+  const canEdit = session?.user && hasPermission(session.user.role, "edit");
   const verifiedPay = transfer.payments.find((p) => p.status === "VERIFIED");
   const pendingPay = transfer.payments.find((p) => p.status === "SUBMITTED");
+
+  const deathReadiness = isDeath
+    ? validateDeathTransferReadiness({
+        heirs: transfer.heirs,
+        documentTypes: transfer.documents.map((d) => d.documentType),
+      })
+    : null;
+
+  const steps = isDeath ? DEATH_STEPS : SALE_STEPS;
+  const uploadedDocTypes = new Set(transfer.documents.map((d) => d.documentType));
 
   return (
     <div>
       <PageHeader
-        title={`Transfer ${transfer.transferNumber}`}
-        description={`Plot ${transfer.plot.sector}/${transfer.plot.block}-${transfer.plot.plotNumber} · guided workflow with immutable history`}
+        title={`${isDeath ? "Succession " : ""}Transfer ${transfer.transferNumber}`}
+        description={`Plot ${transfer.plot.sector}/${transfer.plot.block}-${transfer.plot.plotNumber} · ${labelize(transfer.transferType)}`}
         actions={
           <Link href={`/plots/${transfer.plotId}`} className="text-sm text-teal-800 hover:underline">
             Open plot profile
@@ -84,32 +118,344 @@ export default async function TransferDetailPage({
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Badge status={transfer.status} />
-        <span className="text-sm text-slate-500">Step {transfer.currentStep} of 14</span>
+        <Badge status={transfer.transferType} />
+        {transfer.slaDueAt ? (
+          <SlaBadge dueAt={transfer.slaDueAt} completedAt={transfer.completedAt} showDueDate />
+        ) : null}
+        {transfer.allotmentLetterDueAt || transfer.allotmentLetterPrintedAt ? (
+          <AllotmentSlaBadge
+            dueAt={transfer.allotmentLetterDueAt}
+            printedAt={transfer.allotmentLetterPrintedAt}
+          />
+        ) : null}
+        <span className="text-sm text-slate-500">
+          Step {transfer.currentStep} of {steps.length}
+        </span>
       </div>
 
-      <div className="mb-6 flex gap-1 overflow-x-auto pb-2">
-        {STEPS.map((label, i) => {
-          const n = i + 1;
-          const done = n < transfer.currentStep || transfer.status === "COMPLETED";
-          const current = n === transfer.currentStep && transfer.status !== "COMPLETED";
-          return (
-            <div
-              key={label}
-              className={`min-w-[7.5rem] rounded-lg border px-2 py-2 text-center text-[11px] ${
-                done
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                  : current
-                    ? "border-teal-700 bg-teal-800 text-white"
-                    : "border-slate-200 bg-white text-slate-500"
-              }`}
-            >
-              <div className="font-semibold">{n}</div>
-              <div className="leading-tight">{label}</div>
+      {isDeath ? (
+        <DeathWorkflow
+          transfer={transfer}
+          canEdit={!!canEdit}
+          canApprove={!!canApprove}
+          canComplete={!!canComplete}
+          activeMortgage={!!activeMortgage}
+          deathReadiness={deathReadiness}
+          uploadedDocTypes={uploadedDocTypes}
+        />
+      ) : (
+        <SaleWorkflow
+          transfer={transfer}
+          canApprove={!!canApprove}
+          canComplete={!!canComplete}
+          canVerifyPay={!!canVerifyPay}
+          activeMortgage={activeMortgage}
+          verifiedPay={verifiedPay}
+          pendingPay={pendingPay}
+        />
+      )}
+    </div>
+  );
+}
+
+function DeathWorkflow({
+  transfer,
+  canEdit,
+  canApprove,
+  canComplete,
+  activeMortgage,
+  deathReadiness,
+  uploadedDocTypes,
+}: {
+  transfer: NonNullable<Awaited<ReturnType<typeof prisma.transfer.findUnique>> & object> & {
+    heirs: { id: string; name: string; cnic: string; relationToDeceased: string; contact: string | null; address: string | null; isPrimarySuccessor: boolean; shareNotes: string | null }[];
+    documents: { id: string; documentType: string; title: string; createdAt: Date }[];
+    plot: { mortgages: unknown[] };
+    payments: unknown[];
+    sellerVerifiedBy: { name: string } | null;
+    approvedBy: { name: string } | null;
+    completedBy: { name: string } | null;
+    toOwnership: { membershipNumber: string; ownerName: string } | null;
+  };
+  canEdit: boolean;
+  canApprove: boolean;
+  canComplete: boolean;
+  activeMortgage: boolean;
+  deathReadiness: ReturnType<typeof validateDeathTransferReadiness> | null;
+  uploadedDocTypes: Set<string>;
+}) {
+  return (
+    <>
+      {activeMortgage ? (
+        <div className="mb-4">
+          <WarningBanner>
+            Active mortgage on plot. Succession transfer cannot be completed until bank NOC / release.
+          </WarningBanner>
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="rounded-xl border border-violet-200 bg-white p-5 shadow-sm">
+          <h2 className="font-display text-lg font-semibold text-violet-950">Deceased Member</h2>
+          <dl className="mt-3 space-y-2 text-sm">
+            <Row label="Name" value={transfer.sellerName} />
+            <Row label="CNIC" value={transfer.sellerCnic} />
+            <Row label="Membership" value={transfer.sellerMembershipNo} />
+            <Row label="Date of death" value={formatDate(transfer.deceasedDateOfDeath)} />
+            <Row label="Death cert. ref" value={transfer.deathCertificateRef || "—"} />
+            <Row label="Remarks" value={transfer.remarks || "—"} />
+          </dl>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="font-display text-lg font-semibold">Legal Heirs</h2>
+          {transfer.heirs.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {transfer.heirs.map((h) => (
+                <li key={h.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">
+                        {h.name}{" "}
+                        {h.isPrimarySuccessor ? (
+                          <span className="text-xs font-semibold text-teal-800">(Primary successor)</span>
+                        ) : null}
+                      </p>
+                      <p className="text-slate-600">
+                        {HEIR_RELATION_LABELS[h.relationToDeceased as keyof typeof HEIR_RELATION_LABELS]} · {h.cnic}
+                      </p>
+                      {h.shareNotes ? <p className="mt-1 text-slate-500">{h.shareNotes}</p> : null}
+                    </div>
+                    {canEdit && transfer.status !== "COMPLETED" ? (
+                      <form action={removeTransferHeir}>
+                        <input type="hidden" name="heirId" value={h.id} />
+                        <Button type="submit" variant="outline" size="sm" className="h-7 text-xs">
+                          Remove
+                        </Button>
+                      </form>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-slate-500">No heirs recorded yet.</p>
+          )}
+
+          {canEdit && transfer.status !== "COMPLETED" ? (
+            <form action={addTransferHeir} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+              <input type="hidden" name="transferId" value={transfer.id} />
+              <p className="text-sm font-medium">Add legal heir</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Name</Label>
+                  <Input name="name" required className="mt-1" />
+                </div>
+                <div>
+                  <Label>CNIC</Label>
+                  <Input name="cnic" required className="mt-1" placeholder="35202-1234567-1" />
+                </div>
+                <div>
+                  <Label>Relation to deceased</Label>
+                  <select
+                    name="relationToDeceased"
+                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  >
+                    {Object.entries(HEIR_RELATION_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label>Contact</Label>
+                  <Input name="contact" className="mt-1" />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Address</Label>
+                  <Input name="address" className="mt-1" />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Share / remarks</Label>
+                  <Input name="shareNotes" className="mt-1" placeholder="e.g. 1/3 share — consents to widow as primary" />
+                </div>
+                <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                  <input type="checkbox" name="isPrimarySuccessor" value="yes" />
+                  Nominate as primary successor (membership holder)
+                </label>
+              </div>
+              <Button type="submit" size="sm">
+                Add heir
+              </Button>
+            </form>
+          ) : null}
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+          <h2 className="font-display text-lg font-semibold">Required Documents Checklist</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Society-office checklist for death / succession transfer (Pakistani practice).
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {DEATH_TRANSFER_DOCUMENTS.map((doc) => {
+              const uploaded = uploadedDocTypes.has(doc.type);
+              return (
+                <div
+                  key={doc.type}
+                  className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${
+                    uploaded
+                      ? "border-emerald-200 bg-emerald-50"
+                      : doc.mandatory
+                        ? "border-amber-200 bg-amber-50"
+                        : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <span className="mt-0.5">{uploaded ? "✓" : doc.mandatory ? "○" : "·"}</span>
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      {doc.label}
+                      {doc.mandatory ? (
+                        <span className="ml-1 text-xs text-rose-700">(required)</span>
+                      ) : null}
+                    </p>
+                    {doc.description ? (
+                      <p className="text-xs text-slate-600">{doc.description}</p>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {canEdit && transfer.status !== "COMPLETED" ? (
+            <form action={registerDeathDocument} className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+              <input type="hidden" name="transferId" value={transfer.id} />
+              <div>
+                <Label>Register document received</Label>
+                <select
+                  name="documentType"
+                  className="mt-1 h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                >
+                  {DEATH_TRANSFER_DOCUMENTS.map((d) => (
+                    <option key={d.type} value={d.type}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Title / ref</Label>
+                <Input name="title" placeholder="Optional reference" className="mt-1" />
+              </div>
+              <Button type="submit" size="sm">
+                Mark received
+              </Button>
+            </form>
+          ) : null}
+
+          {deathReadiness && !deathReadiness.ok && transfer.status !== "COMPLETED" ? (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              <p className="font-medium">Cannot complete until:</p>
+              <ul className="mt-1 list-inside list-disc">
+                {deathReadiness.errors.map((e) => (
+                  <li key={e}>{e}</li>
+                ))}
+              </ul>
             </div>
-          );
-        })}
-      </div>
+          ) : null}
+        </section>
 
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+          <h2 className="font-display text-lg font-semibold">Approval &amp; Completion</h2>
+          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+            <Row label="Status" value={labelize(transfer.status)} />
+            <Row label="Approved by" value={transfer.approvedBy?.name || "—"} />
+            <Row label="Approved at" value={formatDateTime(transfer.approvedAt)} />
+            <Row label="Completed by" value={transfer.completedBy?.name || "—"} />
+            <Row label="Completed at" value={formatDateTime(transfer.completedAt)} />
+          </dl>
+
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+            {canEdit &&
+            ["DOCUMENTS_PENDING", "DRAFT"].includes(transfer.status) &&
+            transfer.heirs.some((h) => h.isPrimarySuccessor) ? (
+              <form action={submitDeathCaseForApproval}>
+                <input type="hidden" name="id" value={transfer.id} />
+                <Button type="submit" variant="outline">
+                  Submit for approval
+                </Button>
+              </form>
+            ) : null}
+
+            {canApprove && transfer.status === "APPROVAL_PENDING" ? (
+              <form action={approveTransferAction}>
+                <input type="hidden" name="id" value={transfer.id} />
+                <Button type="submit">Approve succession case</Button>
+              </form>
+            ) : null}
+
+            {canComplete && transfer.status === "APPROVED" ? (
+              <form action={completeTransferAction}>
+                <input type="hidden" name="id" value={transfer.id} />
+                <Button type="submit" disabled={activeMortgage || !deathReadiness?.ok}>
+                  Complete succession (new membership)
+                </Button>
+              </form>
+            ) : null}
+
+            {transfer.status === "COMPLETED" && transfer.toOwnership ? (
+              <div className="w-full rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+                Succession completed. New membership{" "}
+                <strong>{transfer.toOwnership.membershipNumber}</strong> issued to{" "}
+                {transfer.toOwnership.ownerName}. Deceased membership{" "}
+                <strong>{transfer.sellerMembershipNo}</strong> marked TRANSFERRED (history preserved).
+              </div>
+            ) : null}
+
+            {transfer.status === "COMPLETED" &&
+            !transfer.allotmentLetterPrintedAt &&
+            canComplete ? (
+              <form action={markAllotmentPrintedAction}>
+                <input type="hidden" name="id" value={transfer.id} />
+                <Button type="submit" variant="outline" size="sm">
+                  Mark allotment letter printed
+                </Button>
+              </form>
+            ) : null}
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
+
+function SaleWorkflow({
+  transfer,
+  canApprove,
+  canComplete,
+  canVerifyPay,
+  activeMortgage,
+  verifiedPay,
+  pendingPay,
+}: {
+  transfer: NonNullable<Awaited<ReturnType<typeof prisma.transfer.findUnique>> & object> & {
+    plot: { mortgages: { bankName: string }[]; physicalFile: { fileNumber: string } | null };
+    payments: { id: string; receiptNumber: string; status: string; amount: string | number | { toString(): string }; poNumber: string | null; bankName: string | null }[];
+    sellerVerifiedBy: { name: string } | null;
+    approvedBy: { name: string } | null;
+    completedBy: { name: string } | null;
+    toOwnership: { membershipNumber: string; ownerName: string } | null;
+  };
+  canApprove: boolean;
+  canComplete: boolean;
+  canVerifyPay: boolean;
+  activeMortgage?: { bankName: string };
+  verifiedPay?: { id: string };
+  pendingPay?: { id: string };
+}) {
+  return (
+    <>
       {activeMortgage ? (
         <div className="mb-4">
           <WarningBanner>
@@ -303,7 +649,7 @@ export default async function TransferDetailPage({
           </div>
         </section>
       </div>
-    </div>
+    </>
   );
 }
 

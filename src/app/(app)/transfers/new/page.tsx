@@ -48,11 +48,16 @@ export default async function NewTransferPage({
     <div>
       <PageHeader
         title="New Transfer — Step 1"
-        description="Search and select a plot. History is preserved; old membership is never deleted."
+        description="Search and select a plot. Choose sale transfer or death / succession case."
         actions={
-          <Link href="/transfers" className="text-sm text-teal-800 hover:underline">
-            Back to transfers
-          </Link>
+          <div className="flex gap-3 text-sm">
+            <Link href="/transfers/death/new" className="text-violet-800 hover:underline">
+              Death / succession
+            </Link>
+            <Link href="/transfers" className="text-teal-800 hover:underline">
+              Back to transfers
+            </Link>
+          </div>
         }
       />
 

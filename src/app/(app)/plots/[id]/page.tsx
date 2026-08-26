@@ -379,7 +379,9 @@ export default async function PlotProfilePage({
               <thead>
                 <tr>
                   <th>Transfer ID</th>
+                  <th>Type</th>
                   <th>Seller → Purchaser</th>
+                  <th>SLA</th>
                   <th>Status</th>
                   <th>Completed</th>
                 </tr>
@@ -392,8 +394,14 @@ export default async function PlotProfilePage({
                         {t.transferNumber}
                       </Link>
                     </td>
+                    <td>{t.transferType?.replace(/_/g, " ") ?? "SALE"}</td>
                     <td>
                       {t.sellerName} → {t.purchaserName || "—"}
+                    </td>
+                    <td>
+                      {t.slaDueAt
+                        ? new Date(t.slaDueAt).toLocaleDateString("en-GB")
+                        : "—"}
                     </td>
                     <td>
                       <Badge status={t.status} />
@@ -752,7 +760,13 @@ export default async function PlotProfilePage({
           href={`/transfers/new?plotId=${plot.id}`}
           className="inline-flex h-10 items-center rounded-md bg-teal-800 px-4 text-sm font-medium text-white hover:bg-teal-900"
         >
-          Start Transfer
+          Start Sale Transfer
+        </Link>
+        <Link
+          href={`/transfers/death/new?plotId=${plot.id}`}
+          className="inline-flex h-10 items-center rounded-md border border-violet-300 bg-violet-50 px-4 text-sm font-medium text-violet-900 hover:bg-violet-100"
+        >
+          Death / Succession Case
         </Link>
         {session?.user && hasPermission(session.user.role, "create") ? (
           <Link
