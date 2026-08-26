@@ -76,6 +76,29 @@ Active mortgages block completion until bank clearance.
 | `npm run db:seed` | Seed demo data |
 | `npm run db:reset` | Reset schema + reseed |
 
+## Git remotes
+
+This project uses two remotes:
+
+| Remote | URL | Purpose |
+|--------|-----|---------|
+| `origin` | https://github.com/AbbasHafiz/Srms--society-record-management-.git | GitHub (primary public repo) |
+| `cursor` | Cursor Origin forge | Cloud agent / Cursor workspace mirror |
+
+Push the full app to GitHub `main` (requires GitHub auth):
+
+```bash
+git push -u origin cursor/society-records-ae6c:main
+```
+
+If GitHub `main` only has the initial scaffold and histories diverged, use `--force-with-lease` after confirming the remote has no unique commits you need.
+
+Sync back to Cursor Origin:
+
+```bash
+git push cursor cursor/society-records-ae6c
+```
+
 ## Architecture notes
 
 - Plot IDs are permanent internal keys
