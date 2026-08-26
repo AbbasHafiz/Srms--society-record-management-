@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
 import { createDocumentWithUpload } from "@/lib/documents";
 import { hasPermission } from "@/lib/rbac";
+import { requireOtherDetail } from "@/lib/other-specify";
 import type { DocumentType } from "@/generated/prisma/client";
 
 const DOC_TYPES = new Set<string>([
@@ -59,6 +60,9 @@ export async function uploadDocument(formData: FormData) {
   if (!canUploadDocument(session.user.role, documentType)) throw new Error("Forbidden");
   if (!plotId) throw new Error("Plot is required");
   if (!DOC_TYPES.has(documentType)) throw new Error("Invalid document type");
+  const otherDetail = requireOtherDetail(formData, documentType, {
+    message: "Please specify the document type when Other is selected",
+  });
   if (!title) throw new Error("Title is required");
   if (!(file instanceof File) || file.size === 0) throw new Error("File is required");
 
@@ -75,6 +79,7 @@ export async function uploadDocument(formData: FormData) {
     documentType,
     title,
     documentNumber,
+    otherDetail,
     remarks,
     uploadedById: session.user.id,
     file,

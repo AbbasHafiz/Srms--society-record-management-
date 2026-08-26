@@ -41,7 +41,8 @@ const PLOT_TYPE_LABELS: Record<PlotType, string> = {
   OTHER: "Other",
 };
 
-export function plotTypeLabel(type: PlotType | string): string {
+export function plotTypeLabel(type: PlotType | string, otherDetail?: string | null): string {
+  if (type === "OTHER" && otherDetail) return otherDetail;
   return PLOT_TYPE_LABELS[type as PlotType] ?? String(type).replace(/_/g, " ");
 }
 

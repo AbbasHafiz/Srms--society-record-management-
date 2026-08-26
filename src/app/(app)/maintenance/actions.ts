@@ -12,6 +12,7 @@ import {
   updateMaintenanceWorkRecord,
   updateMaintenanceWorkScan,
 } from "@/lib/maintenance";
+import { resolveCustomWorkType } from "@/lib/other-specify";
 import { saveUploadedFile } from "@/lib/uploads";
 import type { MaintenanceWorkStatus, PaymentMethod, PaymentStatus } from "@/generated/prisma/client";
 
@@ -34,16 +35,9 @@ async function parseScan(formData: FormData) {
   };
 }
 
-function parseWorkType(formData: FormData) {
-  const selected = String(formData.get("workType") || "").trim();
-  const custom = String(formData.get("customWorkType") || "").trim();
-  if (selected === "CUSTOM") return custom;
-  return custom || selected;
-}
-
 function parseMaintenanceForm(formData: FormData) {
   const workDate = parseDate(String(formData.get("workDate") || ""));
-  const workType = parseWorkType(formData);
+  const workType = resolveCustomWorkType(formData);
   const description = String(formData.get("description") || "").trim();
   const cost = Number(formData.get("cost"));
   const status = String(formData.get("status") || "REPORTED") as MaintenanceWorkStatus;

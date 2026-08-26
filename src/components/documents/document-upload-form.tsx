@@ -1,6 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { OtherSpecify } from "@/components/ui/other-specify";
 import { labelize } from "@/lib/utils";
 import type { DocumentType } from "@/generated/prisma/client";
 
@@ -51,6 +55,8 @@ export function DocumentUploadForm({
   defaultDocumentType?: DocumentType;
   compact?: boolean;
 }) {
+  const [documentType, setDocumentType] = useState<DocumentType>(defaultDocumentType ?? "OTHER");
+
   return (
     <form action={action} encType="multipart/form-data" className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/50 p-4">
       <h3 className="font-medium text-slate-900">{compact ? "Upload document" : "Upload new document"}</h3>
@@ -80,7 +86,8 @@ export function DocumentUploadForm({
         <Label className="text-xs uppercase tracking-wide text-slate-500">Document type</Label>
         <select
           name="documentType"
-          defaultValue={defaultDocumentType ?? "OTHER"}
+          value={documentType}
+          onChange={(e) => setDocumentType(e.target.value as DocumentType)}
           className="mt-1 flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
         >
           {DOC_TYPES.map((t) => (
@@ -89,6 +96,12 @@ export function DocumentUploadForm({
             </option>
           ))}
         </select>
+        <OtherSpecify
+          selectedValue={documentType}
+          label="Specify document type"
+          placeholder="e.g. Power of attorney, affidavit"
+          className="mt-2"
+        />
       </div>
 
       <div>

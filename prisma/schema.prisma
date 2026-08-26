@@ -525,6 +525,7 @@ model Plot {
   sizeMarla             Decimal           @db.Decimal(10, 2)
   sizeSqYd              Decimal?          @db.Decimal(12, 2)
   plotType              PlotType          @default(RESIDENTIAL)
+  otherDetail           String?
   ownershipStatus       OwnershipStatus   @default(ACTIVE)
   possessionStatus      PossessionStatus  @default(NOT_APPLIED)
   developmentStatus     DevelopmentStatus @default(DEVELOPED)
@@ -704,6 +705,7 @@ model TransferHeir {
   name               String
   cnic               String
   relationToDeceased HeirRelation
+  otherDetail        String?
   contact            String?
   address            String?
   isPrimarySuccessor Boolean      @default(false)
@@ -732,6 +734,7 @@ model Document {
   registeredOfficeId String?
   registeredOffice RegisteredOffice? @relation(fields: [registeredOfficeId], references: [id])
   documentType   DocumentType
+  otherDetail    String?
   documentNumber String?
   title          String
   issueDate      DateTime?
@@ -796,7 +799,9 @@ model Noc {
   slaDueAt          DateTime?
   applicantName     String
   purpose           NocPurpose        @default(GENERAL)
+  customType        String?
   constructionType  ConstructionType?
+  otherDetail       String?
   applicationNotes  String?
   nocNumber         String?
   issueDate         DateTime?
@@ -1187,6 +1192,7 @@ model Employee {
   contact         String?
   email           String?
   designation     Designation?
+  otherDetail     String?
   orgRoleId       String?
   orgRole         OrgRole?         @relation(fields: [orgRoleId], references: [id])
   supervisorId    String?
@@ -1380,6 +1386,7 @@ model TankerDelivery {
   bookerName       String?
   bookerContact    String?
   streetArea       String?
+  destinationNotes String?
   distributionDate DateTime      @db.Date
   timeSlotId       String?
   timeSlot         TankerTimeSlot? @relation(fields: [timeSlotId], references: [id])
@@ -1439,7 +1446,9 @@ model Vehicle {
   vehicleCode    String         @unique
   registrationNo String?
   vehicleType    VehicleType    @default(TRACTOR)
+  customType     String?
   usedFor        VehicleUsedFor @default(OTHER)
+  otherDetail    String?
   driverId       String?
   driver         Employee?      @relation(fields: [driverId], references: [id])
   isActive       Boolean        @default(true)
@@ -1506,6 +1515,7 @@ model MessMeal {
   amount               Decimal          @db.Decimal(12, 2)
   vendor               String?
   remarks              String?
+  otherDetail          String?
   status               MessMealStatus   @default(ACTIVE)
   financeTransactionId String?          @unique
   financeTransaction   FinanceTransaction? @relation(fields: [financeTransactionId], references: [id])

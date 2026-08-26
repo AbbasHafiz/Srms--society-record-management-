@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
 import { canAddFuelLog, canManageFleetRecords } from "@/lib/rbac";
 import { nextSequence } from "@/lib/numbering";
+import { requireCustomType, requireOtherDetail } from "@/lib/other-specify";
 import type { VehicleType, VehicleUsedFor } from "@/generated/prisma/client";
 
 function parseDate(value: string) {
@@ -26,6 +27,12 @@ export async function createVehicle(formData: FormData) {
   const registrationNo = String(formData.get("registrationNo") || "").trim() || null;
   const vehicleType = String(formData.get("vehicleType") || "TRACTOR") as VehicleType;
   const usedFor = String(formData.get("usedFor") || "OTHER") as VehicleUsedFor;
+  const customType = requireCustomType(formData, vehicleType, {
+    message: "Please specify the vehicle type when Other is selected",
+  });
+  const otherDetail = requireOtherDetail(formData, usedFor, {
+    message: "Please specify usage when Other is selected",
+  });
   const driverId = String(formData.get("driverId") || "").trim() || null;
   const waterTankerId = String(formData.get("waterTankerId") || "").trim() || null;
   const remarks = String(formData.get("remarks") || "").trim() || null;
@@ -37,7 +44,9 @@ export async function createVehicle(formData: FormData) {
       vehicleCode: code,
       registrationNo,
       vehicleType,
+      customType,
       usedFor,
+      otherDetail,
       driverId: driverId ?? undefined,
       remarks,
       ...(waterTankerId

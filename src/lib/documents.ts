@@ -25,6 +25,7 @@ export type CreateDocumentInput = {
   documentType: DocumentType;
   title: string;
   documentNumber?: string | null;
+  otherDetail?: string | null;
   issueDate?: Date | null;
   expiryDate?: Date | null;
   remarks?: string | null;
@@ -70,6 +71,7 @@ export async function createDocumentWithUpload(input: CreateDocumentInput) {
       mortgageId: input.mortgageId ?? undefined,
       registeredOfficeId: input.registeredOfficeId ?? undefined,
       documentType: input.documentType,
+      otherDetail: input.otherDetail ?? undefined,
       title: input.title,
       documentNumber: input.documentNumber ?? undefined,
       issueDate: input.issueDate ?? undefined,

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { OtherSpecify } from "@/components/ui/other-specify";
 import { labelize } from "@/lib/utils";
 import type { MaintenanceWorkStatus, PaymentStatus } from "@/generated/prisma/client";
 import { updateMaintenanceWork } from "@/app/(app)/maintenance/actions";
@@ -36,8 +37,9 @@ export function MaintenanceEditForm({
   paymentStatuses,
 }: MaintenanceEditFormProps) {
   const presetValues = useMemo(() => new Set(typeSuggestions), [typeSuggestions]);
-  const initialPreset = presetValues.has(work.workType) ? work.workType : "CUSTOM";
+  const initialPreset = presetValues.has(work.workType) ? work.workType : "OTHER";
   const [workType, setWorkType] = useState(initialPreset);
+  const customTypeDefault = presetValues.has(work.workType) ? "" : work.workType;
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -62,20 +64,15 @@ export function MaintenanceEditForm({
                   {labelize(t)}
                 </option>
               ))}
-              <option value="CUSTOM">Custom type…</option>
             </select>
           </label>
-          {workType === "CUSTOM" ? (
-            <label className="text-sm sm:col-span-2">
-              <Label>Custom type</Label>
-              <Input
-                name="customWorkType"
-                defaultValue={presetValues.has(work.workType) ? "" : work.workType}
-                required
-                className="mt-1"
-              />
-            </label>
-          ) : null}
+          <OtherSpecify
+            selectedValue={workType}
+            name="customType"
+            label="Specify maintenance type"
+            defaultValue={customTypeDefault}
+            className="sm:col-span-2"
+          />
           <label className="text-sm sm:col-span-2">
             <Label>Description</Label>
             <Input name="description" defaultValue={work.description} required className="mt-1" />

@@ -1,4 +1,5 @@
 import { EMPLOYMENT_TYPES, CONTRACTOR_TRADES } from "@/lib/hr";
+import { EmployeeOrgRoleFields } from "@/components/employees/employee-org-role-fields";
 import { labelize } from "@/lib/utils";
 import type { EmployeeStatus } from "@/generated/prisma/client";
 
@@ -29,6 +30,7 @@ type EmployeeFormProps = {
     salary: { toString(): string } | null;
     status: EmployeeStatus;
     remarks: string | null;
+    otherDetail?: string | null;
     photoPath: string | null;
     employeeCode?: string;
   };
@@ -42,11 +44,6 @@ function dateInputValue(d: Date | null | undefined): string {
 export function EmployeeForm({ action, orgRoles, supervisors, employee, submitLabel }: EmployeeFormProps) {
   const joiningValue = dateInputValue(employee?.joiningDate ?? new Date());
   const defaultEmploymentType = employee?.employmentType ?? "STAFF";
-
-  const rolesByCategory = orgRoles.reduce<Record<string, OrgRoleOption[]>>((acc, role) => {
-    (acc[role.category] ??= []).push(role);
-    return acc;
-  }, {});
 
   return (
     <form action={action} className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -102,34 +99,11 @@ export function EmployeeForm({ action, orgRoles, supervisors, employee, submitLa
       <fieldset className="space-y-4">
         <legend className="font-display text-sm font-semibold text-slate-900">Role & Reporting</legend>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm sm:col-span-2">
-            <span className="mb-1 block font-medium text-slate-700">Organization role *</span>
-            <select
-              name="orgRoleId"
-              required
-              defaultValue={employee?.orgRoleId ?? ""}
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-3"
-            >
-              <option value="" disabled>
-                Select role…
-              </option>
-              {Object.entries(rolesByCategory).map(([category, roles]) => (
-                <optgroup key={category} label={labelize(category)}>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-slate-500">
-              Manage custom roles under{" "}
-              <a href="/settings/roles" className="text-teal-800 hover:underline">
-                Settings → Roles
-              </a>
-            </p>
-          </label>
+          <EmployeeOrgRoleFields
+            orgRoles={orgRoles}
+            defaultOrgRoleId={employee?.orgRoleId ?? ""}
+            defaultOtherDetail={employee?.otherDetail ?? ""}
+          />
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Supervisor</span>
             <select

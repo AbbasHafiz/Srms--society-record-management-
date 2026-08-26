@@ -11,6 +11,7 @@ import {
   MAINTENANCE_STATUSES,
   MAINTENANCE_TYPE_SUGGESTIONS,
 } from "@/lib/maintenance";
+import { OtherSpecify } from "@/components/ui/other-specify";
 import { labelize } from "@/lib/utils";
 import { createMaintenanceWork } from "@/app/(app)/maintenance/actions";
 
@@ -53,15 +54,15 @@ export function MaintenanceNewForm() {
                   {labelize(t)}
                 </option>
               ))}
-              <option value="CUSTOM">Custom type…</option>
             </select>
           </label>
-          {workType === "CUSTOM" ? (
-            <label className="text-sm sm:col-span-2">
-              <Label>Custom type *</Label>
-              <Input name="customWorkType" required placeholder="e.g. Boundary wall repair" className="mt-1" />
-            </label>
-          ) : null}
+          <OtherSpecify
+            selectedValue={workType}
+            name="customType"
+            label="Specify maintenance type"
+            placeholder="e.g. Boundary wall repair"
+            className="sm:col-span-2"
+          />
           <label className="text-sm sm:col-span-2">
             <Label>Description *</Label>
             <Input name="description" required placeholder="Brief description of work" className="mt-1" />

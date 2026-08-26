@@ -27,7 +27,9 @@ import {
   removeTransferHeir,
   submitDeathCaseForApproval,
   markAllotmentPrintedAction,
+  updateTransferRemarks,
 } from "../actions";
+import { HeirRelationFields } from "@/components/transfers/heir-relation-fields";
 import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
 
 export const dynamic = "force-dynamic";
@@ -198,6 +200,26 @@ export default async function TransferDetailPage({
         </span>
       </div>
 
+      {canEdit && transfer.status !== "COMPLETED" ? (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <form action={updateTransferRemarks} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <input type="hidden" name="id" value={transfer.id} />
+            <label className="flex-1 text-sm">
+              <Label>Case remarks</Label>
+              <Input
+                name="remarks"
+                defaultValue={transfer.remarks ?? ""}
+                className="mt-1"
+                placeholder="Staff notes — heir consent, pending documents, etc."
+              />
+            </label>
+            <Button type="submit" size="sm">
+              Save remarks
+            </Button>
+          </form>
+        </section>
+      ) : null}
+
       {isDeath ? (
         <DeathWorkflow
           transfer={transfer}
@@ -233,7 +255,7 @@ function DeathWorkflow({
   deathDocChecklist,
 }: {
   transfer: NonNullable<Awaited<ReturnType<typeof prisma.transfer.findUnique>> & object> & {
-    heirs: { id: string; name: string; cnic: string; relationToDeceased: string; contact: string | null; address: string | null; isPrimarySuccessor: boolean; shareNotes: string | null }[];
+    heirs: { id: string; name: string; cnic: string; relationToDeceased: string; otherDetail: string | null; contact: string | null; address: string | null; isPrimarySuccessor: boolean; shareNotes: string | null }[];
     documents: { id: string; documentType: string; title: string; filePath: string; fileSize: number | null; fileName: string; documentNumber: string | null; createdAt: Date }[];
     plot: { mortgages: unknown[] };
     payments: unknown[];
@@ -304,7 +326,10 @@ function DeathWorkflow({
                         ) : null}
                       </p>
                       <p className="text-slate-600">
-                        {HEIR_RELATION_LABELS[h.relationToDeceased as keyof typeof HEIR_RELATION_LABELS]} · {h.cnic}
+                        {h.relationToDeceased === "OTHER" && h.otherDetail
+                          ? h.otherDetail
+                          : HEIR_RELATION_LABELS[h.relationToDeceased as keyof typeof HEIR_RELATION_LABELS]}{" "}
+                        · {h.cnic}
                       </p>
                       {h.shareNotes ? <p className="mt-1 text-slate-500">{h.shareNotes}</p> : null}
                     </div>
@@ -337,19 +362,7 @@ function DeathWorkflow({
                   <Label>CNIC</Label>
                   <Input name="cnic" required className="mt-1" placeholder="35202-1234567-1" />
                 </div>
-                <div>
-                  <Label>Relation to deceased</Label>
-                  <select
-                    name="relationToDeceased"
-                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                  >
-                    {Object.entries(HEIR_RELATION_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <HeirRelationFields />
                 <div>
                   <Label>Contact</Label>
                   <Input name="contact" className="mt-1" />

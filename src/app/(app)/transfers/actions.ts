@@ -13,6 +13,7 @@ import {
 import { hasPermission } from "@/lib/rbac";
 import { computeTransferSlaDue } from "@/lib/sla";
 import { validateDeathTransferReadiness } from "@/lib/death-transfer";
+import { requireOtherDetail } from "@/lib/other-specify";
 import type { HeirRelation } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -151,6 +152,9 @@ export async function addTransferHeir(formData: FormData) {
   const isPrimary = formData.get("isPrimarySuccessor") === "yes";
 
   if (!HEIR_RELATIONS.includes(relation)) throw new Error("Invalid relation");
+  const otherDetail = requireOtherDetail(formData, relation, {
+    message: "Please specify the relation when Other is selected",
+  });
 
   const transfer = await prisma.transfer.findUnique({ where: { id: transferId } });
   if (!transfer || transfer.transferType !== "DEATH_SUCCESSION") {
@@ -171,6 +175,7 @@ export async function addTransferHeir(formData: FormData) {
       name: String(formData.get("name") || "").trim(),
       cnic: String(formData.get("cnic") || "").trim(),
       relationToDeceased: relation,
+      otherDetail,
       contact: String(formData.get("contact") || "").trim() || null,
       address: String(formData.get("address") || "").trim() || null,
       isPrimarySuccessor: isPrimary,
@@ -383,4 +388,35 @@ export async function verifyTransferPaymentAction(formData: FormData) {
     revalidatePath(`/transfers/${payment.transferId}`);
   }
   revalidatePath("/payments");
+}
+
+export async function updateTransferRemarks(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "edit")) throw new Error("Forbidden");
+
+  const id = String(formData.get("id") || "").trim();
+  const remarks = String(formData.get("remarks") || "").trim() || null;
+  if (!id) throw new Error("Transfer ID required");
+
+  const transfer = await prisma.transfer.findUnique({ where: { id } });
+  if (!transfer) throw new Error("Transfer not found");
+  if (transfer.status === "COMPLETED") throw new Error("Completed transfers cannot be edited");
+
+  await prisma.transfer.update({
+    where: { id },
+    data: { remarks },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "TRANSFER_REMARKS_UPDATED",
+    module: "transfers",
+    recordId: id,
+    transferId: id,
+    plotId: transfer.plotId,
+    newValue: { remarks },
+  });
+
+  revalidatePath(`/transfers/${id}`);
 }

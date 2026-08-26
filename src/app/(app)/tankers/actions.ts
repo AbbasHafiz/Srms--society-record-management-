@@ -60,6 +60,7 @@ export async function createTankerBooking(formData: FormData) {
   const tankerId = (formData.get("tankerId") as string)?.trim() || undefined;
   const driverId = (formData.get("driverId") as string)?.trim() || undefined;
   const remarks = (formData.get("remarks") as string)?.trim() || undefined;
+  const destinationNotes = (formData.get("destinationNotes") as string)?.trim() || undefined;
 
   if (!bookerName || !tankerType || !distributionDate || !timeSlotId) {
     throw new Error("Booker name, tanker type, delivery date, and time slot are required");
@@ -103,6 +104,7 @@ export async function createTankerBooking(formData: FormData) {
       bookedById: session.user.id,
       status,
       remarks,
+      destinationNotes,
     },
   });
 
@@ -183,6 +185,9 @@ export async function updateTankerBooking(formData: FormData) {
   const remarks = formData.has("remarks")
     ? ((formData.get("remarks") as string)?.trim() || null)
     : existing.remarks;
+  const destinationNotes = formData.has("destinationNotes")
+    ? ((formData.get("destinationNotes") as string)?.trim() || null)
+    : existing.destinationNotes;
   const receiptNumber = formData.has("receiptNumber")
     ? ((formData.get("receiptNumber") as string)?.trim() || null)
     : existing.receiptNumber;
@@ -233,6 +238,7 @@ export async function updateTankerBooking(formData: FormData) {
           }
         : {}),
       remarks,
+      destinationNotes,
       receiptNumber,
       ...(editingDetails
         ? {

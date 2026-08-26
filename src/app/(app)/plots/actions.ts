@@ -9,6 +9,7 @@ import {
   ALL_PLOT_TYPES,
   ALL_POSSESSION_STATUSES,
 } from "@/lib/plots";
+import { requireOtherDetail } from "@/lib/other-specify";
 import type {
   DevelopmentStatus,
   PlotType,
@@ -22,6 +23,9 @@ function parsePlotForm(formData: FormData) {
   if (!ALL_PLOT_TYPES.includes(plotType as PlotType)) {
     throw new Error("Invalid property type");
   }
+  const otherDetail = requireOtherDetail(formData, plotType, {
+    message: "Please specify the property type when Other is selected",
+  });
 
   const possessionStatus = String(formData.get("possessionStatus") || "NOT_APPLIED");
   if (!ALL_POSSESSION_STATUSES.includes(possessionStatus as PossessionStatus)) {
@@ -47,6 +51,7 @@ function parsePlotForm(formData: FormData) {
     sizeMarla,
     sizeSqYd,
     plotType: plotType as PlotType,
+    otherDetail,
     possessionStatus: possessionStatus as PossessionStatus,
     developmentStatus: developmentStatus as DevelopmentStatus,
     remarks: String(formData.get("remarks") || "").trim() || null,

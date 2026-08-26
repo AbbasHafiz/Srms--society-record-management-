@@ -6,6 +6,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { nextEmployeeCode } from "@/lib/numbering";
 import { hasPermission } from "@/lib/rbac";
 import { EMPLOYMENT_TYPES, CONTRACTOR_TRADES } from "@/lib/hr";
+import { requireOtherDetail } from "@/lib/other-specify";
 import type {
   EmployeeStatus,
   EmploymentType,
@@ -91,12 +92,20 @@ export async function createEmployee(formData: FormData) {
   });
   if (!orgRole) throw new Error("Invalid organization role");
 
+  const otherDetail =
+    orgRole.code === "OTHER"
+      ? requireOtherDetail(formData, "OTHER", {
+          message: "Please specify the job title when role is Other",
+        })
+      : null;
+
   const employeeCode = await nextEmployeeCode();
 
   const employee = await prisma.employee.create({
     data: {
       employeeCode,
       ...data,
+      otherDetail,
     },
   });
 
@@ -141,9 +150,16 @@ export async function updateEmployee(formData: FormData) {
   });
   if (!orgRole) throw new Error("Invalid organization role");
 
+  const otherDetail =
+    orgRole.code === "OTHER"
+      ? requireOtherDetail(formData, "OTHER", {
+          message: "Please specify the job title when role is Other",
+        })
+      : null;
+
   const employee = await prisma.employee.update({
     where: { id },
-    data,
+    data: { ...data, otherDetail },
   });
 
   const salaryChanged =

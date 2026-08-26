@@ -209,6 +209,9 @@ export default async function AttendancePage() {
                           {record.markedBy ? (
                             <div className="text-xs text-slate-400">By {record.markedBy.name}</div>
                           ) : null}
+                          {record.notes ? (
+                            <div className="text-xs text-slate-600">{record.notes}</div>
+                          ) : null}
                         </div>
                       ) : (
                         <Badge className="bg-slate-50 text-slate-500 border-slate-200">Not marked</Badge>
@@ -216,20 +219,28 @@ export default async function AttendancePage() {
                     </td>
                     {canMark ? (
                       <td>
-                        <form action={markAttendance} className="flex flex-wrap items-center gap-1">
+                        <form action={markAttendance} className="space-y-2">
                           <input type="hidden" name="employeeId" value={emp.id} />
-                          {MARK_STATUSES.map((s) => (
-                            <Button
-                              key={s}
-                              type="submit"
-                              name="status"
-                              value={s}
-                              size="sm"
-                              variant={record?.status === s ? "default" : "outline"}
-                            >
-                              {labelize(s)}
-                            </Button>
-                          ))}
+                          <div className="flex flex-wrap items-center gap-1">
+                            {MARK_STATUSES.map((s) => (
+                              <Button
+                                key={s}
+                                type="submit"
+                                name="status"
+                                value={s}
+                                size="sm"
+                                variant={record?.status === s ? "default" : "outline"}
+                              >
+                                {labelize(s)}
+                              </Button>
+                            ))}
+                          </div>
+                          <input
+                            name="notes"
+                            defaultValue={record?.notes ?? ""}
+                            placeholder="Notes (optional)"
+                            className="h-8 w-full min-w-[10rem] rounded-md border border-slate-300 px-2 text-xs"
+                          />
                         </form>
                       </td>
                     ) : null}

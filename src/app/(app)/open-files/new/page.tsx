@@ -124,6 +124,16 @@ export default async function NewOpenFilePage({
             <Input name="openingDate" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} />
           </label>
 
+          <label className="text-sm sm:col-span-2">
+            <span className="mb-1 block font-medium text-slate-700">Remarks / notes</span>
+            <textarea
+              name="remarks"
+              rows={2}
+              placeholder="e.g. Dealer not in register, special terms…"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            />
+          </label>
+
           <div className="sm:col-span-2">
             <Button type="submit">Create open file</Button>
           </div>

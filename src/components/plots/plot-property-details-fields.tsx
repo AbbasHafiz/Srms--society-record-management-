@@ -7,6 +7,7 @@ import {
   ALL_POSSESSION_STATUSES,
   plotTypeLabel,
 } from "@/lib/plots";
+import { OtherSpecify } from "@/components/ui/other-specify";
 import { labelize } from "@/lib/utils";
 
 type SizeOption = {
@@ -18,8 +19,16 @@ type SizeOption = {
   sizeMarla: string | null;
 };
 
-export function PlotPropertyDetailsFields({ sizeOptions }: { sizeOptions: SizeOption[] }) {
-  const [plotType, setPlotType] = useState("RESIDENTIAL");
+export function PlotPropertyDetailsFields({
+  sizeOptions,
+  defaultPlotType = "RESIDENTIAL",
+  defaultOtherDetail = "",
+}: {
+  sizeOptions: SizeOption[];
+  defaultPlotType?: string;
+  defaultOtherDetail?: string;
+}) {
+  const [plotType, setPlotType] = useState(defaultPlotType);
   const [catalogId, setCatalogId] = useState("");
   const [sizeMarla, setSizeMarla] = useState("");
   const [sizeSqYd, setSizeSqYd] = useState("");
@@ -74,6 +83,13 @@ export function PlotPropertyDetailsFields({ sizeOptions }: { sizeOptions: SizeOp
             </option>
           ))}
         </select>
+        <OtherSpecify
+          selectedValue={plotType}
+          label="Specify property type"
+          placeholder="e.g. Community centre, graveyard"
+          defaultValue={defaultOtherDetail}
+          className="mt-2"
+        />
       </div>
 
       <div className="sm:col-span-2">

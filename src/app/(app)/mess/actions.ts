@@ -10,6 +10,7 @@ import {
   createMessMealRecord,
   updateMessMealRecord,
 } from "@/lib/mess";
+import { requireOtherDetail } from "@/lib/other-specify";
 import type { MealType, PaymentMethod } from "@/generated/prisma/client";
 
 function parseDate(value: string) {
@@ -21,6 +22,9 @@ function parseDate(value: string) {
 function parseMessForm(formData: FormData) {
   const mealDate = parseDate(String(formData.get("mealDate") || ""));
   const mealType = String(formData.get("mealType") || "LUNCH") as MealType;
+  const otherDetail = requireOtherDetail(formData, mealType, {
+    message: "Please specify the meal type when Other is selected",
+  });
   const headcount = Number(formData.get("headcount"));
   const amount = Number(formData.get("amount"));
   const vendor = String(formData.get("vendor") || "").trim() || null;
@@ -29,7 +33,7 @@ function parseMessForm(formData: FormData) {
   if (!Number.isFinite(headcount) || headcount <= 0) throw new Error("Headcount must be greater than zero");
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("Amount must be greater than zero");
 
-  return { mealDate, mealType, headcount, amount, vendor, remarks };
+  return { mealDate, mealType, otherDetail, headcount, amount, vendor, remarks };
 }
 
 export async function createMessMeal(formData: FormData) {

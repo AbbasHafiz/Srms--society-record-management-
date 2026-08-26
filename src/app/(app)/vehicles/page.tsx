@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createVehicle } from "./actions";
 import { canManageFleetRecords, canViewFuelSpending } from "@/lib/rbac";
-import { listWaterTankersWithoutVehicle, VEHICLE_TYPE_OPTIONS, VEHICLE_USED_FOR_OPTIONS } from "@/lib/vehicles";
+import { listWaterTankersWithoutVehicle } from "@/lib/vehicles";
+import { VehicleCreateForm } from "@/components/vehicles/vehicle-create-form";
 import { labelize } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -42,36 +43,7 @@ export default async function VehiclesPage() {
       />
 
       {canManage ? (
-        <form action={createVehicle} className="mb-6 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
-          <Input name="vehicleCode" placeholder="Code (auto if blank)" />
-          <Input name="registrationNo" placeholder="Registration no." />
-          <select name="vehicleType" defaultValue="STAFF_PICKUP" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
-            {VEHICLE_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <select name="usedFor" defaultValue="STAFF_PICKUP" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
-            {VEHICLE_USED_FOR_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          {unlinkedTankers.length > 0 ? (
-            <select name="waterTankerId" defaultValue="" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm lg:col-span-2">
-              <option value="">Link water tanker (optional)</option>
-              {unlinkedTankers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.tankerCode} ({t.capacityLiters.toLocaleString()} L)
-                </option>
-              ))}
-            </select>
-          ) : null}
-          <Input name="remarks" placeholder="Remarks" className="lg:col-span-2" />
-          <Button type="submit">Add vehicle</Button>
-        </form>
+        <VehicleCreateForm action={createVehicle} unlinkedTankers={unlinkedTankers} />
       ) : null}
 
       {vehicles.length === 0 ? (
@@ -99,8 +71,8 @@ export default async function VehiclesPage() {
                     </Link>
                   </td>
                   <td>{v.registrationNo ?? "—"}</td>
-                  <td>{labelize(v.vehicleType)}</td>
-                  <td>{labelize(v.usedFor)}</td>
+                  <td>{labelize(v.vehicleType)}{v.customType ? ` (${v.customType})` : ""}</td>
+                  <td>{labelize(v.usedFor)}{v.otherDetail ? ` (${v.otherDetail})` : ""}</td>
                   <td>{v.linkedTanker?.tankerCode ?? "—"}</td>
                   <td>
                     {v.driver ? (

@@ -24,6 +24,7 @@ export async function createOpenFile(formData: FormData) {
   const trdNumber = String(formData.get("trdNumber") || "").trim() || null;
   const openingDate = new Date(String(formData.get("openingDate") || ""));
   const periodMonths = Number(formData.get("periodMonths") || 3);
+  const remarks = String(formData.get("remarks") || "").trim() || null;
 
   if (!plotId || !sellerName || !sellerCnic || !dealerName || Number.isNaN(openingDate.getTime())) {
     throw new Error("Plot, seller, dealer, and opening date are required");
@@ -76,6 +77,7 @@ export async function createOpenFile(formData: FormData) {
       feeConfigId: activeFee.id,
       paymentStatus: "PENDING",
       status: "ACTIVE",
+      remarks,
     },
   });
 

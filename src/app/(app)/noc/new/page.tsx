@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page";
 import { Button } from "@/components/ui/button";
 import { WarningBanner } from "@/components/ui/page";
 import { createNocApplication } from "../actions";
+import { NocApplicationFields } from "@/components/noc/noc-application-fields";
 import { plotTypeLabel } from "@/lib/plots";
 import { plotSizeDisplay } from "@/lib/property-sizes";
 import { canCreateNocApplication } from "@/lib/noc";
@@ -144,48 +145,7 @@ export default async function NewNocPage({
                   {owner ? (
                     <form action={createNocApplication} className="max-w-md space-y-3 lg:min-w-[20rem]">
                       <input type="hidden" name="plotId" value={p.id} />
-                      <div>
-                        <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                          NOC purpose
-                        </label>
-                        <select
-                          name="purpose"
-                          defaultValue={defaultPurpose}
-                          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                        >
-                          <option value="CONSTRUCTION">Build house / Construction</option>
-                          <option value="TRANSFER">Transfer</option>
-                          <option value="GENERAL">General</option>
-                          <option value="OTHER">Other</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                          Proposed construction type
-                        </label>
-                        <select
-                          name="constructionType"
-                          defaultValue="HOUSE"
-                          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                        >
-                          <option value="HOUSE">House / Residential building</option>
-                          <option value="BOUNDARY_WALL">Boundary wall</option>
-                          <option value="EXTENSION">Extension / additional floor</option>
-                          <option value="COMMERCIAL_BUILDING">Commercial building</option>
-                          <option value="OTHER">Other</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                          Application notes
-                        </label>
-                        <textarea
-                          name="applicationNotes"
-                          rows={2}
-                          placeholder="e.g. Single-storey house, covered area details…"
-                          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                        />
-                      </div>
+                      <NocApplicationFields defaultPurpose={defaultPurpose} />
                       {mortgaged ? (
                         <label className="flex items-start gap-2 text-sm text-slate-700">
                           <input type="checkbox" name="acknowledgeMortgage" className="mt-1" />

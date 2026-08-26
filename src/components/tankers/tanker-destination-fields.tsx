@@ -263,6 +263,16 @@ export function TankerDestinationFields({
       ) : (
         <p className="text-xs text-slate-500">Walk-in bookings are not linked to a society plot record.</p>
       )}
+
+      <label className="text-sm sm:col-span-2">
+        <span className="mb-1 block font-medium text-slate-700">Destination notes (optional)</span>
+        <textarea
+          name="destinationNotes"
+          rows={2}
+          placeholder="Gate directions, landmark, contact at site…"
+          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+        />
+      </label>
     </div>
   );
 }

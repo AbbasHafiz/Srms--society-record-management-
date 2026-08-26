@@ -66,6 +66,7 @@ export async function getMessSpendingSummary(filters: MessSummaryFilters) {
 type CreateMessMealInput = {
   mealDate: Date;
   mealType: MealType;
+  otherDetail?: string | null;
   headcount: number;
   amount: number;
   vendor?: string | null;
@@ -99,6 +100,7 @@ export async function createMessMealRecord(input: CreateMessMealInput) {
     data: {
       mealDate: input.mealDate,
       mealType: input.mealType,
+      otherDetail: input.otherDetail ?? undefined,
       headcount: input.headcount,
       amount: input.amount,
       vendor: input.vendor ?? undefined,
@@ -113,6 +115,7 @@ type UpdateMessMealInput = {
   id: string;
   mealDate: Date;
   mealType: MealType;
+  otherDetail?: string | null;
   headcount: number;
   amount: number;
   vendor?: string | null;
@@ -129,6 +132,7 @@ export async function updateMessMealRecord(input: UpdateMessMealInput) {
     data: {
       mealDate: input.mealDate,
       mealType: input.mealType,
+      otherDetail: input.otherDetail ?? undefined,
       headcount: input.headcount,
       amount: input.amount,
       vendor: input.vendor ?? undefined,

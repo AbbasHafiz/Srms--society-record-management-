@@ -14,6 +14,7 @@ import type {
 } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireCustomType, requireOtherDetail } from "@/lib/other-specify";
 
 const PURPOSES: NocPurpose[] = ["CONSTRUCTION", "TRANSFER", "GENERAL", "UTILITY_CONNECTION", "OTHER"];
 const CONSTRUCTION_TYPES: ConstructionType[] = [
@@ -40,6 +41,12 @@ export async function createNocApplication(formData: FormData) {
   const purpose = String(formData.get("purpose") || "GENERAL") as NocPurpose;
   const constructionTypeRaw = String(formData.get("constructionType") || "").trim();
   const applicationNotes = String(formData.get("applicationNotes") || "").trim() || null;
+  const purposeOther = requireCustomType(formData, purpose, {
+    message: "Please specify the NOC purpose when Other is selected",
+  });
+  const constructionOther = requireOtherDetail(formData, constructionTypeRaw, {
+    message: "Please specify the construction type when Other is selected",
+  });
   const acknowledgeMortgage = formData.get("acknowledgeMortgage") === "on";
 
   if (!plotId) throw new Error("Plot is required");
@@ -82,7 +89,9 @@ export async function createNocApplication(formData: FormData) {
       slaDueAt,
       applicantName: owner.ownerName,
       purpose,
+      customType: purposeOther,
       constructionType: constructionType ?? undefined,
+      otherDetail: constructionOther,
       applicationNotes,
       fee: feeConfig?.amount,
       paymentStatus: "PENDING",

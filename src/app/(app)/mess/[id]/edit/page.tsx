@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { canManageMess } from "@/lib/rbac";
-import { MEAL_TYPE_OPTIONS } from "@/lib/mess";
+import { MessMealTypeFields } from "@/components/mess/mess-meal-type-fields";
 import { updateMessMeal } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -40,16 +40,7 @@ export default async function EditMessPage({ params }: { params: Promise<{ id: s
           <span className="mb-1 block font-medium text-slate-700">Date *</span>
           <Input type="date" name="mealDate" defaultValue={meal.mealDate.toISOString().slice(0, 10)} required />
         </label>
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-700">Meal type *</span>
-          <select name="mealType" defaultValue={meal.mealType} required className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">
-            {MEAL_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <MessMealTypeFields defaultMealType={meal.mealType} defaultOtherDetail={meal.otherDetail ?? ""} />
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-slate-700">Headcount / beneficiaries *</span>
           <Input type="number" name="headcount" min="1" step="1" defaultValue={String(meal.headcount)} required />
