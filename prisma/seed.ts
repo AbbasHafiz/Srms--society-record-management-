@@ -192,6 +192,7 @@ async function main() {
       plotType: "RESIDENTIAL",
       ownershipStatus: "ACTIVE",
       possessionStatus: "ISSUED",
+      developmentStatus: "DEVELOPED",
       hasActiveMortgage: false,
       hasOpenFile: false,
       annualChargesStatus: "PAID",
@@ -331,6 +332,7 @@ async function main() {
       plotType: "RESIDENTIAL",
       ownershipStatus: "ACTIVE",
       possessionStatus: "ISSUED",
+      developmentStatus: "DEVELOPED",
       hasActiveMortgage: true,
       annualChargesStatus: "OVERDUE",
     },
@@ -372,6 +374,7 @@ async function main() {
       sizeSqYd: 125,
       plotType: "RESIDENTIAL",
       ownershipStatus: "ACTIVE",
+      developmentStatus: "DEVELOPED",
       hasOpenFile: true,
       annualChargesStatus: "PENDING",
     },
@@ -414,6 +417,78 @@ async function main() {
     },
   });
 
+  // Undeveloped / non-possession plot with owner and pending dues (QR scan demo)
+  const plot052 = await prisma.plot.create({
+    data: {
+      plotNumber: "052",
+      sector: "E-17",
+      block: "8",
+      street: "Street 18",
+      sizeMarla: 8,
+      sizeSqYd: 200,
+      plotType: "RESIDENTIAL",
+      ownershipStatus: "ACTIVE",
+      possessionStatus: "NOT_APPLIED",
+      developmentStatus: "UNDEVELOPED",
+      annualChargesStatus: "OVERDUE",
+      remarks: "Undeveloped plot — owner allotted, possession not issued",
+    },
+  });
+
+  const owner052 = await prisma.ownership.create({
+    data: {
+      plotId: plot052.id,
+      ownerName: "Rashid Mehmood",
+      cnic: "35202-6106106-6",
+      contact: "0312-5544332",
+      address: "Peshawar",
+      membershipNumber: "M-2405",
+      allotmentNumber: "AL-2405",
+      startDate: new Date("2023-11-01"),
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.plotCharge.createMany({
+    data: [
+      {
+        plotId: plot052.id,
+        ownershipId: owner052.id,
+        feeConfigId: annual2026.id,
+        year: 2026,
+        month: 6,
+        rateSnapshot: 2000,
+        amount: 2000,
+        status: "OVERDUE",
+        dueDate: new Date("2026-06-01"),
+      },
+      {
+        plotId: plot052.id,
+        ownershipId: owner052.id,
+        feeConfigId: annual2026.id,
+        year: 2026,
+        month: 7,
+        rateSnapshot: 2000,
+        amount: 2000,
+        status: "PENDING",
+        dueDate: new Date("2026-07-01"),
+      },
+    ],
+  });
+
+  await prisma.payment.create({
+    data: {
+      receiptNumber: "RCPT-00955",
+      plotId: plot052.id,
+      ownershipId: owner052.id,
+      feeType: "ANNUAL_PLOT_CHARGE",
+      feeConfigId: annual2026.id,
+      amount: 2000,
+      status: "PENDING",
+      paymentMethod: "PO",
+    },
+  });
+
   // More plots for dashboard counts
   const extraPlots = [];
   for (let i = 1; i <= 20; i++) {
@@ -427,6 +502,7 @@ async function main() {
         plotType: i % 7 === 0 ? "COMMERCIAL" : "RESIDENTIAL",
         ownershipStatus: "ACTIVE",
         possessionStatus: i % 4 === 0 ? "ISSUED" : "NOT_APPLIED",
+        developmentStatus: i % 4 === 0 ? "DEVELOPED" : i % 5 === 0 ? "UNDER_CONSTRUCTION" : "DEVELOPED",
         annualChargesStatus: i % 3 === 0 ? "OVERDUE" : "PAID",
       },
     });
@@ -486,6 +562,18 @@ async function main() {
       currentLocationId: locC.id,
       status: "CHECKED_OUT",
       remarks: "With dealer for open file",
+    },
+  });
+
+  await prisma.physicalFile.create({
+    data: {
+      fileNumber: "PF-0052",
+      barcode: "PF-E17-8-052",
+      plotId: plot052.id,
+      currentLocationId: locA.id,
+      status: "IN_LOCKER",
+      condition: "GOOD",
+      remarks: "Undeveloped plot file",
     },
   });
 

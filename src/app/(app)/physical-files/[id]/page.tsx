@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { QrCodeDisplay } from "@/components/qr-code-display";
+import { getScanPath } from "@/lib/qr";
 import { formatDateTime, labelize } from "@/lib/utils";
 import type { FileLocation } from "@/generated/prisma/client";
 
@@ -141,49 +143,62 @@ export default async function PhysicalFileDetailPage({
           </CardContent>
         </Card>
 
-        {canMove ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Move File</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form action={moveFileAction} className="space-y-4">
-                <input type="hidden" name="physicalFileId" value={file.id} />
-                <div>
-                  <Label htmlFor="toLocationId">Destination</Label>
-                  <select
-                    id="toLocationId"
-                    name="toLocationId"
-                    required
-                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      Select location…
-                    </option>
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {formatLocation(loc)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="reason">Reason</Label>
-                  <Input id="reason" name="reason" required className="mt-1" placeholder="Transfer processing, audit…" />
-                </div>
-                <div>
-                  <Label htmlFor="remarks">Remarks (optional)</Label>
-                  <Input id="remarks" name="remarks" className="mt-1" />
-                </div>
-                <Button type="submit" className="w-full">
-                  Record Movement
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        ) : null}
+        <Card className="print-qr-panel">
+          <CardHeader>
+            <CardTitle>Scan QR</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center text-center">
+            <QrCodeDisplay barcode={file.barcode} size={180} showUrl={false} />
+            <p className="mt-3 font-mono text-sm text-slate-700">{file.barcode}</p>
+            <Link href={getScanPath(file.barcode)} className="mt-2 text-sm text-teal-800 hover:underline">
+              Open scan page →
+            </Link>
+          </CardContent>
+        </Card>
       </div>
+
+      {canMove ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Move File</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form action={moveFileAction} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <input type="hidden" name="physicalFileId" value={file.id} />
+              <div className="sm:col-span-2">
+                <Label htmlFor="toLocationId">Destination</Label>
+                <select
+                  id="toLocationId"
+                  name="toLocationId"
+                  required
+                  className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  defaultValue=""
+                >
+                  <option value="" disabled>
+                    Select location…
+                  </option>
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {formatLocation(loc)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="reason">Reason</Label>
+                <Input id="reason" name="reason" required className="mt-1" placeholder="Transfer processing, audit…" />
+              </div>
+              <div>
+                <Label htmlFor="remarks">Remarks (optional)</Label>
+                <Input id="remarks" name="remarks" className="mt-1" />
+              </div>
+              <div className="sm:col-span-2 lg:col-span-4">
+                <Button type="submit">Record Movement</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <section className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-5 py-4">

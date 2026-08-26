@@ -166,6 +166,11 @@ enum Designation {
   ASSOCIATE_TRANSFER_OFFICER
   RECORD_MANAGER
   FINANCE
+  COOK
+  DRIVER
+  COMPUTER_OPERATOR
+  ELECTRICIAN
+  PLUMBER
   MALI
   SWEEPER
   MESS
@@ -228,6 +233,13 @@ enum ChargePeriodStatus {
   PAID
   OVERDUE
   WAIVED
+}
+
+enum DevelopmentStatus {
+  DEVELOPED
+  UNDER_CONSTRUCTION
+  UNDEVELOPED
+  VACANT
 }
 
 // ─── Auth & Users ────────────────────────────────────────────────────────────
@@ -299,6 +311,7 @@ model Plot {
   plotType              PlotType          @default(RESIDENTIAL)
   ownershipStatus       OwnershipStatus   @default(ACTIVE)
   possessionStatus      PossessionStatus  @default(NOT_APPLIED)
+  developmentStatus     DevelopmentStatus @default(DEVELOPED)
   hasActiveMortgage     Boolean           @default(false)
   hasOpenFile           Boolean           @default(false)
   annualChargesStatus   ChargePeriodStatus @default(PENDING)

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
+import { QrCodeDisplay } from "@/components/qr-code-display";
+import { getScanPath } from "@/lib/qr";
 import { labelize } from "@/lib/utils";
 import type { FileLocation } from "@/generated/prisma/client";
 
@@ -42,6 +44,7 @@ export default async function PhysicalFilesPage() {
               <tr>
                 <th>File Number</th>
                 <th>Barcode</th>
+                <th>QR</th>
                 <th>Plot</th>
                 <th>Location</th>
                 <th>Status</th>
@@ -60,6 +63,17 @@ export default async function PhysicalFilesPage() {
                     </Link>
                   </td>
                   <td className="font-mono text-xs">{f.barcode}</td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <QrCodeDisplay barcode={f.barcode} size={64} showUrl={false} />
+                      <Link
+                        href={getScanPath(f.barcode)}
+                        className="text-xs text-teal-800 hover:underline"
+                      >
+                        View scan
+                      </Link>
+                    </div>
+                  </td>
                   <td>
                     <Link href={`/plots/${f.plotId}`} className="text-teal-900 hover:underline">
                       {f.plot.sector}/{f.plot.block}-{f.plot.plotNumber}

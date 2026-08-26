@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { WarningBanner } from "@/components/ui/page";
+import { QrCodeDisplay } from "@/components/qr-code-display";
+import { getScanPath } from "@/lib/qr";
 import { formatCurrency, formatDate, formatDateTime, daysUntil, labelize } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -155,6 +157,7 @@ export default async function PlotProfilePage({
                 <Row label="Sector / Block" value={`${plot.sector} / ${plot.block || "—"}`} />
                 <Row label="Street" value={plot.street || "—"} />
                 <Row label="Size" value={`${Number(plot.sizeMarla)} marla`} />
+                <Row label="Development" value={labelize(plot.developmentStatus)} />
                 <Row label="Possession" value={labelize(plot.possessionStatus)} />
                 <Row label="Annual Charges" value={labelize(plot.annualChargesStatus)} />
               </InfoBlock>
@@ -462,21 +465,38 @@ export default async function PlotProfilePage({
           )}
 
           {tab === "physical-file" && plot.physicalFile && (
-            <InfoBlock title="Physical File">
-              <Row label="File No" value={plot.physicalFile.fileNumber} />
-              <Row label="Barcode / QR" value={plot.physicalFile.barcode} mono />
-              <Row label="Status" value={<Badge status={plot.physicalFile.status} />} />
-              <Row label="Condition" value={labelize(plot.physicalFile.condition)} />
-              <Row label="Current Location" value={formatLocation(plot.physicalFile.currentLocation)} />
-              <div className="pt-2">
-                <Link
-                  href={`/physical-files/${plot.physicalFile.id}`}
-                  className="text-sm text-teal-800 hover:underline"
-                >
-                  Open physical file record →
-                </Link>
+            <div className="space-y-6">
+              <InfoBlock title="Physical File">
+                <Row label="File No" value={plot.physicalFile.fileNumber} />
+                <Row label="Barcode / QR" value={plot.physicalFile.barcode} mono />
+                <Row label="Status" value={<Badge status={plot.physicalFile.status} />} />
+                <Row label="Condition" value={labelize(plot.physicalFile.condition)} />
+                <Row label="Current Location" value={formatLocation(plot.physicalFile.currentLocation)} />
+                <div className="pt-2">
+                  <Link
+                    href={`/physical-files/${plot.physicalFile.id}`}
+                    className="text-sm text-teal-800 hover:underline"
+                  >
+                    Open physical file record →
+                  </Link>
+                </div>
+              </InfoBlock>
+              <div className="flex flex-col items-center rounded-xl border border-slate-200 bg-white p-6 sm:flex-row sm:items-start sm:gap-6">
+                <QrCodeDisplay barcode={plot.physicalFile.barcode} size={180} showUrl={false} />
+                <div className="mt-4 text-center sm:mt-0 sm:text-left">
+                  <p className="font-mono text-sm text-slate-700">{plot.physicalFile.barcode}</p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Scan to view owner, pending dues, mortgage, and file status.
+                  </p>
+                  <Link
+                    href={getScanPath(plot.physicalFile.barcode)}
+                    className="mt-2 inline-block text-sm font-medium text-teal-800 hover:underline"
+                  >
+                    Open scan page →
+                  </Link>
+                </div>
               </div>
-            </InfoBlock>
+            </div>
           )}
 
           {tab === "movements" && (
