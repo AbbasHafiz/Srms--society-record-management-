@@ -18,6 +18,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import type { FeeType } from "@/generated/prisma/client";
+import { updateTankerPriceConfig } from "@/app/(app)/tankers/actions";
+import { getActiveTankerPrice, TANKER_TYPE_LABELS } from "@/lib/tankers";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +81,8 @@ export default async function SettingsPage() {
     (hasPermission(session.user.role, "manage_settings") ||
       hasPermission(session.user.role, "configure_fees"));
 
-  const [feeConfigs, sequences, systemSettings, sizeOptions] = await Promise.all([
+  const [feeConfigs, sequences, systemSettings, sizeOptions, cleanWaterPrice, constructionWaterPrice] =
+    await Promise.all([
     prisma.feeConfiguration.findMany({
       orderBy: [{ feeType: "asc" }, { effectiveFrom: "desc" }],
       include: { createdBy: { select: { name: true } } },
@@ -89,6 +92,8 @@ export default async function SettingsPage() {
     prisma.propertySizeOption.findMany({
       orderBy: [{ propertyType: "asc" }, { sortOrder: "asc" }],
     }),
+    getActiveTankerPrice("CLEAN_WATER"),
+    getActiveTankerPrice("CONSTRUCTION_WATER"),
   ]);
 
   const slaSettingsMap = Object.fromEntries(systemSettings.map((s) => [s.key, s.value]));
@@ -204,6 +209,73 @@ export default async function SettingsPage() {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        {canConfigure ? (
+          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className="font-display text-lg font-semibold">Water Tanker Pricing</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Set per-type delivery fees. New bookings snapshot the active price — existing bookings keep their recorded charges.
+              </p>
+            </div>
+            <div className="grid gap-4 border-b border-slate-100 bg-slate-50/50 px-5 py-4 lg:grid-cols-2">
+              {(
+                [
+                  { type: "CLEAN_WATER" as const, config: cleanWaterPrice },
+                  { type: "CONSTRUCTION_WATER" as const, config: constructionWaterPrice },
+                ] as const
+              ).map(({ type, config }) => (
+                <form key={type} action={updateTankerPriceConfig} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+                  <h3 className="font-medium text-slate-900">{TANKER_TYPE_LABELS[type]}</h3>
+                  <p className="text-sm text-slate-600">
+                    Current: {config ? formatCurrency(config.amount) : "Not configured"}
+                    {config ? ` · effective ${formatDate(config.effectiveFrom)}` : ""}
+                  </p>
+                  <input type="hidden" name="tankerType" value={type} />
+                  <div>
+                    <Label htmlFor={`${type}-amount`}>New amount (PKR)</Label>
+                    <Input
+                      id={`${type}-amount`}
+                      name="amount"
+                      type="number"
+                      min={1}
+                      required
+                      className="mt-1"
+                      defaultValue={config ? Number(config.amount) : undefined}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`${type}-effectiveFrom`}>Effective from</Label>
+                    <Input
+                      id={`${type}-effectiveFrom`}
+                      name="effectiveFrom"
+                      type="date"
+                      required
+                      className="mt-1"
+                      defaultValue={new Date().toISOString().slice(0, 10)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`${type}-remarks`}>Remarks (optional)</Label>
+                    <Input id={`${type}-remarks`} name="remarks" className="mt-1" />
+                  </div>
+                  <Button type="submit" variant="outline">
+                    Update {TANKER_TYPE_LABELS[type]} price
+                  </Button>
+                </form>
+              ))}
+            </div>
+            <div className="px-5 py-3 text-sm">
+              <Link href="/tankers/slots" className="text-teal-800 hover:underline">
+                Manage delivery time slots →
+              </Link>
+              <span className="mx-2 text-slate-300">·</span>
+              <Link href="/tankers/fleet" className="text-teal-800 hover:underline">
+                Manage tanker fleet →
+              </Link>
+            </div>
+          </section>
+        ) : null}
+
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="font-display text-lg font-semibold">Property Size Catalog</h2>
