@@ -11,6 +11,7 @@ import { PlotStaffAssignForm } from "@/components/plots/plot-staff-form";
 import { endPlotStaffAssignment } from "@/app/(app)/plots/actions";
 import { getScanPath } from "@/lib/qr";
 import { plotTypeLabel } from "@/lib/plots";
+import { plotSizeDisplay, NOC_PURPOSE_LABELS } from "@/lib/property-sizes";
 import { hasPermission } from "@/lib/rbac";
 import { formatCurrency, formatDate, formatDateTime, daysUntil, labelize } from "@/lib/utils";
 
@@ -119,7 +120,7 @@ export default async function PlotProfilePage({
             PLOT #{plot.sector}/{plot.block}-{plot.plotNumber}
           </h1>
           <p className="mt-2 text-sm text-teal-100/90">
-            {plot.street || "—"} · {Number(plot.sizeMarla)} marla · {plotTypeLabel(plot.plotType)}
+            {plot.street || "—"} · {plotSizeDisplay(plot)} · {plotTypeLabel(plot.plotType)}
           </p>
           <div className="mt-3">
             <PlotStatusBadges
@@ -186,7 +187,7 @@ export default async function PlotProfilePage({
                 <Row label="Sector / Block" value={`${plot.sector} / ${plot.block || "—"}`} />
                 <Row label="Property Type" value={plotTypeLabel(plot.plotType)} />
                 <Row label="Street" value={plot.street || "—"} />
-                <Row label="Size" value={`${Number(plot.sizeMarla)} marla`} />
+                <Row label="Size" value={plotSizeDisplay(plot)} />
                 <Row label="Development" value={labelize(plot.developmentStatus)} />
                 <Row label="Possession" value={labelize(plot.possessionStatus)} />
                 <Row label="Annual Charges" value={labelize(plot.annualChargesStatus)} />
@@ -452,13 +453,73 @@ export default async function PlotProfilePage({
             s: p.approvalStatus,
           }))} headers={["Application", "Applicant", "Letter", "Issued", "Status"]} />}
 
-          {tab === "noc" && <SimpleRegister rows={plot.nocs.map((p) => ({
-            a: p.applicationNumber,
-            b: p.nocNumber || "—",
-            c: formatDate(p.issueDate),
-            d: formatCurrency(p.fee),
-            s: p.status,
-          }))} headers={["Application", "NOC No", "Issued", "Fee", "Status"]} />}
+          {tab === "noc" && (
+            <div className="space-y-4">
+              {session?.user && hasPermission(session.user.role, "create") ? (
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/noc/new?plotId=${plot.id}&purpose=CONSTRUCTION`}
+                    className="inline-flex h-9 items-center rounded-md bg-teal-800 px-3 text-sm font-medium text-white hover:bg-teal-900"
+                  >
+                    Apply for construction NOC
+                  </Link>
+                  <Link
+                    href={`/noc/new?plotId=${plot.id}`}
+                    className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Other NOC application
+                  </Link>
+                </div>
+              ) : null}
+              <p className="text-sm text-slate-600">
+                Owner applies to the society for NOC to construct / build on this plot. Plot size:{" "}
+                <strong className="text-teal-900">{plotSizeDisplay(plot)}</strong>
+              </p>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Application</th>
+                    <th>Purpose</th>
+                    <th>NOC No</th>
+                    <th>Issued</th>
+                    <th>Fee</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plot.nocs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-slate-500">
+                        No NOC records.
+                      </td>
+                    </tr>
+                  ) : (
+                    plot.nocs.map((p) => (
+                      <tr
+                        key={p.id}
+                        className={p.purpose === "CONSTRUCTION" ? "bg-teal-50/50" : undefined}
+                      >
+                        <td>
+                          <Link href={`/noc/${p.id}`} className="text-teal-900 hover:underline">
+                            {p.applicationNumber}
+                          </Link>
+                        </td>
+                        <td className={p.purpose === "CONSTRUCTION" ? "font-medium text-teal-900" : ""}>
+                          {NOC_PURPOSE_LABELS[p.purpose] ?? labelize(p.purpose)}
+                        </td>
+                        <td>{p.nocNumber || "—"}</td>
+                        <td>{formatDate(p.issueDate)}</td>
+                        <td>{formatCurrency(p.fee)}</td>
+                        <td>
+                          <Badge status={p.status} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {tab === "nec" && <SimpleRegister rows={plot.necs.map((p) => ({
             a: p.applicationNumber,
@@ -687,6 +748,14 @@ export default async function PlotProfilePage({
         >
           Start Transfer
         </Link>
+        {session?.user && hasPermission(session.user.role, "create") ? (
+          <Link
+            href={`/noc/new?plotId=${plot.id}&purpose=CONSTRUCTION`}
+            className="inline-flex h-10 items-center rounded-md border border-teal-800 px-4 text-sm font-medium text-teal-900 hover:bg-teal-50"
+          >
+            Apply for construction NOC
+          </Link>
+        ) : null}
       </div>
     </div>
   );

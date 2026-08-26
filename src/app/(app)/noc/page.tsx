@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import type { ApplicationStatus } from "@/generated/prisma/client";
+import { formatCurrency, formatDate, labelize } from "@/lib/utils";
+import { NOC_PURPOSE_LABELS } from "@/lib/property-sizes";
+import { canCreateNocApplication } from "@/lib/noc";
+import type { ApplicationStatus, NocPurpose } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -19,26 +22,57 @@ const STATUSES: ApplicationStatus[] = [
   "CANCELLED",
 ];
 
+const PURPOSES: NocPurpose[] = ["CONSTRUCTION", "TRANSFER", "GENERAL", "OTHER"];
+
 export default async function NocPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; purpose?: string }>;
 }) {
+  const session = await auth();
   const sp = await searchParams;
   const status = sp.status?.trim() as ApplicationStatus | undefined;
+  const purpose = sp.purpose?.trim() as NocPurpose | undefined;
 
   const nocs = await prisma.noc.findMany({
-    where: status && STATUSES.includes(status) ? { status } : undefined,
+    where: {
+      ...(status && STATUSES.includes(status) ? { status } : {}),
+      ...(purpose && PURPOSES.includes(purpose) ? { purpose } : {}),
+    },
     include: { plot: true },
     orderBy: { applicationDate: "desc" },
     take: 100,
   });
 
+  const canApply = session?.user && canCreateNocApplication(session.user.role);
+
   return (
     <div>
-      <PageHeader title="NOC Register" description="No Objection Certificate applications and issuances." />
+      <PageHeader
+        title="NOC Register"
+        description="No Objection Certificate applications — including construction NOC for owners building a house."
+        actions={
+          canApply ? (
+            <Link href="/noc/new?purpose=CONSTRUCTION">
+              <Button>Apply for construction NOC</Button>
+            </Link>
+          ) : undefined
+        }
+      />
 
-      <form className="mb-4 flex gap-2">
+      <form className="mb-4 flex flex-wrap gap-2">
+        <select
+          name="purpose"
+          defaultValue={purpose ?? ""}
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+        >
+          <option value="">All purposes</option>
+          {PURPOSES.map((p) => (
+            <option key={p} value={p}>
+              {NOC_PURPOSE_LABELS[p] ?? labelize(p)}
+            </option>
+          ))}
+        </select>
         <select
           name="status"
           defaultValue={status ?? ""}
@@ -47,7 +81,7 @@ export default async function NocPage({
           <option value="">All statuses</option>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
-              {s.replace(/_/g, " ")}
+              {labelize(s)}
             </option>
           ))}
         </select>
@@ -62,6 +96,7 @@ export default async function NocPage({
             <thead>
               <tr>
                 <th>Application</th>
+                <th>Purpose</th>
                 <th>Applicant</th>
                 <th>Plot</th>
                 <th>NOC Number</th>
@@ -72,14 +107,27 @@ export default async function NocPage({
             </thead>
             <tbody>
               {nocs.map((n) => (
-                <tr key={n.id}>
+                <tr key={n.id} className={n.purpose === "CONSTRUCTION" ? "bg-teal-50/40" : undefined}>
                   <td>
-                    <div className="font-medium">{n.applicationNumber}</div>
+                    <Link href={`/noc/${n.id}`} className="font-medium text-teal-900 hover:underline">
+                      {n.applicationNumber}
+                    </Link>
                     <div className="text-xs text-slate-500">{formatDate(n.applicationDate)}</div>
+                  </td>
+                  <td>
+                    <span
+                      className={
+                        n.purpose === "CONSTRUCTION"
+                          ? "font-medium text-teal-900"
+                          : "text-slate-700"
+                      }
+                    >
+                      {NOC_PURPOSE_LABELS[n.purpose] ?? labelize(n.purpose)}
+                    </span>
                   </td>
                   <td>{n.applicantName}</td>
                   <td>
-                    <Link href={`/plots/${n.plotId}`} className="text-teal-900 hover:underline">
+                    <Link href={`/plots/${n.plotId}?tab=noc`} className="text-teal-900 hover:underline">
                       {n.plot.sector}/{n.plot.block}-{n.plot.plotNumber}
                     </Link>
                   </td>

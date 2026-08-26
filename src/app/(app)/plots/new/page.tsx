@@ -1,16 +1,11 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page";
 import { Button } from "@/components/ui/button";
 import { createPlot } from "../actions";
-import {
-  ALL_DEVELOPMENT_STATUSES,
-  ALL_PLOT_TYPES,
-  ALL_POSSESSION_STATUSES,
-  plotTypeLabel,
-} from "@/lib/plots";
+import { PlotPropertyDetailsFields } from "@/components/plots/plot-property-details-fields";
 import { hasPermission } from "@/lib/rbac";
-import { labelize } from "@/lib/utils";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +15,20 @@ export default async function NewPlotPage() {
   if (!session?.user || !hasPermission(session.user.role, "create")) {
     redirect("/plots");
   }
+
+  const sizeOptions = await prisma.propertySizeOption.findMany({
+    where: { isActive: true },
+    orderBy: [{ propertyType: "asc" }, { sortOrder: "asc" }],
+  });
+
+  const serializedSizes = sizeOptions.map((o) => ({
+    id: o.id,
+    propertyType: o.propertyType,
+    label: o.label,
+    sizeValue: o.sizeValue.toString(),
+    unit: o.unit,
+    sizeMarla: o.sizeMarla?.toString() ?? null,
+  }));
 
   return (
     <div>
@@ -49,58 +58,7 @@ export default async function NewPlotPage() {
 
         <fieldset className="space-y-4">
           <legend className="font-display text-base font-semibold text-slate-900">Property details</legend>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                Property type
-              </label>
-              <select
-                name="plotType"
-                defaultValue="RESIDENTIAL"
-                className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-              >
-                {ALL_PLOT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {plotTypeLabel(t)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Field label="Size (marla)" name="sizeMarla" type="number" required placeholder="10" step="0.01" />
-            <Field label="Size (sq yd)" name="sizeSqYd" type="number" placeholder="250" step="0.01" />
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                Possession status
-              </label>
-              <select
-                name="possessionStatus"
-                defaultValue="NOT_APPLIED"
-                className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-              >
-                {ALL_POSSESSION_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s === "NOT_APPLIED" ? "No possession / Not applied" : labelize(s)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                Development status
-              </label>
-              <select
-                name="developmentStatus"
-                defaultValue="DEVELOPED"
-                className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-              >
-                {ALL_DEVELOPMENT_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {labelize(s)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <PlotPropertyDetailsFields sizeOptions={serializedSizes} />
           <div>
             <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
               Remarks

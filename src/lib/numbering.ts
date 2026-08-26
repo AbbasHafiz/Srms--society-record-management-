@@ -51,3 +51,12 @@ export async function nextOpenFileNumber() {
 export async function nextEmployeeCode() {
   return nextSequence("employee", "EMP", 3);
 }
+
+export async function nextNocApplicationNumber() {
+  return nextSequence("noc_application", "NOC", 4);
+}
+
+export async function nextNocNumber(sector?: string) {
+  const prefix = sector ? `NOC-${sector.replace(/[^A-Za-z0-9]/g, "")}` : "NOC";
+  return nextSequence("noc_issue", prefix, 4);
+}

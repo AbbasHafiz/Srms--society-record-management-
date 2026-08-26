@@ -3,6 +3,10 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createFeeConfiguration } from "@/lib/services";
 import { hasPermission } from "@/lib/rbac";
+import { createPropertySizeOption, togglePropertySizeOption } from "./size-actions";
+import { plotTypeLabel } from "@/lib/plots";
+import { formatPropertySize } from "@/lib/property-sizes";
+import { ALL_PLOT_TYPES } from "@/lib/plots";
 import { PageHeader } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,14 +67,21 @@ async function createFeeAction(formData: FormData) {
 export default async function SettingsPage() {
   const session = await auth();
   const canConfigure = session?.user && hasPermission(session.user.role, "configure_fees");
+  const canManageSizes =
+    session?.user &&
+    (hasPermission(session.user.role, "manage_settings") ||
+      hasPermission(session.user.role, "configure_fees"));
 
-  const [feeConfigs, sequences, systemSettings] = await Promise.all([
+  const [feeConfigs, sequences, systemSettings, sizeOptions] = await Promise.all([
     prisma.feeConfiguration.findMany({
       orderBy: [{ feeType: "asc" }, { effectiveFrom: "desc" }],
       include: { createdBy: { select: { name: true } } },
     }),
     prisma.numberSequence.findMany({ orderBy: { key: "asc" } }),
     prisma.systemSetting.findMany({ orderBy: { key: "asc" } }),
+    prisma.propertySizeOption.findMany({
+      orderBy: [{ propertyType: "asc" }, { sortOrder: "asc" }],
+    }),
   ]);
 
   return (
@@ -179,6 +190,105 @@ export default async function SettingsPage() {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="font-display text-lg font-semibold">Property Size Catalog</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Standard plot, flat, and shop sizes used when registering properties and on NOC applications.
+            </p>
+          </div>
+          {canManageSizes ? (
+            <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-4">
+              <form action={createPropertySizeOption} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                <div>
+                  <Label htmlFor="propertyType">Type</Label>
+                  <select
+                    id="propertyType"
+                    name="propertyType"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  >
+                    {ALL_PLOT_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {plotTypeLabel(t)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="lg:col-span-2">
+                  <Label htmlFor="label">Label</Label>
+                  <Input id="label" name="label" required className="mt-1" placeholder="20 Marla / 500 Sq Yd" />
+                </div>
+                <div>
+                  <Label htmlFor="sizeValue">Size value</Label>
+                  <Input id="sizeValue" name="sizeValue" type="number" min={1} step="0.01" required className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="unit">Unit</Label>
+                  <select
+                    id="unit"
+                    name="unit"
+                    className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  >
+                    <option value="SQ_YD">Sq Yd</option>
+                    <option value="SQ_FT">Sq Ft</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="sizeMarla">Marla (opt.)</Label>
+                  <Input id="sizeMarla" name="sizeMarla" type="number" step="0.01" className="mt-1" />
+                </div>
+                <div className="flex items-end sm:col-span-2 lg:col-span-6">
+                  <Button type="submit">Add size option</Button>
+                </div>
+              </form>
+            </div>
+          ) : null}
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Label</th>
+                <th>Size</th>
+                <th>Sort</th>
+                <th>Status</th>
+                {canManageSizes ? <th /> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {sizeOptions.length === 0 ? (
+                <tr>
+                  <td colSpan={canManageSizes ? 6 : 5} className="text-slate-500">
+                    No size options — run seed or add above.
+                  </td>
+                </tr>
+              ) : (
+                sizeOptions.map((o) => (
+                  <tr key={o.id}>
+                    <td>{plotTypeLabel(o.propertyType)}</td>
+                    <td className="font-medium">{o.label}</td>
+                    <td>{formatPropertySize(o)}</td>
+                    <td>{o.sortOrder}</td>
+                    <td>
+                      <Badge status={o.isActive ? "ACTIVE" : "INACTIVE"} />
+                    </td>
+                    {canManageSizes ? (
+                      <td>
+                        <form action={togglePropertySizeOption}>
+                          <input type="hidden" name="id" value={o.id} />
+                          <Button type="submit" variant="outline" className="h-8 text-xs">
+                            {o.isActive ? "Deactivate" : "Activate"}
+                          </Button>
+                        </form>
+                      </td>
+                    ) : null}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="font-display text-lg font-semibold">Number Sequences</h2>

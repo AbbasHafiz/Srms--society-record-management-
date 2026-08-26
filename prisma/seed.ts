@@ -31,6 +31,7 @@ async function main() {
   await prisma.nec.deleteMany();
   await prisma.noc.deleteMany();
   await prisma.possession.deleteMany();
+  await prisma.propertySizeOption.deleteMany();
   // Break ownership↔transfer FKs carefully
   await prisma.ownership.updateMany({ data: { transferInId: null, transferOutId: null } });
   await prisma.transfer.deleteMany();
@@ -165,6 +166,29 @@ async function main() {
       { key: "receipt", prefix: "RCPT", nextValue: 1000, padLength: 5 },
       { key: "open_file", prefix: "OF", nextValue: 90, padLength: 4 },
       { key: "employee", prefix: "EMP", nextValue: 14, padLength: 3 },
+      { key: "noc_application", prefix: "NOC", nextValue: 300, padLength: 4 },
+      { key: "noc_issue", prefix: "NOC-E17", nextValue: 250, padLength: 4 },
+    ],
+  });
+
+  // Standard property size catalog
+  await prisma.propertySizeOption.createMany({
+    data: [
+      { propertyType: "RESIDENTIAL", label: "5 Marla / 125 Sq Yd", sizeValue: 125, unit: "SQ_YD", sizeMarla: 5, sortOrder: 10 },
+      { propertyType: "RESIDENTIAL", label: "8 Marla / 200 Sq Yd", sizeValue: 200, unit: "SQ_YD", sizeMarla: 8, sortOrder: 20 },
+      { propertyType: "RESIDENTIAL", label: "10 Marla / 250 Sq Yd", sizeValue: 250, unit: "SQ_YD", sizeMarla: 10, sortOrder: 30 },
+      { propertyType: "RESIDENTIAL", label: "10 Marla / 272 Sq Yd", sizeValue: 272, unit: "SQ_YD", sizeMarla: 10.88, sortOrder: 40 },
+      { propertyType: "RESIDENTIAL", label: "15 Marla / 385 Sq Yd", sizeValue: 385, unit: "SQ_YD", sizeMarla: 15.4, sortOrder: 50 },
+      { propertyType: "RESIDENTIAL", label: "20 Marla / 500 Sq Yd", sizeValue: 500, unit: "SQ_YD", sizeMarla: 20, sortOrder: 60 },
+      { propertyType: "RESIDENTIAL", label: "1 Kanal / 1000 Sq Yd", sizeValue: 1000, unit: "SQ_YD", sizeMarla: 40, sortOrder: 70 },
+      { propertyType: "COMMERCIAL", label: "4 Marla / 100 Sq Yd", sizeValue: 100, unit: "SQ_YD", sizeMarla: 4, sortOrder: 10 },
+      { propertyType: "COMMERCIAL", label: "8 Marla / 200 Sq Yd", sizeValue: 200, unit: "SQ_YD", sizeMarla: 8, sortOrder: 20 },
+      { propertyType: "FLAT", label: "2 Bed — 900 Sq Ft", sizeValue: 900, unit: "SQ_FT", sizeMarla: 4, sortOrder: 10 },
+      { propertyType: "FLAT", label: "3 Bed — 1200 Sq Ft", sizeValue: 1200, unit: "SQ_FT", sizeMarla: 5.33, sortOrder: 20 },
+      { propertyType: "FLAT", label: "4 Bed — 1600 Sq Ft", sizeValue: 1600, unit: "SQ_FT", sizeMarla: 7.11, sortOrder: 30 },
+      { propertyType: "SHOP", label: "1 Marla Shop", sizeValue: 25, unit: "SQ_YD", sizeMarla: 1, sortOrder: 10 },
+      { propertyType: "SHOP", label: "2 Marla Shop", sizeValue: 50, unit: "SQ_YD", sizeMarla: 2, sortOrder: 20 },
+      { propertyType: "SHOP", label: "400 Sq Ft Shop", sizeValue: 400, unit: "SQ_FT", sizeMarla: 1.78, sortOrder: 30 },
     ],
   });
 
@@ -318,6 +342,7 @@ async function main() {
       ownershipId: owner3.id,
       applicationNumber: "NOC-0210",
       applicantName: owner3.ownerName,
+      purpose: "GENERAL",
       nocNumber: "NOC-E17-0210",
       issueDate: new Date("2025-11-01"),
       fee: 5000,
@@ -493,6 +518,53 @@ async function main() {
       amount: 2000,
       status: "PENDING",
       paymentMethod: "PO",
+    },
+  });
+
+  // Residential plot — 500 Sq Yd (construction NOC demo)
+  const plot500 = await prisma.plot.create({
+    data: {
+      plotNumber: "500",
+      sector: "E-17",
+      block: "6",
+      street: "Street 22",
+      sizeMarla: 20,
+      sizeSqYd: 500,
+      plotType: "RESIDENTIAL",
+      ownershipStatus: "ACTIVE",
+      possessionStatus: "ISSUED",
+      developmentStatus: "UNDEVELOPED",
+      annualChargesStatus: "PAID",
+      remarks: "20 Marla / 500 Sq Yd — owner plans to build house",
+    },
+  });
+
+  const owner500 = await prisma.ownership.create({
+    data: {
+      plotId: plot500.id,
+      ownerName: "Usman Tariq",
+      cnic: "35202-6156156-6",
+      contact: "0300-7766554",
+      address: "Islamabad",
+      membershipNumber: "M-2408",
+      allotmentNumber: "AL-2408",
+      startDate: new Date("2024-06-01"),
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.noc.create({
+    data: {
+      plotId: plot500.id,
+      ownershipId: owner500.id,
+      applicationNumber: "NOC-0298",
+      applicantName: owner500.ownerName,
+      purpose: "CONSTRUCTION",
+      constructionType: "HOUSE",
+      applicationNotes: "Owner applies to society for NOC to construct a single-storey residential house (500 Sq Yd plot).",
+      fee: 5000,
+      paymentStatus: "SUBMITTED",
+      status: "SUBMITTED",
     },
   });
 
