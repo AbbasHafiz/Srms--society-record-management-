@@ -215,19 +215,17 @@ export function isSecurityGuardEmployee(employee: {
 
 export function employeeRoleLabel(employee: {
   orgRole?: { name: string; category?: OrgRoleCategory; code?: string } | null;
-  designation?: Designation | null;
+  designation?: Designation | string | null;
 }): string {
+  const orgRole: OrgRoleDisplay | null = employee.orgRole
+    ? {
+        name: employee.orgRole.name,
+        category: employee.orgRole.category ?? "OTHER",
+        code: employee.orgRole.code ?? "OTHER",
+      }
+    : null;
   return resolveEmployeeRoleDisplay({
-    orgRole:
-      employee.orgRole?.category && employee.orgRole?.code
-        ? (employee.orgRole as OrgRoleDisplay)
-        : employee.orgRole
-          ? {
-              name: employee.orgRole.name,
-              category: employee.orgRole.category ?? "OTHER",
-              code: employee.orgRole.code ?? "OTHER",
-            }
-          : null,
-    designation: employee.designation,
+    orgRole,
+    designation: (employee.designation ?? null) as Designation | null,
   }).label;
 }

@@ -49,7 +49,7 @@ export async function seedFinance(prisma: PrismaClient, ctx: SeedFinanceContext)
         plotId: ctx.plot123Id,
         ownershipId: ctx.owner3Id,
         paymentId: ctx.transferPaymentId,
-        description: "Transfer fee — plot E-17/3-123 (pending verification demo)",
+        description: "Transfer fee — plot E-17/3-123 (linked to RCPT-00950)",
         status: "POSTED",
         createdById: ctx.saraId,
       },
