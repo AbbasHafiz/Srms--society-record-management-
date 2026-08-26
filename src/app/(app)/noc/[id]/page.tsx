@@ -6,6 +6,7 @@ import { PageHeader, WarningBanner } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { issueNoc, updateNocReview } from "../actions";
+import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
 import { plotTypeLabel } from "@/lib/plots";
 import {
   CONSTRUCTION_TYPE_LABELS,
@@ -257,6 +258,27 @@ export default async function NocDetailPage({ params }: { params: Promise<{ id: 
             <p className="text-sm text-slate-600">Awaiting society review and issuance.</p>
           )}
         </section>
+
+        <DocumentScansPanel
+          heading="NOC Document Scans"
+          description="Supporting application documents and the issued NOC letter scan."
+          scans={[
+            {
+              plotId: noc.plotId,
+              ownershipId: noc.ownershipId ?? undefined,
+              documentType: "OTHER",
+              title: "Supporting Documents",
+              description: "Application forms, plans, utility connection papers, etc.",
+            },
+            {
+              plotId: noc.plotId,
+              ownershipId: noc.ownershipId ?? undefined,
+              documentType: "NOC",
+              title: "Issued NOC Letter",
+              description: "Scanned copy of the issued certificate",
+            },
+          ]}
+        />
       </div>
     </div>
   );

@@ -1,14 +1,19 @@
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SlaBadge } from "@/components/sla-badge";
+import { canCreatePossessionApplication } from "@/lib/possession";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getSlaDays, SLA_SETTING_KEYS, resolveSlaDueAt } from "@/lib/sla";
 
 export const dynamic = "force-dynamic";
 
 export default async function PossessionPage() {
+  const session = await auth();
+  const canApply = session?.user && canCreatePossessionApplication(session.user.role);
   const [possessions, possessionSlaDays] = await Promise.all([
     prisma.possession.findMany({
       include: { plot: true },
@@ -23,6 +28,13 @@ export default async function PossessionPage() {
       <PageHeader
         title="Possession Register"
         description="Possession applications and issued letters."
+        actions={
+          canApply ? (
+            <Link href="/possession/new">
+              <Button>New application</Button>
+            </Link>
+          ) : undefined
+        }
       />
 
       {possessions.length === 0 ? (
@@ -40,13 +52,16 @@ export default async function PossessionPage() {
                 <th>Approval</th>
                 <th>SLA</th>
                 <th>Letter</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {possessions.map((p) => (
                 <tr key={p.id}>
                   <td>
-                    <div className="font-medium">{p.applicationNumber}</div>
+                    <Link href={`/possession/${p.id}`} className="font-medium text-teal-900 hover:underline">
+                      {p.applicationNumber}
+                    </Link>
                     <div className="text-xs text-slate-500">{formatDate(p.applicationDate)}</div>
                   </td>
                   <td>{p.applicantName}</td>
@@ -77,6 +92,11 @@ export default async function PossessionPage() {
                     ) : (
                       "—"
                     )}
+                  </td>
+                  <td>
+                    <Link href={`/possession/${p.id}`} className="text-xs text-teal-800 hover:underline">
+                      Scans
+                    </Link>
                   </td>
                 </tr>
               ))}

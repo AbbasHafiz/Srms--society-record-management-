@@ -9,12 +9,19 @@ import { QrCodeDisplay } from "@/components/qr-code-display";
 import { PlotStatusBadges } from "@/components/plots/plot-status-badges";
 import { PlotStaffAssignForm } from "@/components/plots/plot-staff-form";
 import { endPlotStaffAssignment } from "@/app/(app)/plots/actions";
+import { uploadDocument } from "@/app/(app)/documents/actions";
+import { DocumentUploadForm } from "@/components/documents/document-upload-form";
+import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
+import { fileDownloadHref } from "@/lib/uploads";
 import { getScanPath } from "@/lib/qr";
 import { plotTypeLabel, plotLabel } from "@/lib/plots";
 import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import { plotSizeDisplay, NOC_PURPOSE_LABELS } from "@/lib/property-sizes";
 import { hasPermission } from "@/lib/rbac";
 import { formatCurrency, formatDate, formatDateTime, daysUntil, labelize } from "@/lib/utils";
+import { fileDownloadHref } from "@/lib/uploads";
+import { DocumentUploadForm } from "@/components/documents/document-upload-form";
+import { uploadDocument } from "@/app/(app)/documents/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -447,6 +454,39 @@ export default async function PlotProfilePage({
 
           {tab === "documents" && (
             <div className="space-y-6">
+              {activeOwner && canEdit ? (
+                <DocumentScansPanel
+                  heading="Current Owner Scans"
+                  description="Upload CNIC and allotment letter scans for the active owner. New uploads are versioned; prior scans are kept."
+                  scans={[
+                    {
+                      plotId: plot.id,
+                      ownershipId: activeOwner.id,
+                      documentType: "CNIC",
+                      title: `${activeOwner.ownerName} — CNIC`,
+                    },
+                    {
+                      plotId: plot.id,
+                      ownershipId: activeOwner.id,
+                      documentType: "ALLOTMENT_LETTER",
+                      title: `${activeOwner.ownerName} — Allotment Letter`,
+                    },
+                  ]}
+                />
+              ) : null}
+
+              {canEdit ? (
+                <DocumentUploadForm
+                  action={uploadDocument}
+                  plotId={plot.id}
+                  ownerships={plot.ownerships.map((o) => ({
+                    id: o.id,
+                    ownerName: o.ownerName,
+                    membershipNumber: o.membershipNumber,
+                  }))}
+                />
+              ) : null}
+
               {plot.ownerships.map((owner) => {
                 const docs = plot.documents.filter((d) => d.ownershipId === owner.id);
                 return (
@@ -468,6 +508,7 @@ export default async function PlotProfilePage({
                             <th>Number</th>
                             <th>Version</th>
                             <th>Status</th>
+                            <th>Scan</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -480,6 +521,16 @@ export default async function PlotProfilePage({
                               <td>
                                 <Badge status={d.status} />
                               </td>
+                              <td>
+                                <a
+                                  href={fileDownloadHref(d.filePath)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-teal-800 hover:underline"
+                                >
+                                  View
+                                </a>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -488,6 +539,47 @@ export default async function PlotProfilePage({
                   </div>
                 );
               })}
+
+              {plot.documents.filter((d) => !d.ownershipId).length > 0 ? (
+                <div>
+                  <h3 className="font-display mb-2 text-base font-semibold">Plot-level documents</h3>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Title</th>
+                        <th>Version</th>
+                        <th>Status</th>
+                        <th>Scan</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plot.documents
+                        .filter((d) => !d.ownershipId)
+                        .map((d) => (
+                          <tr key={d.id}>
+                            <td>{labelize(d.documentType)}</td>
+                            <td>{d.title}</td>
+                            <td>v{d.version}</td>
+                            <td>
+                              <Badge status={d.status} />
+                            </td>
+                            <td>
+                              <a
+                                href={fileDownloadHref(d.filePath)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-teal-800 hover:underline"
+                              >
+                                View
+                              </a>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
             </div>
           )}
 

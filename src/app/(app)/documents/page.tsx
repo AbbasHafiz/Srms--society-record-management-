@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DocumentUploadForm } from "@/components/documents/document-upload-form";
+import { uploadDocument } from "./actions";
+import { fileDownloadHref } from "@/lib/uploads";
+import { hasPermission } from "@/lib/rbac";
 import { formatDate, labelize } from "@/lib/utils";
 import type { DocumentStatus, DocumentType } from "@/generated/prisma/client";
 
@@ -39,21 +44,37 @@ const DOC_STATUSES: DocumentStatus[] = ["ACTIVE", "SUPERSEDED", "ARCHIVED", "REJ
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; status?: string }>;
+  searchParams: Promise<{ type?: string; status?: string; plotId?: string }>;
 }) {
+  const session = await auth();
   const sp = await searchParams;
   const docType = sp.type?.trim() as DocumentType | undefined;
   const status = sp.status?.trim() as DocumentStatus | undefined;
+  const plotId = sp.plotId?.trim();
 
-  const documents = await prisma.document.findMany({
-    where: {
-      ...(docType && DOC_TYPES.includes(docType) ? { documentType: docType } : {}),
-      ...(status && DOC_STATUSES.includes(status) ? { status } : {}),
-    },
-    include: { plot: true, uploadedBy: { select: { name: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+  const canUpload = session?.user && hasPermission(session.user.role, "upload_document");
+
+  const [documents, plots] = await Promise.all([
+    prisma.document.findMany({
+      where: {
+        ...(docType && DOC_TYPES.includes(docType) ? { documentType: docType } : {}),
+        ...(status && DOC_STATUSES.includes(status) ? { status } : {}),
+        ...(plotId ? { plotId } : {}),
+      },
+      include: { plot: true, uploadedBy: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
+    canUpload
+      ? prisma.plot.findMany({
+          include: { ownerships: { where: { status: "ACTIVE" }, take: 1 } },
+          orderBy: { plotNumber: "asc" },
+          take: 200,
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const selectedPlot = plotId ? plots.find((p) => p.id === plotId) : undefined;
 
   return (
     <div>
@@ -61,6 +82,39 @@ export default async function DocumentsPage({
         title="Document Register"
         description="Versioned documents scoped to plots, ownerships, and transfers."
       />
+
+      {canUpload && plots.length > 0 ? (
+        <div className="mb-6">
+          {!plotId ? (
+            <form className="mb-4 flex gap-2" action="/documents" method="get">
+              <select
+                name="plotId"
+                defaultValue=""
+                className="h-10 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm"
+              >
+                <option value="">Select plot to upload…</option>
+                {plots.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.sector}/{p.block}-{p.plotNumber}
+                    {p.ownerships[0] ? ` — ${p.ownerships[0].ownerName}` : ""}
+                  </option>
+                ))}
+              </select>
+              <Button type="submit">Upload to plot</Button>
+            </form>
+          ) : selectedPlot ? (
+            <DocumentUploadForm
+              action={uploadDocument}
+              plotId={selectedPlot.id}
+              ownerships={selectedPlot.ownerships.map((o) => ({
+                id: o.id,
+                ownerName: o.ownerName,
+                membershipNumber: o.membershipNumber,
+              }))}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <form className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end">
         <select
@@ -87,6 +141,7 @@ export default async function DocumentsPage({
             </option>
           ))}
         </select>
+        {plotId ? <input type="hidden" name="plotId" value={plotId} /> : null}
         <Button type="submit">Filter</Button>
       </form>
 
@@ -104,6 +159,7 @@ export default async function DocumentsPage({
                 <th>Issue Date</th>
                 <th>Uploaded By</th>
                 <th>Status</th>
+                <th>File</th>
               </tr>
             </thead>
             <tbody>
@@ -126,6 +182,20 @@ export default async function DocumentsPage({
                   <td>{d.uploadedBy?.name ?? "—"}</td>
                   <td>
                     <Badge status={d.status} />
+                  </td>
+                  <td>
+                    {d.filePath.startsWith("/uploads/") ? (
+                      <span className="text-xs text-slate-400">seed placeholder</span>
+                    ) : (
+                      <a
+                        href={fileDownloadHref(d.filePath)}
+                        className="text-sm text-teal-800 hover:underline"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View
+                      </a>
+                    )}
                   </td>
                 </tr>
               ))}

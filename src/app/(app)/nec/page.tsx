@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { SlaBadge } from "@/components/sla-badge";
 import { Button } from "@/components/ui/button";
+import { canCreateNecApplication } from "@/lib/nec";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getSlaDays, SLA_SETTING_KEYS, resolveSlaDueAt } from "@/lib/sla";
 import type { ApplicationStatus } from "@/generated/prisma/client";
@@ -26,6 +28,8 @@ export default async function NecPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  const session = await auth();
+  const canApply = session?.user && canCreateNecApplication(session.user.role);
   const sp = await searchParams;
   const status = sp.status?.trim() as ApplicationStatus | undefined;
 
@@ -41,7 +45,17 @@ export default async function NecPage({
 
   return (
     <div>
-      <PageHeader title="NEC Register" description="No Encumbrance Certificate applications and issuances." />
+      <PageHeader
+        title="NEC Register"
+        description="No Encumbrance Certificate applications and issuances."
+        actions={
+          canApply ? (
+            <Link href="/nec/new">
+              <Button>New NEC application</Button>
+            </Link>
+          ) : undefined
+        }
+      />
 
       <form className="mb-4 flex gap-2">
         <select
@@ -74,13 +88,16 @@ export default async function NecPage({
                 <th>Payment</th>
                 <th>SLA</th>
                 <th>Status</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {necs.map((n) => (
                 <tr key={n.id}>
                   <td>
-                    <div className="font-medium">{n.applicationNumber}</div>
+                    <Link href={`/nec/${n.id}`} className="font-medium text-teal-900 hover:underline">
+                      {n.applicationNumber}
+                    </Link>
                     <div className="text-xs text-slate-500">{formatDate(n.applicationDate)}</div>
                   </td>
                   <td>{n.applicantName}</td>
@@ -114,6 +131,11 @@ export default async function NecPage({
                   </td>
                   <td>
                     <Badge status={n.status} />
+                  </td>
+                  <td>
+                    <Link href={`/nec/${n.id}`} className="text-xs text-teal-800 hover:underline">
+                      Scans
+                    </Link>
                   </td>
                 </tr>
               ))}

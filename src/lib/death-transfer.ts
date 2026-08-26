@@ -1,4 +1,5 @@
 import type { DocumentType, HeirRelation } from "@/generated/prisma/client";
+import { isRealUploadedDocument } from "@/lib/documents";
 
 export const HEIR_RELATION_LABELS: Record<HeirRelation, string> = {
   WIFE: "Wife",
@@ -69,9 +70,36 @@ export const MANDATORY_DEATH_DOC_TYPES = DEATH_TRANSFER_DOCUMENTS.filter(
   (d) => d.mandatory
 ).map((d) => d.type);
 
+export type DeathTransferDocument = {
+  documentType: DocumentType;
+  filePath: string;
+  fileSize?: number | null;
+  fileName?: string;
+  documentNumber?: string | null;
+  status?: string;
+};
+
+function activeRealDocuments(documents: DeathTransferDocument[]) {
+  return documents.filter(
+    (d) => (d.status == null || d.status === "ACTIVE") && isRealUploadedDocument(d)
+  );
+}
+
+export function hasRealDeathDocument(
+  documents: DeathTransferDocument[],
+  type: DocumentType,
+  documentNumber?: string | null
+): boolean {
+  return activeRealDocuments(documents).some(
+    (d) =>
+      d.documentType === type &&
+      (documentNumber == null || d.documentNumber === documentNumber)
+  );
+}
+
 export function validateDeathTransferReadiness(input: {
   heirs: { name: string; cnic: string; isPrimarySuccessor: boolean }[];
-  documentTypes: DocumentType[];
+  documents: DeathTransferDocument[];
 }): { ok: boolean; errors: string[] } {
   const errors: string[] = [];
 
@@ -87,11 +115,35 @@ export function validateDeathTransferReadiness(input: {
   }
 
   for (const req of MANDATORY_DEATH_DOC_TYPES) {
-    if (!input.documentTypes.includes(req)) {
+    if (req === "HEIR_CNIC") continue;
+    if (!hasRealDeathDocument(input.documents, req)) {
       const doc = DEATH_TRANSFER_DOCUMENTS.find((d) => d.type === req);
-      errors.push(`Missing mandatory document: ${doc?.label ?? req}`);
+      errors.push(`Missing mandatory document scan: ${doc?.label ?? req}`);
+    }
+  }
+
+  for (const heir of input.heirs) {
+    if (!hasRealDeathDocument(input.documents, "HEIR_CNIC", heir.cnic)) {
+      errors.push(`Missing CNIC scan for heir: ${heir.name}`);
     }
   }
 
   return { ok: errors.length === 0, errors };
+}
+
+export function deathDocumentChecklistState(
+  documents: DeathTransferDocument[],
+  heirs: { name: string; cnic: string }[]
+): Record<DocumentType, boolean> {
+  const state = {} as Record<DocumentType, boolean>;
+  for (const req of DEATH_TRANSFER_DOCUMENTS) {
+    if (req.type === "HEIR_CNIC") {
+      state[req.type] =
+        heirs.length > 0 &&
+        heirs.every((h) => hasRealDeathDocument(documents, "HEIR_CNIC", h.cnic));
+    } else {
+      state[req.type] = hasRealDeathDocument(documents, req.type);
+    }
+  }
+  return state;
 }

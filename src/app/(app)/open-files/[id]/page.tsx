@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
 import { plotLabel } from "@/lib/plots";
 import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
+import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -230,6 +231,30 @@ export default async function OpenFileDetailPage({
           </table>
         </section>
       ) : null}
+
+      <div className="mt-8">
+        <DocumentScansPanel
+          heading="Open File Scans"
+          description="Dealer letterhead and supporting open-file documents."
+          scans={[
+            {
+              plotId: openFile.plotId,
+              openFileId: openFile.id,
+              ownershipId: openFile.ownershipId ?? undefined,
+              documentType: "DEALER_LETTERHEAD",
+              title: "Dealer Letterhead",
+            },
+            {
+              plotId: openFile.plotId,
+              openFileId: openFile.id,
+              ownershipId: openFile.ownershipId ?? undefined,
+              documentType: "OPEN_FILE_DOCUMENT",
+              title: "Open File Documents",
+              description: "TRD, seller CNIC, and other open-file paperwork",
+            },
+          ]}
+        />
+      </div>
     </div>
   );
 }

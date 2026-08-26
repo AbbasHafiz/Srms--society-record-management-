@@ -165,7 +165,7 @@ export async function completeDeathSuccessionTransfer(transferId: string, userId
 
   const readiness = validateDeathTransferReadiness({
     heirs: transfer.heirs,
-    documentTypes: transfer.documents.map((d) => d.documentType),
+    documents: transfer.documents,
   });
   if (!readiness.ok) {
     throw new Error(readiness.errors.join("; "));

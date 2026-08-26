@@ -12,7 +12,8 @@ import {
 } from "@/lib/services";
 import { hasPermission } from "@/lib/rbac";
 import { computeTransferSlaDue } from "@/lib/sla";
-import type { DocumentType, HeirRelation } from "@/generated/prisma/client";
+import { validateDeathTransferReadiness } from "@/lib/death-transfer";
+import type { HeirRelation } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -26,16 +27,6 @@ const HEIR_RELATIONS: HeirRelation[] = [
   "BROTHER",
   "SISTER",
   "OTHER",
-];
-
-const DEATH_DOC_TYPES: DocumentType[] = [
-  "OLD_ALLOTMENT_LETTER",
-  "DECEASED_CNIC",
-  "DEATH_CERTIFICATE",
-  "FRC_NADRA",
-  "LEGAL_HEIR_CERTIFICATE",
-  "SUCCESSION_DOCS",
-  "HEIR_CNIC",
 ];
 
 export async function createTransferDraft(formData: FormData) {
@@ -203,37 +194,6 @@ export async function removeTransferHeir(formData: FormData) {
   revalidatePath(`/transfers/${heir.transferId}`);
 }
 
-export async function registerDeathDocument(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
-  if (!hasPermission(session.user.role, "upload_document")) throw new Error("Forbidden");
-
-  const transferId = String(formData.get("transferId") || "");
-  const documentType = String(formData.get("documentType") || "") as DocumentType;
-  const title = String(formData.get("title") || "").trim();
-
-  if (!DEATH_DOC_TYPES.includes(documentType)) throw new Error("Invalid document type");
-
-  const transfer = await prisma.transfer.findUnique({ where: { id: transferId } });
-  if (!transfer || transfer.transferType !== "DEATH_SUCCESSION") {
-    throw new Error("Invalid death succession case");
-  }
-
-  await prisma.document.create({
-    data: {
-      plotId: transfer.plotId,
-      transferId,
-      documentType,
-      title: title || documentType.replace(/_/g, " "),
-      fileName: `${documentType.toLowerCase()}-placeholder.pdf`,
-      filePath: `/uploads/death/${transferId}/${documentType}.pdf`,
-      uploadedById: session.user.id,
-    },
-  });
-
-  revalidatePath(`/transfers/${transferId}`);
-}
-
 export async function submitDeathCaseForApproval(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
@@ -247,9 +207,13 @@ export async function submitDeathCaseForApproval(formData: FormData) {
   if (!transfer || transfer.transferType !== "DEATH_SUCCESSION") {
     throw new Error("Invalid death succession case");
   }
-  if (transfer.heirs.length === 0) throw new Error("Add legal heirs before submission");
-  if (!transfer.heirs.some((h) => h.isPrimarySuccessor)) {
-    throw new Error("Nominate a primary successor before submission");
+
+  const readiness = validateDeathTransferReadiness({
+    heirs: transfer.heirs,
+    documents: transfer.documents,
+  });
+  if (!readiness.ok) {
+    throw new Error(readiness.errors.join("; "));
   }
 
   await prisma.transfer.update({

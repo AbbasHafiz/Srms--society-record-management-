@@ -9,6 +9,7 @@ import { PageHeader, EmptyState } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
+import { ScanUpload } from "@/components/documents/scan-upload";
 import type { PaymentStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -102,6 +103,7 @@ export default async function PaymentsPage({
                 <th>Status</th>
                 <th>Verified By</th>
                 <th>Ledger</th>
+                <th>PO Scan</th>
                 {(canVerify || canManageFinance) ? <th>Action</th> : null}
               </tr>
             </thead>
@@ -153,6 +155,19 @@ export default async function PaymentsPage({
                       </Link>
                     ) : p.status === "VERIFIED" ? (
                       <span className="text-xs text-amber-700">Not posted</span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="min-w-[140px]">
+                    {p.plotId ? (
+                      <ScanUpload
+                        plotId={p.plotId}
+                        documentType="PAYMENT_PO"
+                        documentNumber={p.id}
+                        title={`PO — ${p.receiptNumber}`}
+                        compact
+                      />
                     ) : (
                       "—"
                     )}

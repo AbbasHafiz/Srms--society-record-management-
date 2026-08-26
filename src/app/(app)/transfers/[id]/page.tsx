@@ -15,6 +15,7 @@ import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-acti
 import {
   DEATH_TRANSFER_DOCUMENTS,
   HEIR_RELATION_LABELS,
+  deathDocumentChecklistState,
   validateDeathTransferReadiness,
 } from "@/lib/death-transfer";
 import {
@@ -24,10 +25,10 @@ import {
   verifyTransferPaymentAction,
   addTransferHeir,
   removeTransferHeir,
-  registerDeathDocument,
   submitDeathCaseForApproval,
   markAllotmentPrintedAction,
 } from "../actions";
+import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -99,12 +100,14 @@ export default async function TransferDetailPage({
   const deathReadiness = isDeath
     ? validateDeathTransferReadiness({
         heirs: transfer.heirs,
-        documentTypes: transfer.documents.map((d) => d.documentType),
+        documents: transfer.documents,
       })
     : null;
 
   const steps = isDeath ? DEATH_STEPS : SALE_STEPS;
-  const uploadedDocTypes = new Set(transfer.documents.map((d) => d.documentType));
+  const deathDocChecklist = isDeath
+    ? deathDocumentChecklistState(transfer.documents, transfer.heirs)
+    : null;
 
   return (
     <div>
@@ -203,7 +206,7 @@ export default async function TransferDetailPage({
           canComplete={!!canComplete}
           activeMortgage={!!activeMortgage}
           deathReadiness={deathReadiness}
-          uploadedDocTypes={uploadedDocTypes}
+          deathDocChecklist={deathDocChecklist}
         />
       ) : (
         <SaleWorkflow
@@ -227,11 +230,11 @@ function DeathWorkflow({
   canComplete,
   activeMortgage,
   deathReadiness,
-  uploadedDocTypes,
+  deathDocChecklist,
 }: {
   transfer: NonNullable<Awaited<ReturnType<typeof prisma.transfer.findUnique>> & object> & {
     heirs: { id: string; name: string; cnic: string; relationToDeceased: string; contact: string | null; address: string | null; isPrimarySuccessor: boolean; shareNotes: string | null }[];
-    documents: { id: string; documentType: string; title: string; createdAt: Date }[];
+    documents: { id: string; documentType: string; title: string; filePath: string; fileSize: number | null; fileName: string; documentNumber: string | null; createdAt: Date }[];
     plot: { mortgages: unknown[] };
     payments: unknown[];
     sellerVerifiedBy: { name: string } | null;
@@ -244,8 +247,25 @@ function DeathWorkflow({
   canComplete: boolean;
   activeMortgage: boolean;
   deathReadiness: ReturnType<typeof validateDeathTransferReadiness> | null;
-  uploadedDocTypes: Set<string>;
+  deathDocChecklist: ReturnType<typeof deathDocumentChecklistState> | null;
 }) {
+  const deathScans = [
+    ...DEATH_TRANSFER_DOCUMENTS.filter((doc) => doc.type !== "HEIR_CNIC").map((doc) => ({
+      plotId: transfer.plotId,
+      transferId: transfer.id,
+      documentType: doc.type,
+      title: doc.label,
+      description: doc.description,
+    })),
+    ...transfer.heirs.map((h) => ({
+      plotId: transfer.plotId,
+      transferId: transfer.id,
+      documentType: "HEIR_CNIC" as const,
+      title: `CNIC — ${h.name}`,
+      description: `${HEIR_RELATION_LABELS[h.relationToDeceased as keyof typeof HEIR_RELATION_LABELS]} · ${h.cnic}`,
+      documentNumber: h.cnic,
+    })),
+  ];
   return (
     <>
       {activeMortgage ? (
@@ -361,7 +381,7 @@ function DeathWorkflow({
           </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {DEATH_TRANSFER_DOCUMENTS.map((doc) => {
-              const uploaded = uploadedDocTypes.has(doc.type);
+              const uploaded = deathDocChecklist?.[doc.type] ?? false;
               return (
                 <div
                   key={doc.type}
@@ -391,29 +411,19 @@ function DeathWorkflow({
           </div>
 
           {canEdit && transfer.status !== "COMPLETED" ? (
-            <form action={registerDeathDocument} className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
-              <input type="hidden" name="transferId" value={transfer.id} />
-              <div>
-                <Label>Register document received</Label>
-                <select
-                  name="documentType"
-                  className="mt-1 h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
-                >
-                  {DEATH_TRANSFER_DOCUMENTS.map((d) => (
-                    <option key={d.type} value={d.type}>
-                      {d.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label>Title / ref</Label>
-                <Input name="title" placeholder="Optional reference" className="mt-1" />
-              </div>
-              <Button type="submit" size="sm">
-                Mark received
-              </Button>
-            </form>
+            <DocumentScansPanel
+              heading="Document Scans"
+              description="Upload scanned copies for each required succession document. New uploads create a new version; prior scans are preserved. Heir CNIC scans are uploaded separately for each legal heir."
+              scans={deathScans}
+            />
+          ) : (
+            <DocumentScansPanel heading="Uploaded Scans" scans={deathScans} />
+          )}
+
+          {transfer.heirs.length === 0 ? (
+            <p className="mt-3 text-sm text-amber-800">
+              Add legal heirs before uploading heir CNIC scans.
+            </p>
           ) : null}
 
           {deathReadiness && !deathReadiness.ok && transfer.status !== "COMPLETED" ? (
@@ -444,7 +454,7 @@ function DeathWorkflow({
             transfer.heirs.some((h) => h.isPrimarySuccessor) ? (
               <form action={submitDeathCaseForApproval}>
                 <input type="hidden" name="id" value={transfer.id} />
-                <Button type="submit" variant="outline">
+                <Button type="submit" variant="outline" disabled={!deathReadiness?.ok}>
                   Submit for approval
                 </Button>
               </form>
@@ -654,6 +664,40 @@ function SaleWorkflow({
           ) : (
             <p className="mt-3 text-sm text-slate-500">Add purchaser details first.</p>
           )}
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+          <DocumentScansPanel
+            heading="Transfer Document Scans"
+            description="Upload seller/purchaser CNIC, transfer form, and payment PO scans. Each new upload is versioned; older scans remain on file."
+            scans={[
+              {
+                plotId: transfer.plotId,
+                transferId: transfer.id,
+                ownershipId: transfer.sellerOwnershipId ?? undefined,
+                documentType: "CNIC",
+                title: "Seller CNIC",
+              },
+              {
+                plotId: transfer.plotId,
+                transferId: transfer.id,
+                documentType: "CNIC",
+                title: "Purchaser CNIC",
+              },
+              {
+                plotId: transfer.plotId,
+                transferId: transfer.id,
+                documentType: "TRANSFER_FORM",
+                title: "Transfer Form",
+              },
+              {
+                plotId: transfer.plotId,
+                transferId: transfer.id,
+                documentType: "PAYMENT_PO",
+                title: "Payment / PO Scan",
+              },
+            ]}
+          />
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
