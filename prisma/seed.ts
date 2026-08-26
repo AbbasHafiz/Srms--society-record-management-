@@ -41,6 +41,8 @@ async function main() {
   await prisma.payment.deleteMany();
   await prisma.plotCharge.deleteMany();
   await prisma.openFile.deleteMany();
+  await prisma.officeRentCharge.deleteMany();
+  await prisma.registeredOffice.deleteMany();
   await prisma.mortgage.deleteMany();
   await prisma.nec.deleteMany();
   await prisma.noc.deleteMany();
@@ -601,6 +603,21 @@ async function main() {
   const expirySoon = new Date();
   expirySoon.setDate(expirySoon.getDate() + 12);
 
+  const privateOffice = await prisma.registeredOffice.create({
+    data: {
+      officeName: "Al-Noor Associates",
+      ownerName: "Khalid Mehmood",
+      phone: "0300-1112233",
+      email: "alnoor@society.local",
+      address: "Blue Area, Islamabad",
+      premisesType: "PRIVATE",
+      licenseNumber: "DO-2019-042",
+      registrationDate: new Date("2019-03-15"),
+      expiryDate: new Date("2027-03-15"),
+      status: "ACTIVE",
+    },
+  });
+
   await prisma.openFile.create({
     data: {
       openFileNumber: "OF-0084",
@@ -610,8 +627,9 @@ async function main() {
       sellerName: owner789.ownerName,
       sellerCnic: owner789.cnic,
       sellerMembershipNo: owner789.membershipNumber,
-      dealerName: "Al-Noor Associates",
-      dealerOffice: "Blue Area, Islamabad",
+      dealerName: privateOffice.officeName,
+      dealerOffice: privateOffice.address,
+      registeredOfficeId: privateOffice.id,
       openingDate: new Date(Date.now() - 78 * 24 * 60 * 60 * 1000),
       expiryDate: expirySoon,
       periodMonths: 3,
@@ -801,6 +819,38 @@ async function main() {
       allotmentNumber: "AL-2411",
       startDate: new Date("2023-09-15"),
       status: "ACTIVE",
+    },
+  });
+
+  const societyLandOffice = await prisma.registeredOffice.create({
+    data: {
+      officeName: "Green Valley Plaza Unit 4",
+      ownerName: "Bashir Traders",
+      phone: "0345-8877665",
+      address: "Commercial Plaza, E-17",
+      premisesType: "SOCIETY_LAND",
+      rentAmount: 25000,
+      rentFrequency: "MONTHLY",
+      rentStartDate: new Date("2024-01-01"),
+      rentStatus: "CURRENT",
+      plotId: plotShop.id,
+      status: "ACTIVE",
+      remarks: "Society-land commercial unit — monthly rent collection demo",
+    },
+  });
+
+  const rentYear = new Date().getFullYear();
+  const rentMonth = new Date().getMonth() + 1;
+  await prisma.officeRentCharge.create({
+    data: {
+      registeredOfficeId: societyLandOffice.id,
+      year: rentYear,
+      month: rentMonth,
+      amountSnapshot: 25000,
+      amount: 25000,
+      dueDate: new Date(rentYear, rentMonth - 1, 10),
+      status: "PENDING",
+      remarks: "Seeded current-month rent charge",
     },
   });
 
@@ -1521,10 +1571,11 @@ async function main() {
       },
       {
         mealDate: today,
-        mealType: "TEA",
-        headcount: 30,
-        amount: 4500,
-        remarks: "Afternoon tea for works team",
+        mealType: "OTHER",
+        otherDetail: "Iftar — Ramadan staff meal",
+        headcount: 35,
+        amount: 17500,
+        vendor: "Mess contractor — Rashid",
         createdById: admin.id,
       },
     ],
@@ -1556,6 +1607,24 @@ async function main() {
       status: "PENDING",
       vendor: "IESCO",
       remarks: "Main office & street lighting — seeded sample bill",
+      createdById: saraUser!.id,
+    },
+  });
+
+  const prevBillMonth = billMonth === 1 ? 12 : billMonth - 1;
+  const prevBillYear = billMonth === 1 ? billYear - 1 : billYear;
+  await prisma.electricityBill.create({
+    data: {
+      periodMonth: prevBillMonth,
+      periodYear: prevBillYear,
+      meterNo: "GV-MAIN-01",
+      accountNo: "IESCO-8844221",
+      units: 4620,
+      amount: 121000,
+      dueDate: new Date(prevBillYear, prevBillMonth - 1, 15),
+      paidAt: new Date(prevBillYear, prevBillMonth - 1, 12),
+      status: "PAID",
+      vendor: "IESCO",
       createdById: saraUser!.id,
     },
   });

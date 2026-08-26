@@ -119,7 +119,6 @@ const PATH_MODULES = ([
   ["/annual-charges", "annual-charges"],
   ["/open-files", "open-files"],
   ["/offices", "offices"],
-  ["/offices", "offices"],
   ["/physical-files", "physical-files"],
   ["/dashboard", "dashboard"],
   ["/transfers", "transfers"],

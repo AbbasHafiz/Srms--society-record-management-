@@ -58,7 +58,6 @@ const NAV = [
   { href: "/mortgages", label: "Bank / Mortgage", icon: Landmark, module: "mortgages" },
   { href: "/open-files", label: "Open Files", icon: FolderOpen, module: "open-files" },
   { href: "/offices", label: "Property Offices", icon: Building2, module: "offices" },
-  { href: "/offices", label: "Property Offices", icon: Building2, module: "offices" },
   { href: "/payments", label: "Payments", icon: Wallet, module: "payments" },
   { href: "/annual-charges", label: "Annual Charges", icon: Receipt, module: "annual-charges" },
   { href: "/finance", label: "Revenue & Expenses", icon: CircleDollarSign, module: "finance" },
