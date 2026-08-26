@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { renewOpenFile } from "@/lib/services";
@@ -14,6 +14,8 @@ import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
 import { plotLabel } from "@/lib/plots";
 import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
+import { assignRegisteredOfficeToOpenFile } from "../actions";
+import { RegisteredOfficeSelect } from "@/components/offices/registered-office-select";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +35,13 @@ async function renewAction(formData: FormData) {
   redirect(`/open-files/${openFileId}`);
 }
 
+async function assignOfficeAction(formData: FormData) {
+  "use server";
+  await assignRegisteredOfficeToOpenFile(formData);
+  const openFileId = String(formData.get("openFileId") || "");
+  revalidatePath(`/open-files/${openFileId}`);
+}
+
 export default async function OpenFileDetailPage({
   params,
 }: {
@@ -45,6 +54,7 @@ export default async function OpenFileDetailPage({
     include: {
       plot: true,
       ownership: true,
+      registeredOffice: true,
       renewals: { orderBy: { renewalDate: "desc" } },
       payments: { orderBy: { createdAt: "desc" }, take: 5 },
     },
@@ -141,6 +151,18 @@ export default async function OpenFileDetailPage({
                 <dd>{openFile.dealerName}</dd>
               </div>
               <div>
+                <dt className="text-xs font-medium uppercase text-slate-500">Registered office</dt>
+                <dd>
+                  {openFile.registeredOffice ? (
+                    <Link href={`/offices/${openFile.registeredOffice.id}`} className="text-teal-900 hover:underline">
+                      {openFile.registeredOffice.officeName}
+                    </Link>
+                  ) : (
+                    "— (free-text dealer only)"
+                  )}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-xs font-medium uppercase text-slate-500">TRD Number</dt>
                 <dd>{openFile.trdNumber ?? "—"}</dd>
               </div>
@@ -195,7 +217,25 @@ export default async function OpenFileDetailPage({
               </form>
             </CardContent>
           </Card>
-        ) : null}
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Registered office</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form action={assignOfficeAction} className="space-y-3">
+                <input type="hidden" name="openFileId" value={openFile.id} />
+                <RegisteredOfficeSelect defaultValue={openFile.registeredOfficeId ?? ""} />
+                <p className="text-xs text-slate-500">
+                  Links letterhead from the property office register and updates dealer name snapshot.
+                </p>
+                <Button type="submit" size="sm" className="w-full">
+                  Save office link
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {openFile.renewals.length > 0 ? (

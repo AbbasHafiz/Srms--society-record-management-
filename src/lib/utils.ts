@@ -38,7 +38,7 @@ export function statusColor(status: string): string {
   if (["PENDING", "DRAFT", "SUBMITTED", "UNDER_REVIEW", "PAYMENT_PENDING", "SCHEDULED", "MOVING"].includes(s)) {
     return "bg-amber-100 text-amber-900 border-amber-200";
   }
-  if (["REJECTED", "CANCELLED", "EXPIRED", "ABSENT", "OVERDUE", "MISSING", "ACTIVE_MORTGAGE", "VOID"].includes(s)) {
+  if (["REJECTED", "CANCELLED", "EXPIRED", "ABSENT", "OVERDUE", "MISSING", "ACTIVE_MORTGAGE", "VOID", "SUSPENDED"].includes(s)) {
     return "bg-rose-100 text-rose-800 border-rose-200";
   }
   if (["TRANSFERRED", "INACTIVE", "DEAD", "SUPERSEDED", "ARCHIVED"].includes(s)) {

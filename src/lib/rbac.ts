@@ -76,6 +76,26 @@ export function hasPermission(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
 }
 
+const FLEET_MANAGER_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "HR_ADMIN", "FINANCE", "GM"];
+
+/** HR, finance, GM, and admins can manage fleet fuel and mess records. */
+export function canManageFleetRecords(role: Role): boolean {
+  return FLEET_MANAGER_ROLES.includes(role);
+}
+
+export function canManageMess(role: Role): boolean {
+  return canManageFleetRecords(role);
+}
+
+export function canViewFuelSpending(role: Role): boolean {
+  return canManageFleetRecords(role) || role === "TANKER_OPERATOR";
+}
+
+export function canAddFuelLog(role: Role): boolean {
+  if (role === "TANKER_OPERATOR") return false;
+  return canManageFleetRecords(role) || hasPermission(role, "edit") || hasPermission(role, "manage_employees");
+}
+
 const ALL_ROLES = Object.keys(ROLE_PERMISSIONS) as Role[];
 const WITHOUT_TANKER_OPERATOR = ALL_ROLES.filter((r) => r !== "TANKER_OPERATOR");
 
@@ -84,6 +104,8 @@ const PATH_MODULES = ([
   ["/notifications", "notifications"],
   ["/annual-charges", "annual-charges"],
   ["/open-files", "open-files"],
+  ["/offices", "offices"],
+  ["/offices", "offices"],
   ["/physical-files", "physical-files"],
   ["/dashboard", "dashboard"],
   ["/transfers", "transfers"],
@@ -100,6 +122,7 @@ const PATH_MODULES = ([
   ["/tankers", "tankers"],
   ["/garbage", "garbage"],
   ["/vehicles", "vehicles"],
+  ["/mess", "mess"],
   ["/audit", "audit"],
   ["/plots", "plots"],
 ] as [string, string][]).sort((a, b) => b[0].length - a[0].length);
@@ -163,6 +186,18 @@ export function canAccessModule(role: Role, module: string): boolean {
       "VIEWER",
       "PRESIDENT",
     ],
+    offices: [
+      "SUPER_ADMIN",
+      "ADMIN",
+      "SECRETARY",
+      "GM",
+      "TRANSFER_OFFICER",
+      "ASSOCIATE_TRANSFER_OFFICER",
+      "RECORD_MANAGER",
+      "FINANCE",
+      "VIEWER",
+      "PRESIDENT",
+    ],
     "physical-files": [
       "SUPER_ADMIN",
       "ADMIN",
@@ -178,7 +213,8 @@ export function canAccessModule(role: Role, module: string): boolean {
     attendance: ["SUPER_ADMIN", "ADMIN", "HR_ADMIN", "SECURITY", "GM", "SECRETARY", "VIEWER"],
     tankers: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "FINANCE", "VIEWER", "PRESIDENT", "TANKER_OPERATOR"],
     garbage: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "VIEWER", "PRESIDENT", "TANKER_OPERATOR"],
-    vehicles: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "VIEWER"],
+    vehicles: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "FINANCE", "VIEWER", "TANKER_OPERATOR"],
+    mess: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "FINANCE", "VIEWER", "PRESIDENT"],
     reports: [
       "SUPER_ADMIN",
       "ADMIN",

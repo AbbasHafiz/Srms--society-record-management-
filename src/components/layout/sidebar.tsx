@@ -13,6 +13,7 @@ import {
   ScrollText,
   Landmark,
   FolderOpen,
+  Building2,
   Wallet,
   CircleDollarSign,
   Archive,
@@ -32,6 +33,7 @@ import {
   IdCard,
   MessageCircle,
   Receipt,
+  UtensilsCrossed,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -53,22 +55,26 @@ const NAV = [
   { href: "/nec", label: "NEC", icon: ScrollText, module: "documents" },
   { href: "/mortgages", label: "Bank / Mortgage", icon: Landmark, module: "mortgages" },
   { href: "/open-files", label: "Open Files", icon: FolderOpen, module: "open-files" },
+  { href: "/offices", label: "Property Offices", icon: Building2, module: "offices" },
+  { href: "/offices", label: "Property Offices", icon: Building2, module: "offices" },
   { href: "/payments", label: "Payments", icon: Wallet, module: "payments" },
   { href: "/annual-charges", label: "Annual Charges", icon: Receipt, module: "annual-charges" },
   { href: "/finance", label: "Revenue & Expenses", icon: CircleDollarSign, module: "finance" },
   { href: "/physical-files", label: "Physical Files", icon: Archive, module: "physical-files" },
   { href: "/employees", label: "Employees", icon: UserCog, module: "employees" },
+  { href: "/mess", label: "Mess", icon: UtensilsCrossed, module: "mess" },
   { href: "/hr", label: "HR", icon: Users, module: "hr" },
   { href: "/attendance", label: "Attendance", icon: CalendarCheck, module: "attendance" },
   { href: "/tankers", label: "Water Tankers", icon: Droplets, module: "tankers" },
   { href: "/garbage", label: "Garbage Collection", icon: Trash2, module: "garbage" },
   { href: "/vehicles", label: "Vehicles", icon: Truck, module: "vehicles" },
+  { href: "/vehicles/fuel", label: "Fuel spending", icon: Truck, module: "vehicles" },
   { href: "/reports", label: "Reports", icon: BarChart3, module: "reports" },
   { href: "/audit", label: "Audit Logs", icon: ClipboardList, module: "audit" },
   { href: "/settings", label: "Settings", icon: Settings, module: "settings" },
 ];
 
-const TANKER_NAV_HREFS = new Set(["/dashboard", "/tankers", "/tankers/driver", "/garbage"]);
+const TANKER_NAV_HREFS = new Set(["/dashboard", "/tankers", "/tankers/driver", "/garbage", "/vehicles/fuel"]);
 
 const TANKER_OPERATOR_EXTRA_NAV = [
   { href: "/tankers/driver", label: "Today's deliveries", icon: ClipboardCheck, module: "tankers" },

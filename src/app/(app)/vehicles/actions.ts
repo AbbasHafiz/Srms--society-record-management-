@@ -5,9 +5,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
-import { hasPermission } from "@/lib/rbac";
+import { canAddFuelLog, canManageFleetRecords } from "@/lib/rbac";
 import { nextSequence } from "@/lib/numbering";
-import type { VehicleType } from "@/generated/prisma/client";
+import type { VehicleType, VehicleUsedFor } from "@/generated/prisma/client";
 
 function parseDate(value: string) {
   const d = new Date(value);
@@ -18,14 +18,16 @@ function parseDate(value: string) {
 export async function createVehicle(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
-  if (!hasPermission(session.user.role, "manage_employees") && !hasPermission(session.user.role, "edit")) {
+  if (!canManageFleetRecords(session.user.role)) {
     throw new Error("Forbidden");
   }
 
   const vehicleCode = String(formData.get("vehicleCode") || "").trim();
   const registrationNo = String(formData.get("registrationNo") || "").trim() || null;
   const vehicleType = String(formData.get("vehicleType") || "TRACTOR") as VehicleType;
+  const usedFor = String(formData.get("usedFor") || "OTHER") as VehicleUsedFor;
   const driverId = String(formData.get("driverId") || "").trim() || null;
+  const waterTankerId = String(formData.get("waterTankerId") || "").trim() || null;
   const remarks = String(formData.get("remarks") || "").trim() || null;
 
   const code = vehicleCode || (await nextSequence("vehicle", "VEH", 3));
@@ -35,8 +37,14 @@ export async function createVehicle(formData: FormData) {
       vehicleCode: code,
       registrationNo,
       vehicleType,
+      usedFor,
       driverId: driverId ?? undefined,
       remarks,
+      ...(waterTankerId
+        ? {
+            linkedTanker: { connect: { id: waterTankerId } },
+          }
+        : {}),
     },
   });
 
@@ -45,17 +53,18 @@ export async function createVehicle(formData: FormData) {
     action: "VEHICLE_CREATED",
     module: "vehicles",
     recordId: vehicle.id,
-    newValue: { vehicleCode: code, vehicleType },
+    newValue: { vehicleCode: code, vehicleType, usedFor },
   });
 
   revalidatePath("/vehicles");
+  revalidatePath("/vehicles/fuel");
   redirect(`/vehicles/${vehicle.id}`);
 }
 
 export async function addFuelLog(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
-  if (!hasPermission(session.user.role, "edit") && !hasPermission(session.user.role, "manage_employees")) {
+  if (!canAddFuelLog(session.user.role)) {
     throw new Error("Forbidden");
   }
 
@@ -90,12 +99,13 @@ export async function addFuelLog(formData: FormData) {
   });
 
   revalidatePath(`/vehicles/${vehicleId}`);
+  revalidatePath("/vehicles/fuel");
 }
 
 export async function addVehicleUsage(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
-  if (!hasPermission(session.user.role, "edit") && !hasPermission(session.user.role, "manage_employees")) {
+  if (!canManageFleetRecords(session.user.role)) {
     throw new Error("Forbidden");
   }
 
@@ -134,7 +144,7 @@ export async function addVehicleUsage(formData: FormData) {
 export async function addMaintenanceLog(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
-  if (!hasPermission(session.user.role, "edit") && !hasPermission(session.user.role, "manage_employees")) {
+  if (!canManageFleetRecords(session.user.role)) {
     throw new Error("Forbidden");
   }
 

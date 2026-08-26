@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addFuelLog, addMaintenanceLog, addVehicleUsage } from "../actions";
-import { hasPermission } from "@/lib/rbac";
+import { canAddFuelLog, canManageFleetRecords } from "@/lib/rbac";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -24,14 +24,14 @@ export default async function VehicleDetailPage({
   const section = sp.section || "fuel";
 
   const session = await auth();
-  const canEdit =
-    session?.user &&
-    (hasPermission(session.user.role, "edit") || hasPermission(session.user.role, "manage_employees"));
+  const canEdit = session?.user && canManageFleetRecords(session.user.role);
+  const canAddFuel = session?.user && canAddFuelLog(session.user.role);
 
   const vehicle = await prisma.vehicle.findUnique({
     where: { id },
     include: {
       driver: true,
+      linkedTanker: true,
       fuelLogs: { include: { driver: true }, orderBy: { date: "desc" }, take: 50 },
       usageLogs: { include: { driver: true }, orderBy: { date: "desc" }, take: 50 },
       maintenance: { orderBy: { date: "desc" }, take: 50 },
@@ -40,13 +40,14 @@ export default async function VehicleDetailPage({
 
   if (!vehicle) notFound();
 
-  const drivers = canEdit
-    ? await prisma.employee.findMany({
+  const drivers =
+    canAddFuel || canEdit
+      ? await prisma.employee.findMany({
         where: { status: "ACTIVE" },
         orderBy: { name: "asc" },
         select: { id: true, name: true, employeeCode: true },
       })
-    : [];
+      : [];
 
   const tabs = [
     { key: "fuel", label: "Fuel logs" },
@@ -72,6 +73,19 @@ export default async function VehicleDetailPage({
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <Row label="Driver" value={vehicle.driver ? `${vehicle.driver.name} (${vehicle.driver.employeeCode})` : "—"} />
           <Row label="Registration" value={vehicle.registrationNo ?? "—"} />
+          <Row label="Used for" value={labelize(vehicle.usedFor)} />
+          <Row
+            label="Linked tanker"
+            value={
+              vehicle.linkedTanker ? (
+                <Link href="/tankers/fleet" className="text-teal-800 hover:underline">
+                  {vehicle.linkedTanker.tankerCode}
+                </Link>
+              ) : (
+                "—"
+              )
+            }
+          />
           {vehicle.remarks ? <Row label="Remarks" value={vehicle.remarks} /> : null}
         </dl>
       </div>
@@ -93,13 +107,13 @@ export default async function VehicleDetailPage({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {canEdit ? (
+        {(canAddFuel || canEdit) ? (
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="font-display mb-4 text-lg font-semibold">
               {section === "fuel" ? "Add fuel log" : section === "usage" ? "Add usage log" : "Add maintenance"}
             </h2>
 
-            {section === "fuel" ? (
+            {section === "fuel" && canAddFuel ? (
               <form action={addFuelLog} className="space-y-3">
                 <input type="hidden" name="vehicleId" value={vehicle.id} />
                 <Field label="Date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
@@ -111,7 +125,7 @@ export default async function VehicleDetailPage({
               </form>
             ) : null}
 
-            {section === "usage" ? (
+            {section === "usage" && canEdit ? (
               <form action={addVehicleUsage} className="space-y-3">
                 <input type="hidden" name="vehicleId" value={vehicle.id} />
                 <Field label="Date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
@@ -123,7 +137,7 @@ export default async function VehicleDetailPage({
               </form>
             ) : null}
 
-            {section === "maintenance" ? (
+            {section === "maintenance" && canEdit ? (
               <form action={addMaintenanceLog} className="space-y-3">
                 <input type="hidden" name="vehicleId" value={vehicle.id} />
                 <Field label="Date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
@@ -136,7 +150,7 @@ export default async function VehicleDetailPage({
           </section>
         ) : null}
 
-        <section className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${canEdit ? "" : "lg:col-span-2"}`}>
+        <section className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${canAddFuel || canEdit ? "" : "lg:col-span-2"}`}>
           <h2 className="font-display mb-4 text-lg font-semibold">History</h2>
 
           {section === "fuel" ? (

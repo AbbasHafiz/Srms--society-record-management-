@@ -49,6 +49,7 @@ export async function uploadDocument(formData: FormData) {
   const transferId = String(formData.get("transferId") || "").trim() || null;
   const mortgageId = String(formData.get("mortgageId") || "").trim() || null;
   const openFileId = String(formData.get("openFileId") || "").trim() || null;
+  const registeredOfficeId = String(formData.get("registeredOfficeId") || "").trim() || null;
   const documentType = String(formData.get("documentType") || "") as DocumentType;
   const title = String(formData.get("title") || "").trim();
   const documentNumber = String(formData.get("documentNumber") || "").trim() || null;
@@ -70,6 +71,7 @@ export async function uploadDocument(formData: FormData) {
     transferId,
     openFileId,
     mortgageId,
+    registeredOfficeId,
     documentType,
     title,
     documentNumber,
@@ -98,6 +100,7 @@ export async function uploadDocument(formData: FormData) {
   if (transferId) revalidatePath(`/transfers/${transferId}`);
   if (mortgageId) revalidatePath(`/mortgages/${mortgageId}`);
   if (openFileId) revalidatePath(`/open-files/${openFileId}`);
+  if (registeredOfficeId) revalidatePath(`/offices/${registeredOfficeId}`);
   revalidatePath("/payments");
   revalidatePath("/possession");
   revalidatePath("/noc");

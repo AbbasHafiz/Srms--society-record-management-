@@ -174,9 +174,13 @@ export default async function DocumentsPage({
                     <Badge>{labelize(d.documentType)}</Badge>
                   </td>
                   <td>
-                    <Link href={`/plots/${d.plotId}`} className="text-teal-900 hover:underline">
-                      {d.plot.sector}/{d.plot.block}-{d.plot.plotNumber}
-                    </Link>
+                    {d.plot ? (
+                      <Link href={`/plots/${d.plotId}`} className="text-teal-900 hover:underline">
+                        {d.plot.sector}/{d.plot.block}-{d.plot.plotNumber}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td>v{d.version}</td>
                   <td>{formatDate(d.issueDate)}</td>

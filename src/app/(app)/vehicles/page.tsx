@@ -6,37 +6,70 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createVehicle } from "./actions";
-import { hasPermission } from "@/lib/rbac";
+import { canManageFleetRecords, canViewFuelSpending } from "@/lib/rbac";
+import { listWaterTankersWithoutVehicle, VEHICLE_TYPE_OPTIONS, VEHICLE_USED_FOR_OPTIONS } from "@/lib/vehicles";
 import { labelize } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function VehiclesPage() {
   const session = await auth();
-  const canManage =
-    session?.user &&
-    (hasPermission(session.user.role, "manage_employees") || hasPermission(session.user.role, "edit"));
+  const canManage = session?.user && canManageFleetRecords(session.user.role);
+  const canViewFuel = session?.user && canViewFuelSpending(session.user.role);
 
-  const vehicles = await prisma.vehicle.findMany({
-    include: { driver: true },
-    orderBy: { vehicleCode: "asc" },
-  });
+  const [vehicles, unlinkedTankers] = await Promise.all([
+    prisma.vehicle.findMany({
+      include: { driver: true, linkedTanker: true },
+      orderBy: { vehicleCode: "asc" },
+    }),
+    canManage ? listWaterTankersWithoutVehicle() : Promise.resolve([]),
+  ]);
 
   return (
     <div>
-      <PageHeader title="Vehicles" description="Tractors, loaders, and society fleet vehicles." />
+      <PageHeader
+        title="Vehicles"
+        description="Staff pickup, tractors, tanker vehicles, and society fleet."
+        actions={
+          canViewFuel ? (
+            <Link href="/vehicles/fuel">
+              <Button variant="outline" size="sm">
+                Fuel spending
+              </Button>
+            </Link>
+          ) : null
+        }
+      />
 
       {canManage ? (
-        <form action={createVehicle} className="mb-6 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
+        <form action={createVehicle} className="mb-6 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
           <Input name="vehicleCode" placeholder="Code (auto if blank)" />
           <Input name="registrationNo" placeholder="Registration no." />
-          <select name="vehicleType" defaultValue="TRACTOR" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
-            <option value="TRACTOR">Tractor</option>
-            <option value="LOADER">Loader</option>
-            <option value="WATER_TANKER_VEHICLE">Water tanker</option>
-            <option value="OTHER">Other</option>
+          <select name="vehicleType" defaultValue="STAFF_PICKUP" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+            {VEHICLE_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
           </select>
-          <Input name="remarks" placeholder="Remarks" />
+          <select name="usedFor" defaultValue="STAFF_PICKUP" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm">
+            {VEHICLE_USED_FOR_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          {unlinkedTankers.length > 0 ? (
+            <select name="waterTankerId" defaultValue="" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm lg:col-span-2">
+              <option value="">Link water tanker (optional)</option>
+              {unlinkedTankers.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.tankerCode} ({t.capacityLiters.toLocaleString()} L)
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <Input name="remarks" placeholder="Remarks" className="lg:col-span-2" />
           <Button type="submit">Add vehicle</Button>
         </form>
       ) : null}
@@ -51,6 +84,8 @@ export default async function VehiclesPage() {
                 <th>Code</th>
                 <th>Registration</th>
                 <th>Type</th>
+                <th>Used for</th>
+                <th>Linked tanker</th>
                 <th>Driver</th>
                 <th>Status</th>
               </tr>
@@ -65,6 +100,8 @@ export default async function VehiclesPage() {
                   </td>
                   <td>{v.registrationNo ?? "—"}</td>
                   <td>{labelize(v.vehicleType)}</td>
+                  <td>{labelize(v.usedFor)}</td>
+                  <td>{v.linkedTanker?.tankerCode ?? "—"}</td>
                   <td>
                     {v.driver ? (
                       <span>

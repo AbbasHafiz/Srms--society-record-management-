@@ -33,6 +33,7 @@ async function main() {
   await prisma.fileLocation.deleteMany();
   await prisma.openFileRenewal.deleteMany();
   await prisma.document.deleteMany();
+  await prisma.messMeal.deleteMany();
   await prisma.financeTransaction.deleteMany();
   await prisma.financeCategory.deleteMany();
   await prisma.payment.deleteMany();
@@ -1404,13 +1405,127 @@ async function main() {
     ],
   });
 
-  await prisma.vehicle.create({
+  const tractor = await prisma.vehicle.create({
     data: {
       vehicleCode: "TR-01",
       registrationNo: "ICT-4521",
       vehicleType: "TRACTOR",
+      usedFor: "TRACTOR_WORK",
       driverId: tariq.id,
     },
+  });
+
+  const staffPickup = await prisma.vehicle.create({
+    data: {
+      vehicleCode: "SP-01",
+      registrationNo: "ICT-8890",
+      vehicleType: "VAN",
+      usedFor: "STAFF_PICKUP",
+      driverId: kamran.id,
+      remarks: "Daily staff pickup van — office to society gate",
+    },
+  });
+
+  const tankerVehicle = await prisma.vehicle.create({
+    data: {
+      vehicleCode: "WT-V01",
+      registrationNo: "ICT-3344",
+      vehicleType: "WATER_TANKER_VEHICLE",
+      usedFor: "TANKER",
+      driverId: tariq.id,
+      remarks: "Fuel-tracked vehicle linked to distribution tanker WT-01",
+      linkedTanker: { connect: { id: tanker1.id } },
+    },
+  });
+
+  const fuelDate1 = new Date(today);
+  fuelDate1.setDate(fuelDate1.getDate() - 5);
+  const fuelDate2 = new Date(today);
+  fuelDate2.setDate(fuelDate2.getDate() - 2);
+
+  await prisma.fuelLog.createMany({
+    data: [
+      {
+        vehicleId: tractor.id,
+        driverId: tariq.id,
+        date: fuelDate1,
+        liters: 45,
+        amount: 11250,
+        remarks: "Diesel — street sweeping Block 3",
+      },
+      {
+        vehicleId: staffPickup.id,
+        driverId: kamran.id,
+        date: fuelDate2,
+        liters: 35,
+        amount: 8750,
+        remarks: "Petrol — morning staff pickup route",
+      },
+      {
+        vehicleId: staffPickup.id,
+        driverId: kamran.id,
+        date: today,
+        liters: 28,
+        amount: 7000,
+        remarks: "Petrol — evening drop-off",
+      },
+      {
+        vehicleId: tankerVehicle.id,
+        driverId: tariq.id,
+        date: today,
+        liters: 60,
+        amount: 15000,
+        remarks: "Diesel — WT-01 distribution runs",
+      },
+    ],
+  });
+
+  await prisma.messMeal.createMany({
+    data: [
+      {
+        mealDate: fuelDate1,
+        mealType: "BREAKFAST",
+        headcount: 22,
+        amount: 6600,
+        vendor: "Mess contractor — Rashid",
+        remarks: "Staff breakfast",
+        createdById: admin.id,
+      },
+      {
+        mealDate: fuelDate1,
+        mealType: "LUNCH",
+        headcount: 28,
+        amount: 14000,
+        vendor: "Mess contractor — Rashid",
+        remarks: "Panel + staff lunch",
+        createdById: admin.id,
+      },
+      {
+        mealDate: fuelDate2,
+        mealType: "LUNCH",
+        headcount: 26,
+        amount: 13000,
+        vendor: "Mess contractor — Rashid",
+        createdById: admin.id,
+      },
+      {
+        mealDate: today,
+        mealType: "DINNER",
+        headcount: 18,
+        amount: 9000,
+        vendor: "Mess contractor — Rashid",
+        remarks: "Night security + on-duty staff",
+        createdById: admin.id,
+      },
+      {
+        mealDate: today,
+        mealType: "TEA",
+        headcount: 30,
+        amount: 4500,
+        remarks: "Afternoon tea for works team",
+        createdById: admin.id,
+      },
+    ],
   });
 
   const saraUser = await prisma.user.findUnique({ where: { email: "finance@society.local" } });

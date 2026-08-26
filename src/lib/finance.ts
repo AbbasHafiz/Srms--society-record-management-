@@ -44,6 +44,7 @@ export const FINANCE_CATEGORY_SEEDS: Array<{
   },
   { code: "EXP_UTILITIES", name: "Utilities (Electricity, Water for Society)", type: "EXPENSE", sortOrder: 30 },
   { code: "EXP_FUEL", name: "Fuel (Tractors, Tankers, Generators)", type: "EXPENSE", sortOrder: 40 },
+  { code: "EXP_MESS", name: "Staff Mess / Meals", type: "EXPENSE", sortOrder: 45 },
   { code: "EXP_VEHICLE", name: "Vehicle Maintenance", type: "EXPENSE", sortOrder: 50 },
   { code: "EXP_SECURITY", name: "Security Expenses", type: "EXPENSE", sortOrder: 60 },
   { code: "EXP_OFFICE", name: "Office / Admin Supplies", type: "EXPENSE", sortOrder: 70 },
