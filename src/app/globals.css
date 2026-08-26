@@ -1,0 +1,82 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  --background: #eef2f4;
+  --foreground: #0f172a;
+  --panel: #ffffff;
+  --teal: #115e59;
+  --teal-dark: #0f4c47;
+  --ink: #0b1f1c;
+  --muted: #64748b;
+  --line: #d8e0e6;
+  --warn: #b45309;
+  --danger: #be123c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(17, 94, 89, 0.08), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(15, 23, 42, 0.06), transparent 50%),
+    linear-gradient(180deg, #f4f7f8 0%, #e8eef1 100%);
+  color: var(--foreground);
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Tables */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.data-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.data-table tr:hover td {
+  background: #f8fafc;
+}
+
+/* PWA-ish safe area */
+.safe-pad {
+  padding-bottom: env(safe-area-inset-bottom);
+}

@@ -1,0 +1,49 @@
+import { prisma } from "@/lib/db";
+
+/** Atomically allocate the next number for a sequence key. Never reuses values. */
+export async function nextSequence(key: string, fallbackPrefix: string, padLength = 4) {
+  const seq = await prisma.$transaction(async (tx) => {
+    const existing = await tx.numberSequence.findUnique({ where: { key } });
+    if (!existing) {
+      const created = await tx.numberSequence.create({
+        data: { key, prefix: fallbackPrefix, nextValue: 2, padLength },
+      });
+      return { prefix: created.prefix, value: 1, padLength: created.padLength };
+    }
+    const updated = await tx.numberSequence.update({
+      where: { key },
+      data: { nextValue: { increment: 1 } },
+    });
+    return {
+      prefix: updated.prefix,
+      value: updated.nextValue - 1,
+      padLength: updated.padLength,
+    };
+  });
+
+  return `${seq.prefix}-${String(seq.value).padStart(seq.padLength, "0")}`;
+}
+
+export async function nextMembershipNumber() {
+  return nextSequence("membership", process.env.MEMBERSHIP_PREFIX || "M", 4);
+}
+
+export async function nextAllotmentNumber() {
+  return nextSequence("allotment", process.env.ALLOTMENT_PREFIX || "AL", 4);
+}
+
+export async function nextTransferNumber() {
+  return nextSequence("transfer", process.env.TRANSFER_PREFIX || "TRD", 4);
+}
+
+export async function nextFileNumber() {
+  return nextSequence("physical_file", process.env.FILE_PREFIX || "PF", 4);
+}
+
+export async function nextReceiptNumber() {
+  return nextSequence("receipt", "RCPT", 5);
+}
+
+export async function nextOpenFileNumber() {
+  return nextSequence("open_file", "OF", 4);
+}

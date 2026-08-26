@@ -1,0 +1,970 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  PRESIDENT
+  SECRETARY
+  GM
+  TRANSFER_OFFICER
+  ASSOCIATE_TRANSFER_OFFICER
+  RECORD_MANAGER
+  FINANCE
+  HR_ADMIN
+  SECURITY
+  VIEWER
+}
+
+enum OwnershipStatus {
+  ACTIVE
+  TRANSFERRED
+  CANCELLED
+  SUSPENDED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  TRANSFERRED
+  INACTIVE
+  DEAD
+  SUSPENDED
+}
+
+enum TransferStatus {
+  DRAFT
+  SELLER_VERIFICATION
+  DOCUMENTS_PENDING
+  PAYMENT_PENDING
+  PAYMENT_VERIFICATION
+  APPROVAL_PENDING
+  APPROVED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  REJECTED
+  CANCELLED
+  PAID
+  PARTIAL
+  OVERDUE
+  UNPAID
+}
+
+enum DocumentType {
+  CNIC
+  ALLOTMENT_LETTER
+  POSSESSION_LETTER
+  NOC
+  NEC
+  TRANSFER_FORM
+  BANK_LETTER
+  MORTGAGE_LETTER
+  BANK_NOC
+  LOAN_DOCUMENTS
+  PAYMENT_PO
+  DEALER_LETTERHEAD
+  OPEN_FILE_DOCUMENT
+  SIGNATURE
+  THUMB_IMPRESSION
+  OTHER
+}
+
+enum DocumentStatus {
+  ACTIVE
+  SUPERSEDED
+  ARCHIVED
+  REJECTED
+}
+
+enum PossessionStatus {
+  NOT_APPLIED
+  APPLIED
+  PENDING
+  APPROVED
+  ISSUED
+  REJECTED
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  ISSUED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum MortgageStatus {
+  PENDING
+  ACTIVE
+  RELEASED
+  CANCELLED
+}
+
+enum OpenFileStatus {
+  ACTIVE
+  EXPIRED
+  CLOSED
+  CANCELLED
+}
+
+enum FeeType {
+  OPEN_FILE
+  TRANSFER
+  ANNUAL_PLOT_CHARGE
+  NOC
+  NEC
+  POSSESSION
+  WATER_TANKER
+  OTHER
+}
+
+enum FileStatus {
+  IN_LOCKER
+  CHECKED_OUT
+  MOVING
+  ARCHIVED
+  MISSING
+}
+
+enum FileCondition {
+  GOOD
+  FAIR
+  DAMAGED
+  NEEDS_REPAIR
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  RESIGNED
+  TERMINATED
+}
+
+enum Designation {
+  PRESIDENT
+  SECRETARY
+  GM
+  TRANSFER_OFFICER
+  ASSOCIATE_TRANSFER_OFFICER
+  RECORD_MANAGER
+  FINANCE
+  MALI
+  SWEEPER
+  MESS
+  SECURITY_GUARD
+  TRACTOR_DRIVER
+  OTHER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+  HALF_DAY
+  LATE
+  OVERTIME
+}
+
+enum ShiftType {
+  DAY
+  NIGHT
+  GENERAL
+}
+
+enum PlotType {
+  RESIDENTIAL
+  COMMERCIAL
+  AMENITY
+  PARK
+  MOSQUE
+  SCHOOL
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  PO
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+enum TankerStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  UNPAID
+}
+
+enum VehicleType {
+  TRACTOR
+  LOADER
+  WATER_TANKER_VEHICLE
+  OTHER
+}
+
+enum ChargePeriodStatus {
+  PENDING
+  BILLED
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+// ─── Auth & Users ────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         Role      @default(VIEWER)
+  employeeId   String?   @unique
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  auditLogs           AuditLog[]
+  verifiedTransfers   Transfer[]          @relation("TransferVerifiedBy")
+  approvedTransfers   Transfer[]          @relation("TransferApprovedBy")
+  completedTransfers  Transfer[]          @relation("TransferCompletedBy")
+  verifiedPayments    Payment[]           @relation("PaymentVerifiedBy")
+  uploadedDocuments   Document[]          @relation("DocumentUploadedBy")
+  fileMovements       FileMovement[]
+  feeConfigsCreated   FeeConfiguration[]  @relation("FeeCreatedBy")
+  approvedPossessions Possession[]        @relation("PossessionApprovedBy")
+  approvedNocs        Noc[]               @relation("NocApprovedBy")
+  approvedNecs        Nec[]               @relation("NecApprovedBy")
+  attendanceMarked    Attendance[]        @relation("AttendanceMarkedBy")
+
+  @@index([role])
+  @@index([email])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  module     String
+  recordId   String?
+  plotId     String?
+  plot       Plot?    @relation(fields: [plotId], references: [id])
+  transferId String?
+  oldValue   Json?
+  newValue   Json?
+  reason     String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([module, recordId])
+  @@index([plotId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+// ─── Plot Master ─────────────────────────────────────────────────────────────
+
+model Plot {
+  id                    String            @id @default(cuid())
+  plotNumber            String
+  sector                String
+  block                 String?
+  street                String?
+  sizeMarla             Decimal           @db.Decimal(10, 2)
+  sizeSqYd              Decimal?          @db.Decimal(12, 2)
+  plotType              PlotType          @default(RESIDENTIAL)
+  ownershipStatus       OwnershipStatus   @default(ACTIVE)
+  possessionStatus      PossessionStatus  @default(NOT_APPLIED)
+  hasActiveMortgage     Boolean           @default(false)
+  hasOpenFile           Boolean           @default(false)
+  annualChargesStatus   ChargePeriodStatus @default(PENDING)
+  remarks               String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  ownerships       Ownership[]
+  transfers        Transfer[]
+  documents        Document[]
+  possessions      Possession[]
+  nocs             Noc[]
+  necs             Nec[]
+  mortgages        Mortgage[]
+  openFiles        OpenFile[]
+  physicalFile     PhysicalFile?
+  plotCharges      PlotCharge[]
+  payments         Payment[]
+  tankerDeliveries TankerDelivery[]
+  auditLogs        AuditLog[]
+
+  @@unique([sector, block, plotNumber])
+  @@index([plotNumber])
+  @@index([sector])
+  @@index([street])
+  @@index([ownershipStatus])
+}
+
+// ─── Ownership & Membership (immutable history) ──────────────────────────────
+
+model Ownership {
+  id                String          @id @default(cuid())
+  plotId            String
+  plot              Plot            @relation(fields: [plotId], references: [id])
+  ownerName         String
+  cnic              String
+  contact           String?
+  address           String?
+  email             String?
+  membershipNumber  String          @unique
+  allotmentNumber   String          @unique
+  startDate         DateTime
+  endDate           DateTime?
+  status            OwnershipStatus @default(ACTIVE)
+  transferInId      String?         @unique
+  transferIn        Transfer?       @relation("TransferToOwnership", fields: [transferInId], references: [id])
+  transferOutId     String?         @unique
+  transferOut       Transfer?       @relation("TransferFromOwnership", fields: [transferOutId], references: [id])
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  documents   Document[]
+  possessions Possession[]
+  nocs        Noc[]
+  necs        Nec[]
+  mortgages   Mortgage[]
+  openFiles   OpenFile[]
+  plotCharges PlotCharge[]
+  payments    Payment[]
+
+  @@index([plotId, status])
+  @@index([cnic])
+  @@index([membershipNumber])
+  @@index([allotmentNumber])
+  @@index([ownerName])
+}
+
+// ─── Transfer Workflow ───────────────────────────────────────────────────────
+
+model Transfer {
+  id                    String         @id @default(cuid())
+  transferNumber        String         @unique
+  trdNumber             String?        @unique
+  plotId                String
+  plot                  Plot           @relation(fields: [plotId], references: [id])
+  status                TransferStatus @default(DRAFT)
+  currentStep           Int            @default(1)
+
+  // Seller
+  sellerOwnershipId     String?
+  sellerName            String
+  sellerCnic            String
+  sellerMembershipNo    String
+  sellerContact         String?
+  sellerAddress         String?
+  sellerPresentPersonally Boolean      @default(false)
+  sellerIdentityVerified  Boolean      @default(false)
+  sellerVerifiedById    String?
+  sellerVerifiedBy      User?          @relation("TransferVerifiedBy", fields: [sellerVerifiedById], references: [id])
+  sellerVerificationDate DateTime?
+  sellerVerificationNotes String?
+
+  // Purchaser
+  purchaserName         String?
+  purchaserCnic         String?
+  purchaserContact      String?
+  purchaserAddress      String?
+  newMembershipNumber   String?
+  newAllotmentNumber    String?
+
+  // Approval / completion
+  approvedById          String?
+  approvedBy            User?          @relation("TransferApprovedBy", fields: [approvedById], references: [id])
+  approvedAt            DateTime?
+  completedById         String?
+  completedBy           User?          @relation("TransferCompletedBy", fields: [completedById], references: [id])
+  completedAt           DateTime?
+  rejectionReason       String?
+  remarks               String?
+
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  fromOwnership Ownership? @relation("TransferFromOwnership")
+  toOwnership   Ownership? @relation("TransferToOwnership")
+  documents     Document[]
+  payments      Payment[]
+  fileMovements FileMovement[]
+  openFiles     OpenFile[]
+
+  @@index([plotId])
+  @@index([status])
+  @@index([transferNumber])
+  @@index([trdNumber])
+  @@index([sellerCnic])
+  @@index([purchaserCnic])
+}
+
+// ─── Documents (versioned, scoped to plot/owner/transfer) ────────────────────
+
+model Document {
+  id             String         @id @default(cuid())
+  plotId         String
+  plot           Plot           @relation(fields: [plotId], references: [id])
+  ownershipId    String?
+  ownership      Ownership?     @relation(fields: [ownershipId], references: [id])
+  transferId     String?
+  transfer       Transfer?      @relation(fields: [transferId], references: [id])
+  openFileId     String?
+  openFile       OpenFile?      @relation(fields: [openFileId], references: [id])
+  mortgageId     String?
+  mortgage       Mortgage?      @relation(fields: [mortgageId], references: [id])
+  documentType   DocumentType
+  documentNumber String?
+  title          String
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  fileName       String
+  filePath       String
+  mimeType       String?
+  fileSize       Int?
+  version        Int            @default(1)
+  previousDocId  String?
+  previousDoc    Document?      @relation("DocumentVersions", fields: [previousDocId], references: [id])
+  nextVersions   Document[]     @relation("DocumentVersions")
+  status         DocumentStatus @default(ACTIVE)
+  remarks        String?
+  uploadedById   String?
+  uploadedBy     User?          @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([plotId, documentType])
+  @@index([ownershipId])
+  @@index([transferId])
+  @@index([status])
+}
+
+// ─── Possession / NOC / NEC ──────────────────────────────────────────────────
+
+model Possession {
+  id                    String            @id @default(cuid())
+  plotId                String
+  plot                  Plot              @relation(fields: [plotId], references: [id])
+  ownershipId           String?
+  ownership             Ownership?        @relation(fields: [ownershipId], references: [id])
+  applicationNumber     String            @unique
+  applicationDate       DateTime          @default(now())
+  applicantName         String
+  possessionFee         Decimal?          @db.Decimal(12, 2)
+  paymentStatus         PaymentStatus     @default(PENDING)
+  approvalStatus        ApplicationStatus @default(SUBMITTED)
+  letterNumber          String?
+  issueDate             DateTime?
+  approvedById          String?
+  approvedBy            User?             @relation("PossessionApprovedBy", fields: [approvedById], references: [id])
+  remarks               String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([plotId])
+  @@index([approvalStatus])
+}
+
+model Noc {
+  id                String            @id @default(cuid())
+  plotId            String
+  plot              Plot              @relation(fields: [plotId], references: [id])
+  ownershipId       String?
+  ownership         Ownership?        @relation(fields: [ownershipId], references: [id])
+  applicationNumber String            @unique
+  applicationDate   DateTime          @default(now())
+  applicantName     String
+  nocNumber         String?
+  issueDate         DateTime?
+  expiryDate        DateTime?
+  fee               Decimal?          @db.Decimal(12, 2)
+  paymentStatus     PaymentStatus     @default(PENDING)
+  status            ApplicationStatus @default(SUBMITTED)
+  approvedById      String?
+  approvedBy        User?             @relation("NocApprovedBy", fields: [approvedById], references: [id])
+  remarks           String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([plotId])
+  @@index([status])
+  @@index([nocNumber])
+}
+
+model Nec {
+  id                String            @id @default(cuid())
+  plotId            String
+  plot              Plot              @relation(fields: [plotId], references: [id])
+  ownershipId       String?
+  ownership         Ownership?        @relation(fields: [ownershipId], references: [id])
+  applicationNumber String            @unique
+  applicationDate   DateTime          @default(now())
+  applicantName     String
+  necNumber         String?
+  issueDate         DateTime?
+  expiryDate        DateTime?
+  fee               Decimal?          @db.Decimal(12, 2)
+  paymentStatus     PaymentStatus     @default(PENDING)
+  status            ApplicationStatus @default(SUBMITTED)
+  approvedById      String?
+  approvedBy        User?             @relation("NecApprovedBy", fields: [approvedById], references: [id])
+  remarks           String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([plotId])
+  @@index([status])
+  @@index([necNumber])
+}
+
+// ─── Bank / Mortgage ─────────────────────────────────────────────────────────
+
+model Mortgage {
+  id              String         @id @default(cuid())
+  plotId          String
+  plot            Plot           @relation(fields: [plotId], references: [id])
+  ownershipId     String?
+  ownership       Ownership?     @relation(fields: [ownershipId], references: [id])
+  bankName        String
+  loanReference   String?
+  mortgageDate    DateTime?
+  releaseDate     DateTime?
+  status          MortgageStatus @default(PENDING)
+  remarks         String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  documents Document[]
+
+  @@index([plotId, status])
+  @@index([bankName])
+  @@index([loanReference])
+}
+
+// ─── Open File / Dealer ──────────────────────────────────────────────────────
+
+model OpenFile {
+  id                   String         @id @default(cuid())
+  openFileNumber       String         @unique
+  plotId               String
+  plot                 Plot           @relation(fields: [plotId], references: [id])
+  ownershipId          String?
+  ownership            Ownership?     @relation(fields: [ownershipId], references: [id])
+  transferId           String?
+  transfer             Transfer?      @relation(fields: [transferId], references: [id])
+  trdNumber            String?
+  sellerName           String
+  sellerCnic           String
+  sellerMembershipNo   String?
+  dealerName           String
+  dealerOffice         String?
+  openingDate          DateTime
+  expiryDate           DateTime
+  periodMonths         Int            @default(3)
+  feeAmount            Decimal        @db.Decimal(12, 2)
+  feeConfigId          String?
+  feeConfig            FeeConfiguration? @relation(fields: [feeConfigId], references: [id])
+  paymentStatus        PaymentStatus  @default(PENDING)
+  status               OpenFileStatus @default(ACTIVE)
+  closedDate           DateTime?
+  remarks              String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  renewals  OpenFileRenewal[]
+  documents Document[]
+  payments  Payment[]
+
+  @@index([plotId])
+  @@index([status])
+  @@index([expiryDate])
+  @@index([trdNumber])
+}
+
+model OpenFileRenewal {
+  id            String        @id @default(cuid())
+  openFileId    String
+  openFile      OpenFile      @relation(fields: [openFileId], references: [id])
+  renewalDate   DateTime      @default(now())
+  previousExpiry DateTime
+  newExpiry     DateTime
+  feeAmount     Decimal       @db.Decimal(12, 2)
+  periods       Int           @default(1)
+  paymentStatus PaymentStatus @default(PENDING)
+  remarks       String?
+  createdAt     DateTime      @default(now())
+
+  @@index([openFileId])
+}
+
+// ─── Fee Configuration (never mutate historical rates) ───────────────────────
+
+model FeeConfiguration {
+  id            String    @id @default(cuid())
+  feeType       FeeType
+  name          String
+  amount        Decimal   @db.Decimal(12, 2)
+  periodMonths  Int?
+  currency      String    @default("PKR")
+  effectiveFrom DateTime
+  effectiveUntil DateTime?
+  status        String    @default("ACTIVE")
+  createdById   String?
+  createdBy     User?     @relation("FeeCreatedBy", fields: [createdById], references: [id])
+  remarks       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  openFiles   OpenFile[]
+  plotCharges PlotCharge[]
+  payments    Payment[]
+
+  @@index([feeType, status])
+  @@index([effectiveFrom])
+}
+
+// ─── Payments & Annual Charges ───────────────────────────────────────────────
+
+model Payment {
+  id              String        @id @default(cuid())
+  receiptNumber   String        @unique
+  plotId          String?
+  plot            Plot?         @relation(fields: [plotId], references: [id])
+  ownershipId     String?
+  ownership       Ownership?    @relation(fields: [ownershipId], references: [id])
+  transferId      String?
+  transfer        Transfer?     @relation(fields: [transferId], references: [id])
+  openFileId      String?
+  openFile        OpenFile?     @relation(fields: [openFileId], references: [id])
+  feeConfigId     String?
+  feeConfig       FeeConfiguration? @relation(fields: [feeConfigId], references: [id])
+  feeType         FeeType
+  amount          Decimal       @db.Decimal(12, 2)
+  poAmount        Decimal?      @db.Decimal(12, 2)
+  poNumber        String?
+  bankName        String?
+  poDate          DateTime?
+  paymentDate     DateTime?
+  paymentMethod   PaymentMethod @default(PO)
+  status          PaymentStatus @default(PENDING)
+  verifiedById    String?
+  verifiedBy      User?         @relation("PaymentVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt      DateTime?
+  remarks         String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([plotId])
+  @@index([status])
+  @@index([feeType])
+  @@index([poNumber])
+  @@index([receiptNumber])
+  @@index([paymentDate])
+}
+
+model PlotCharge {
+  id            String             @id @default(cuid())
+  plotId        String
+  plot          Plot               @relation(fields: [plotId], references: [id])
+  ownershipId   String?
+  ownership     Ownership?         @relation(fields: [ownershipId], references: [id])
+  feeConfigId   String
+  feeConfig     FeeConfiguration   @relation(fields: [feeConfigId], references: [id])
+  year          Int
+  month         Int?
+  rateSnapshot  Decimal            @db.Decimal(12, 2)
+  amount        Decimal            @db.Decimal(12, 2)
+  dueDate       DateTime?
+  status        ChargePeriodStatus @default(PENDING)
+  paidAt        DateTime?
+  remarks       String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([plotId, year, month])
+  @@index([status])
+  @@index([ownershipId])
+}
+
+// ─── Physical File / Locker ──────────────────────────────────────────────────
+
+model FileLocation {
+  id         String   @id @default(cuid())
+  building   String
+  room       String
+  almirah    String
+  locker     String
+  shelf      String?
+  position   String?
+  label      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  currentFiles PhysicalFile[]  @relation("CurrentLocation")
+  movesFrom    FileMovement[]  @relation("MoveFrom")
+  movesTo      FileMovement[]  @relation("MoveTo")
+
+  @@unique([building, room, almirah, locker, shelf, position])
+  @@index([building, room])
+}
+
+model PhysicalFile {
+  id              String        @id @default(cuid())
+  fileNumber      String        @unique
+  barcode         String        @unique
+  plotId          String        @unique
+  plot            Plot          @relation(fields: [plotId], references: [id])
+  currentLocationId String?
+  currentLocation FileLocation? @relation("CurrentLocation", fields: [currentLocationId], references: [id])
+  status          FileStatus    @default(IN_LOCKER)
+  condition       FileCondition @default(GOOD)
+  remarks         String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  movements FileMovement[]
+
+  @@index([barcode])
+  @@index([status])
+}
+
+model FileMovement {
+  id              String         @id @default(cuid())
+  physicalFileId  String
+  physicalFile    PhysicalFile   @relation(fields: [physicalFileId], references: [id])
+  fromLocationId  String?
+  fromLocation    FileLocation?  @relation("MoveFrom", fields: [fromLocationId], references: [id])
+  toLocationId    String?
+  toLocation      FileLocation?  @relation("MoveTo", fields: [toLocationId], references: [id])
+  movedById       String?
+  movedBy         User?          @relation(fields: [movedById], references: [id])
+  movedAt         DateTime       @default(now())
+  reason          String
+  transferId      String?
+  transfer        Transfer?      @relation(fields: [transferId], references: [id])
+  remarks         String?
+  createdAt       DateTime       @default(now())
+
+  @@index([physicalFileId])
+  @@index([movedAt])
+  @@index([transferId])
+}
+
+// ─── Employees / Attendance / Security ───────────────────────────────────────
+
+model Employee {
+  id           String         @id @default(cuid())
+  employeeCode String         @unique
+  name         String
+  cnic         String         @unique
+  contact      String?
+  email        String?
+  designation  Designation
+  department   String?
+  joiningDate  DateTime
+  salary       Decimal?       @db.Decimal(12, 2)
+  status       EmployeeStatus @default(ACTIVE)
+  photoPath    String?
+  remarks      String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  user           User?
+  attendances    Attendance[]
+  guardShifts    GuardShift[]
+  replacements   GuardShift[]     @relation("ReplacementGuard")
+  vehicleDrivers Vehicle[]
+  tankerDrivers  WaterTanker[]
+  fuelLogs       FuelLog[]
+  usageLogs      VehicleUsage[]
+
+  @@index([designation])
+  @@index([status])
+  @@index([cnic])
+}
+
+model Attendance {
+  id          String           @id @default(cuid())
+  employeeId  String
+  employee    Employee         @relation(fields: [employeeId], references: [id])
+  date        DateTime         @db.Date
+  checkIn     DateTime?
+  checkOut    DateTime?
+  shift       ShiftType        @default(GENERAL)
+  status      AttendanceStatus @default(PRESENT)
+  notes       String?
+  markedById  String?
+  markedBy    User?            @relation("AttendanceMarkedBy", fields: [markedById], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([date, status])
+}
+
+model GuardShift {
+  id                String    @id @default(cuid())
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id])
+  date              DateTime  @db.Date
+  shift             ShiftType
+  post              String?
+  replacementId     String?
+  replacement       Employee? @relation("ReplacementGuard", fields: [replacementId], references: [id])
+  isLeave           Boolean   @default(false)
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([employeeId, date, shift])
+  @@index([date, shift])
+}
+
+// ─── Water Tanker ────────────────────────────────────────────────────────────
+
+model WaterTanker {
+  id           String   @id @default(cuid())
+  tankerCode   String   @unique
+  capacityLiters Int
+  driverId     String?
+  driver       Employee? @relation(fields: [driverId], references: [id])
+  isActive     Boolean  @default(true)
+  remarks      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  deliveries TankerDelivery[]
+}
+
+model TankerDelivery {
+  id              String       @id @default(cuid())
+  tankerId        String
+  tanker          WaterTanker  @relation(fields: [tankerId], references: [id])
+  plotId          String?
+  plot            Plot?        @relation(fields: [plotId], references: [id])
+  customerName    String?
+  streetArea      String?
+  distributionDate DateTime    @db.Date
+  charges         Decimal      @db.Decimal(12, 2)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  receiptNumber   String?
+  status          TankerStatus @default(SCHEDULED)
+  remarks         String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([distributionDate])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+// ─── Vehicles / Tractors ─────────────────────────────────────────────────────
+
+model Vehicle {
+  id             String      @id @default(cuid())
+  vehicleCode    String      @unique
+  registrationNo String?
+  vehicleType    VehicleType @default(TRACTOR)
+  driverId       String?
+  driver         Employee?   @relation(fields: [driverId], references: [id])
+  isActive       Boolean     @default(true)
+  remarks        String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  fuelLogs    FuelLog[]
+  usageLogs   VehicleUsage[]
+  maintenance MaintenanceLog[]
+}
+
+model FuelLog {
+  id         String   @id @default(cuid())
+  vehicleId  String
+  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id])
+  driverId   String?
+  driver     Employee? @relation(fields: [driverId], references: [id])
+  date       DateTime @db.Date
+  liters     Decimal  @db.Decimal(10, 2)
+  amount     Decimal  @db.Decimal(12, 2)
+  remarks    String?
+  createdAt  DateTime @default(now())
+
+  @@index([vehicleId, date])
+}
+
+model VehicleUsage {
+  id          String   @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  driverId    String?
+  driver      Employee? @relation(fields: [driverId], references: [id])
+  date        DateTime @db.Date
+  assignment  String?
+  hoursUsed   Decimal? @db.Decimal(6, 2)
+  remarks     String?
+  createdAt   DateTime @default(now())
+
+  @@index([vehicleId, date])
+}
+
+model MaintenanceLog {
+  id          String   @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  date        DateTime @db.Date
+  description String
+  cost        Decimal  @db.Decimal(12, 2)
+  remarks     String?
+  createdAt   DateTime @default(now())
+
+  @@index([vehicleId, date])
+}
+
+// ─── System Settings ─────────────────────────────────────────────────────────
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  label     String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model NumberSequence {
+  id        String @id @default(cuid())
+  key       String @unique
+  prefix    String
+  nextValue Int    @default(1)
+  padLength Int    @default(4)
+  updatedAt DateTime @updatedAt
+}
