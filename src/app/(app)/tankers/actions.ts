@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
+import { hasPermission } from "@/lib/rbac";
 import { nextTankerBookingNumber } from "@/lib/numbering";
 import { assertSlotCapacity, getActiveTankerPrice } from "@/lib/tankers";
 import type { PaymentStatus, TankerStatus, TankerType } from "@/generated/prisma/client";
@@ -283,7 +284,67 @@ export async function updateTankerBooking(formData: FormData) {
   });
 
   revalidatePath("/tankers");
+  revalidatePath("/tankers/driver");
   revalidatePath(`/tankers/${id}`);
+}
+
+function assertCanUpdateTankerBooking(
+  session: { user: { id: string; role: import("@/generated/prisma/client").Role; employeeId?: string | null } },
+  booking: { driverId: string | null; status: TankerStatus }
+) {
+  if (!hasPermission(session.user.role, "edit")) {
+    throw new Error("Unauthorized");
+  }
+
+  const isLinkedDriver =
+    session.user.role === "TANKER_OPERATOR" && Boolean(session.user.employeeId);
+
+  if (isLinkedDriver && booking.driverId !== session.user.employeeId) {
+    throw new Error("You can only update bookings assigned to you");
+  }
+
+  if (booking.status === "CANCELLED") {
+    throw new Error("Cancelled bookings cannot be updated");
+  }
+}
+
+export async function updateTankerBookingStatus(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const id = formData.get("id") as string;
+  const status = formData.get("status") as TankerStatus;
+  const returnTo = (formData.get("returnTo") as string)?.trim() || "/tankers/driver";
+
+  if (!id || !status) throw new Error("Missing booking id or status");
+  if (!["IN_PROGRESS", "COMPLETED", "ASSIGNED"].includes(status)) {
+    throw new Error("Invalid status for quick update");
+  }
+
+  const existing = await prisma.tankerDelivery.findUnique({ where: { id } });
+  if (!existing) throw new Error("Booking not found");
+
+  assertCanUpdateTankerBooking(session, existing);
+
+  const updated = await prisma.tankerDelivery.update({
+    where: { id },
+    data: { status },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "TANKER_BOOKING_STATUS_UPDATED",
+    module: "tankers",
+    recordId: id,
+    plotId: updated.plotId ?? undefined,
+    oldValue: { status: existing.status },
+    newValue: { status: updated.status },
+  });
+
+  revalidatePath("/tankers");
+  revalidatePath("/tankers/driver");
+  revalidatePath(`/tankers/${id}`);
+  redirect(returnTo);
 }
 
 export async function updateTankerPriceConfig(formData: FormData) {

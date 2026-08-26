@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { AppSidebar } from "@/components/layout/sidebar";
+import { PrintAwareShell } from "@/components/layout/print-aware-shell";
 import { Providers } from "@/components/providers";
 import { redirect } from "next/navigation";
 
@@ -11,12 +11,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <Providers>
-      <div className="flex min-h-screen">
-        <AppSidebar userName={session.user.name} role={session.user.role} />
-        <main className="safe-pad flex-1 overflow-x-hidden px-4 py-5 md:px-8 md:py-7">
-          <div className="mx-auto max-w-7xl">{children}</div>
-        </main>
-      </div>
+      <PrintAwareShell userName={session.user.name} role={session.user.role}>
+        {children}
+      </PrintAwareShell>
     </Providers>
   );
 }

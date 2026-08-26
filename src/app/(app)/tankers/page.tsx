@@ -66,6 +66,9 @@ export default async function TankersPage({
         description={`Daily delivery schedule${isToday ? " — today" : ""} (${scheduleDate.toLocaleDateString("en-GB")})`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Link href="/tankers/driver">
+              <Button variant="outline">Driver sheet</Button>
+            </Link>
             {canCreate ? (
               <Link href="/tankers/new">
                 <Button>New booking</Button>

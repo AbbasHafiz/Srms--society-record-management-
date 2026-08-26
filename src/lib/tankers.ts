@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Designation, TankerType } from "@/generated/prisma/client";
+import type { Designation, TankerStatus, TankerType } from "@/generated/prisma/client";
 import { startOfDay } from "date-fns";
 
 export const TANKER_TYPE_LABELS: Record<TankerType, string> = {
@@ -144,6 +144,145 @@ export async function getSlotAvailabilityForDate(distributionDate: Date) {
       isFull: remaining <= 0,
     };
   });
+}
+
+export type DriverRunSheetDelivery = {
+  id: string;
+  bookingNumber: string;
+  bookerName: string | null;
+  bookerContact: string | null;
+  plotHouse: string;
+  street: string;
+  block: string;
+  tankerType: TankerType;
+  status: TankerStatus;
+  charges: number;
+  tanker: { id: string; tankerCode: string; capacityLiters: number } | null;
+  driver: { id: string; name: string; employeeCode: string } | null;
+};
+
+export type DriverRunSheetTankerGroup = {
+  tanker: { id: string; tankerCode: string; capacityLiters: number } | null;
+  deliveries: DriverRunSheetDelivery[];
+};
+
+export type DriverRunSheetSlotGroup = {
+  slot: Awaited<ReturnType<typeof listActiveTimeSlots>>[number];
+  tankerGroups: DriverRunSheetTankerGroup[];
+  deliveryCount: number;
+};
+
+function mapDeliveryToRunSheetRow(
+  d: {
+    id: string;
+    bookingNumber: string;
+    bookerName: string | null;
+    bookerContact: string | null;
+    customerName: string | null;
+    houseNo: string | null;
+    streetNo: string | null;
+    streetArea: string | null;
+    tankerType: TankerType;
+    status: TankerStatus;
+    charges: { toString(): string };
+    tanker: { id: string; tankerCode: string; capacityLiters: number } | null;
+    driver: { id: string; name: string; employeeCode: string } | null;
+    plot: { sector: string; block: string | null; plotNumber: string; street: string | null } | null;
+  }
+): DriverRunSheetDelivery {
+  const plotHouse = d.plot
+    ? `${d.plot.sector}/${d.plot.block ?? "—"}-${d.plot.plotNumber}`
+    : d.houseNo ?? "—";
+
+  const street = d.plot?.street?.trim() || d.streetArea?.trim() || d.streetNo?.trim() || "—";
+  const block = d.plot?.block?.trim() || d.streetNo?.trim() || "—";
+
+  return {
+    id: d.id,
+    bookingNumber: d.bookingNumber,
+    bookerName: d.bookerName ?? d.customerName,
+    bookerContact: d.bookerContact,
+    plotHouse,
+    street,
+    block,
+    tankerType: d.tankerType,
+    status: d.status,
+    charges: Number(d.charges),
+    tanker: d.tanker,
+    driver: d.driver,
+  };
+}
+
+function groupDeliveriesByTanker(
+  deliveries: DriverRunSheetDelivery[]
+): DriverRunSheetTankerGroup[] {
+  const groups = new Map<string, DriverRunSheetTankerGroup>();
+
+  for (const delivery of deliveries) {
+    const key = delivery.tanker?.id ?? "__unassigned__";
+    const existing = groups.get(key);
+    if (existing) {
+      existing.deliveries.push(delivery);
+      continue;
+    }
+    groups.set(key, {
+      tanker: delivery.tanker,
+      deliveries: [delivery],
+    });
+  }
+
+  return Array.from(groups.values()).sort((a, b) => {
+    const codeA = a.tanker?.tankerCode ?? "ZZZ";
+    const codeB = b.tanker?.tankerCode ?? "ZZZ";
+    return codeA.localeCompare(codeB);
+  });
+}
+
+export async function getDriverRunSheet(distributionDate: Date, driverId?: string | null) {
+  const day = startOfDay(distributionDate);
+  const slots = await listActiveTimeSlots();
+
+  const deliveries = await prisma.tankerDelivery.findMany({
+    where: {
+      distributionDate: day,
+      status: { in: [...ACTIVE_BOOKING_STATUSES] },
+      ...(driverId ? { driverId } : {}),
+    },
+    include: {
+      tanker: { select: { id: true, tankerCode: true, capacityLiters: true } },
+      driver: { select: { id: true, name: true, employeeCode: true } },
+      plot: { select: { sector: true, block: true, plotNumber: true, street: true } },
+      timeSlot: true,
+    },
+    orderBy: [{ timeSlot: { sortOrder: "asc" } }, { createdAt: "asc" }],
+  });
+
+  const rows = deliveries.map(mapDeliveryToRunSheetRow);
+  const slotted = deliveries.filter((d) => d.timeSlotId);
+  const unslotted = deliveries.filter((d) => !d.timeSlotId);
+
+  const slotGroups: DriverRunSheetSlotGroup[] = slots.map((slot) => {
+    const slotDeliveries = slotted
+      .filter((d) => d.timeSlotId === slot.id)
+      .map(mapDeliveryToRunSheetRow);
+    return {
+      slot,
+      tankerGroups: groupDeliveriesByTanker(slotDeliveries),
+      deliveryCount: slotDeliveries.length,
+    };
+  });
+
+  const unslottedGroups = groupDeliveriesByTanker(
+    unslotted.map(mapDeliveryToRunSheetRow)
+  );
+
+  return {
+    day,
+    slots: slotGroups,
+    unslotted: unslottedGroups,
+    totalCount: rows.length,
+    deliveries: rows,
+  };
 }
 
 export async function getDailySchedule(distributionDate: Date) {

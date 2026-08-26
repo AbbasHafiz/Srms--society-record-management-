@@ -23,6 +23,7 @@ import {
   Truck,
   BarChart3,
   ClipboardList,
+  ClipboardCheck,
   Settings,
   Search,
   Menu,
@@ -67,11 +68,19 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings, module: "settings" },
 ];
 
-const TANKER_NAV_HREFS = new Set(["/dashboard", "/tankers", "/garbage"]);
+const TANKER_NAV_HREFS = new Set(["/dashboard", "/tankers", "/tankers/driver", "/garbage"]);
+
+const TANKER_OPERATOR_EXTRA_NAV = [
+  { href: "/tankers/driver", label: "Today's deliveries", icon: ClipboardCheck, module: "tankers" },
+] as const;
 
 function navForRole(role: Role) {
   if (role === "TANKER_OPERATOR") {
-    return NAV.filter((item) => TANKER_NAV_HREFS.has(item.href));
+    const base = NAV.filter((item) => TANKER_NAV_HREFS.has(item.href));
+    const extras = TANKER_OPERATOR_EXTRA_NAV.filter(
+      (item) => !base.some((b) => b.href === item.href)
+    );
+    return [...base, ...extras];
   }
   return NAV.filter((item) => canAccessModule(role, item.module));
 }

@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { id: "schedule", label: "Schedule", href: "/tankers" },
+  { id: "driver", label: "Driver sheet", href: "/tankers/driver" },
   { id: "stock", label: "Bulk stock", href: "/tankers/stock" },
   { id: "fleet", label: "Fleet", href: "/tankers/fleet" },
   { id: "slots", label: "Time slots", href: "/tankers/slots" },
