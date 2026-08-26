@@ -2,11 +2,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { PageHeader, StatCard } from "@/components/ui/page";
 import { formatCurrency } from "@/lib/utils";
+import { refreshSlaNotifications } from "@/lib/notifications-sla";
 import { startOfMonth, startOfDay } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await refreshSlaNotifications();
   const today = startOfDay(new Date());
   const now = new Date();
   const monthStart = startOfMonth(new Date());

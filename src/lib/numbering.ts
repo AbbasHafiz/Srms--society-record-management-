@@ -68,3 +68,21 @@ export async function nextFinanceTxnNumber() {
 export async function nextTankerBookingNumber() {
   return nextSequence("tanker_booking", "TB", 4);
 }
+
+export async function nextPossessionApplicationNumber() {
+  return nextSequence("possession_application", "POS", 4);
+}
+
+export async function nextPossessionLetterNumber(sector?: string) {
+  const prefix = sector ? `PL-${sector.replace(/[^A-Za-z0-9]/g, "")}` : "PL";
+  return nextSequence("possession_letter", prefix, 4);
+}
+
+export async function nextNecApplicationNumber() {
+  return nextSequence("nec_application", "NEC-APP", 4);
+}
+
+export async function nextNecNumber(sector?: string) {
+  const prefix = sector ? `NEC-${sector.replace(/[^A-Za-z0-9]/g, "")}` : "NEC";
+  return nextSequence("nec_issue", prefix, 4);
+}

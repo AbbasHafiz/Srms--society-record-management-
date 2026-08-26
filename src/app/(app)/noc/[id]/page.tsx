@@ -199,7 +199,7 @@ export default async function NocDetailPage({ params }: { params: Promise<{ id: 
               </form>
 
               {canIssue ? (
-                <form action={issueNoc} className="space-y-3 rounded-lg border border-teal-100 bg-teal-50/40 p-4">
+                <form action={issueNoc} encType="multipart/form-data" className="space-y-3 rounded-lg border border-teal-100 bg-teal-50/40 p-4">
                   <h3 className="font-medium text-teal-950">Issue NOC</h3>
                   <input type="hidden" name="nocId" value={noc.id} />
                   <div>
@@ -225,12 +225,12 @@ export default async function NocDetailPage({ params }: { params: Promise<{ id: 
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Document path (placeholder)
+                      NOC document (optional PDF/image)
                     </label>
                     <input
-                      name="documentPath"
-                      placeholder="/uploads/noc/..."
-                      defaultValue={noc.documentPath ?? ""}
+                      name="file"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp"
                       className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
                     />
                   </div>

@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
+import { createDocumentWithUpload } from "@/lib/documents";
 import { canApproveNoc, canCreateNocApplication } from "@/lib/noc";
 import { nextNocApplicationNumber, nextNocNumber } from "@/lib/numbering";
 import { computeNocSlaDue } from "@/lib/sla";
@@ -167,14 +168,14 @@ export async function issueNoc(formData: FormData) {
   const issueDateRaw = String(formData.get("issueDate") || "");
   const expiryDateRaw = String(formData.get("expiryDate") || "").trim();
   const remarks = String(formData.get("remarks") || "").trim() || null;
-  const documentPath = String(formData.get("documentPath") || "").trim() || null;
+  const file = formData.get("file");
   const acknowledgeMortgage = formData.get("acknowledgeMortgage") === "on";
 
   if (!nocId) throw new Error("NOC id required");
 
   const existing = await prisma.noc.findUnique({
     where: { id: nocId },
-    include: { plot: true },
+    include: { plot: true, ownership: true },
   });
   if (!existing) throw new Error("NOC not found");
   if (existing.status === "ISSUED") throw new Error("NOC already issued");
@@ -198,11 +199,29 @@ export async function issueNoc(formData: FormData) {
       nocNumber,
       issueDate,
       expiryDate,
-      documentPath,
+      documentPath: existing.documentPath,
       remarks: remarks ?? existing.remarks,
       approvedById: session.user.id,
     },
   });
+
+  if (file instanceof File && file.size > 0) {
+    const doc = await createDocumentWithUpload({
+      plotId: existing.plotId,
+      ownershipId: existing.ownershipId,
+      documentType: "NOC",
+      title: `NOC ${nocNumber}`,
+      documentNumber: nocNumber,
+      issueDate,
+      expiryDate,
+      uploadedById: session.user.id,
+      file,
+    });
+    await prisma.noc.update({
+      where: { id: nocId },
+      data: { documentPath: doc.filePath },
+    });
+  }
 
   await writeAuditLog({
     userId: session.user.id,

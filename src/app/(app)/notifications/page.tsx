@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, labelize } from "@/lib/utils";
 import { plotLabel } from "@/lib/plots";
+import { refreshSlaNotifications } from "@/lib/notifications-sla";
 import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import {
   markNotificationRead,
@@ -35,6 +36,8 @@ export default async function NotificationsPage({
   const unreadOnly = sp.unread === "1";
   const type = sp.type?.trim() as NotificationType | undefined;
   const session = await auth();
+
+  await refreshSlaNotifications();
 
   const [notifications, unreadCount, urgentCount] = await Promise.all([
     prisma.notification.findMany({

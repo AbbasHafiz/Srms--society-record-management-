@@ -1,0 +1,170 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { writeAuditLog } from "@/lib/audit";
+import { hasPermission } from "@/lib/rbac";
+import { nextSequence } from "@/lib/numbering";
+import type { VehicleType } from "@/generated/prisma/client";
+
+function parseDate(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) throw new Error("Invalid date");
+  return d;
+}
+
+export async function createVehicle(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "manage_employees") && !hasPermission(session.user.role, "edit")) {
+    throw new Error("Forbidden");
+  }
+
+  const vehicleCode = String(formData.get("vehicleCode") || "").trim();
+  const registrationNo = String(formData.get("registrationNo") || "").trim() || null;
+  const vehicleType = String(formData.get("vehicleType") || "TRACTOR") as VehicleType;
+  const driverId = String(formData.get("driverId") || "").trim() || null;
+  const remarks = String(formData.get("remarks") || "").trim() || null;
+
+  const code = vehicleCode || (await nextSequence("vehicle", "VEH", 3));
+
+  const vehicle = await prisma.vehicle.create({
+    data: {
+      vehicleCode: code,
+      registrationNo,
+      vehicleType,
+      driverId: driverId ?? undefined,
+      remarks,
+    },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "VEHICLE_CREATED",
+    module: "vehicles",
+    recordId: vehicle.id,
+    newValue: { vehicleCode: code, vehicleType },
+  });
+
+  revalidatePath("/vehicles");
+  redirect(`/vehicles/${vehicle.id}`);
+}
+
+export async function addFuelLog(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "edit") && !hasPermission(session.user.role, "manage_employees")) {
+    throw new Error("Forbidden");
+  }
+
+  const vehicleId = String(formData.get("vehicleId") || "");
+  const date = parseDate(String(formData.get("date") || ""));
+  const liters = Number(formData.get("liters"));
+  const amount = Number(formData.get("amount"));
+  const driverId = String(formData.get("driverId") || "").trim() || null;
+  const remarks = String(formData.get("remarks") || "").trim() || null;
+
+  if (!vehicleId || !Number.isFinite(liters) || !Number.isFinite(amount)) {
+    throw new Error("Vehicle, liters, and amount are required");
+  }
+
+  await prisma.fuelLog.create({
+    data: {
+      vehicleId,
+      driverId: driverId ?? undefined,
+      date,
+      liters,
+      amount,
+      remarks,
+    },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "FUEL_LOG_ADDED",
+    module: "vehicles",
+    recordId: vehicleId,
+    newValue: { date: date.toISOString(), liters, amount },
+  });
+
+  revalidatePath(`/vehicles/${vehicleId}`);
+}
+
+export async function addVehicleUsage(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "edit") && !hasPermission(session.user.role, "manage_employees")) {
+    throw new Error("Forbidden");
+  }
+
+  const vehicleId = String(formData.get("vehicleId") || "");
+  const date = parseDate(String(formData.get("date") || ""));
+  const assignment = String(formData.get("assignment") || "").trim() || null;
+  const hoursUsedRaw = String(formData.get("hoursUsed") || "").trim();
+  const driverId = String(formData.get("driverId") || "").trim() || null;
+  const remarks = String(formData.get("remarks") || "").trim() || null;
+  const hoursUsed = hoursUsedRaw ? Number(hoursUsedRaw) : null;
+
+  if (!vehicleId) throw new Error("Vehicle is required");
+
+  await prisma.vehicleUsage.create({
+    data: {
+      vehicleId,
+      driverId: driverId ?? undefined,
+      date,
+      assignment,
+      hoursUsed: hoursUsed ?? undefined,
+      remarks,
+    },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "VEHICLE_USAGE_ADDED",
+    module: "vehicles",
+    recordId: vehicleId,
+    newValue: { date: date.toISOString(), assignment, hoursUsed },
+  });
+
+  revalidatePath(`/vehicles/${vehicleId}`);
+}
+
+export async function addMaintenanceLog(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!hasPermission(session.user.role, "edit") && !hasPermission(session.user.role, "manage_employees")) {
+    throw new Error("Forbidden");
+  }
+
+  const vehicleId = String(formData.get("vehicleId") || "");
+  const date = parseDate(String(formData.get("date") || ""));
+  const description = String(formData.get("description") || "").trim();
+  const cost = Number(formData.get("cost"));
+  const remarks = String(formData.get("remarks") || "").trim() || null;
+
+  if (!vehicleId || !description || !Number.isFinite(cost)) {
+    throw new Error("Vehicle, description, and cost are required");
+  }
+
+  await prisma.maintenanceLog.create({
+    data: {
+      vehicleId,
+      date,
+      description,
+      cost,
+      remarks,
+    },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "MAINTENANCE_LOG_ADDED",
+    module: "vehicles",
+    recordId: vehicleId,
+    newValue: { date: date.toISOString(), description, cost },
+  });
+
+  revalidatePath(`/vehicles/${vehicleId}`);
+}

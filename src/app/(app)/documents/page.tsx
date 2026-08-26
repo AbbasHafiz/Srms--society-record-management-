@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
 import { uploadDocument } from "./actions";
+import { isRealUploadedDocument } from "@/lib/documents";
 import { fileDownloadHref } from "@/lib/uploads";
 import { hasPermission } from "@/lib/rbac";
 import { formatDate, labelize } from "@/lib/utils";
@@ -184,9 +185,7 @@ export default async function DocumentsPage({
                     <Badge status={d.status} />
                   </td>
                   <td>
-                    {d.filePath.startsWith("/uploads/") ? (
-                      <span className="text-xs text-slate-400">seed placeholder</span>
-                    ) : (
+                    {isRealUploadedDocument(d) ? (
                       <a
                         href={fileDownloadHref(d.filePath)}
                         className="text-sm text-teal-800 hover:underline"
@@ -195,6 +194,8 @@ export default async function DocumentsPage({
                       >
                         View
                       </a>
+                    ) : (
+                      <span className="text-xs text-slate-400">seed placeholder</span>
                     )}
                   </td>
                 </tr>

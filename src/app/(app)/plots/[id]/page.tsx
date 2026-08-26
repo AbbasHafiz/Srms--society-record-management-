@@ -19,9 +19,6 @@ import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-acti
 import { plotSizeDisplay, NOC_PURPOSE_LABELS } from "@/lib/property-sizes";
 import { hasPermission } from "@/lib/rbac";
 import { formatCurrency, formatDate, formatDateTime, daysUntil, labelize } from "@/lib/utils";
-import { fileDownloadHref } from "@/lib/uploads";
-import { DocumentUploadForm } from "@/components/documents/document-upload-form";
-import { uploadDocument } from "@/app/(app)/documents/actions";
 
 export const dynamic = "force-dynamic";
 
