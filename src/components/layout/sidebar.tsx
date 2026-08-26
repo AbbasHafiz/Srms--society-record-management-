@@ -27,7 +27,6 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { SessionProvider } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 
@@ -83,7 +82,7 @@ export function AppSidebar({ userName, role }: { userName: string; role: string 
   );
 
   return (
-    <SessionProvider>
+    <>
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
         <div>
           <p className="font-display text-sm font-semibold text-teal-900">Society Records</p>
@@ -117,7 +116,7 @@ export function AppSidebar({ userName, role }: { userName: string; role: string 
         {nav}
         <SidebarUser name={userName} role={role} />
       </aside>
-    </SessionProvider>
+    </>
   );
 }
 
