@@ -68,6 +68,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   FINANCE: ["view", "create", "edit", "verify_payment", "export_reports", "manage_employees", "manage_finance"],
   HR_ADMIN: ["view", "manage_employees", "mark_attendance", "export_reports"],
   SECURITY: ["view", "mark_attendance"],
+  TANKER_OPERATOR: ["view", "create", "edit"],
   VIEWER: ["view"],
 };
 
@@ -76,12 +77,55 @@ export function hasPermission(role: Role, permission: Permission): boolean {
 }
 
 const ALL_ROLES = Object.keys(ROLE_PERMISSIONS) as Role[];
+const WITHOUT_TANKER_OPERATOR = ALL_ROLES.filter((r) => r !== "TANKER_OPERATOR");
+
+const PATH_MODULES = ([
+  ["/notifications/whatsapp", "notifications/whatsapp"],
+  ["/notifications", "notifications"],
+  ["/annual-charges", "annual-charges"],
+  ["/open-files", "open-files"],
+  ["/physical-files", "physical-files"],
+  ["/dashboard", "dashboard"],
+  ["/transfers", "transfers"],
+  ["/documents", "documents"],
+  ["/memberships", "memberships"],
+  ["/possession", "possession"],
+  ["/mortgages", "mortgages"],
+  ["/attendance", "attendance"],
+  ["/employees", "employees"],
+  ["/settings", "settings"],
+  ["/finance", "finance"],
+  ["/payments", "payments"],
+  ["/reports", "reports"],
+  ["/tankers", "tankers"],
+  ["/garbage", "garbage"],
+  ["/vehicles", "vehicles"],
+  ["/audit", "audit"],
+  ["/plots", "plots"],
+] as [string, string][]).sort((a, b) => b[0].length - a[0].length);
+
+export function getModuleForPath(pathname: string): string | null {
+  for (const [prefix, module] of PATH_MODULES) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+      return module;
+    }
+  }
+  return null;
+}
+
+export function canAccessPath(role: Role, pathname: string): boolean {
+  const module = getModuleForPath(pathname);
+  if (!module) {
+    return role !== "TANKER_OPERATOR";
+  }
+  return canAccessModule(role, module);
+}
 
 export function canAccessModule(role: Role, module: string): boolean {
   if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
   const map: Record<string, Role[]> = {
     dashboard: ALL_ROLES,
-    plots: ALL_ROLES,
+    plots: WITHOUT_TANKER_OPERATOR,
     transfers: [
       "SUPER_ADMIN",
       "ADMIN",
@@ -132,8 +176,8 @@ export function canAccessModule(role: Role, module: string): boolean {
     employees: ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM", "HR_ADMIN", "FINANCE", "VIEWER"],
     hr: ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM", "HR_ADMIN", "FINANCE", "VIEWER"],
     attendance: ["SUPER_ADMIN", "ADMIN", "HR_ADMIN", "SECURITY", "GM", "SECRETARY", "VIEWER"],
-    tankers: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "FINANCE", "VIEWER", "PRESIDENT"],
-    garbage: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "VIEWER", "PRESIDENT"],
+    tankers: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "FINANCE", "VIEWER", "PRESIDENT", "TANKER_OPERATOR"],
+    garbage: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "VIEWER", "PRESIDENT", "TANKER_OPERATOR"],
     vehicles: ["SUPER_ADMIN", "ADMIN", "GM", "SECRETARY", "HR_ADMIN", "VIEWER"],
     reports: [
       "SUPER_ADMIN",
@@ -145,9 +189,9 @@ export function canAccessModule(role: Role, module: string): boolean {
       "TRANSFER_OFFICER",
       "VIEWER",
     ],
-    notifications: ALL_ROLES,
-    "notifications/whatsapp": ALL_ROLES,
-    memberships: ALL_ROLES,
+    notifications: WITHOUT_TANKER_OPERATOR,
+    "notifications/whatsapp": WITHOUT_TANKER_OPERATOR,
+    memberships: WITHOUT_TANKER_OPERATOR,
     "annual-charges": ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM", "FINANCE", "VIEWER"],
     audit: ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM"],
     settings: ["SUPER_ADMIN", "ADMIN", "SECRETARY", "GM"],

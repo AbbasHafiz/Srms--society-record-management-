@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader, StatCard } from "@/components/ui/page";
 import { formatCurrency } from "@/lib/utils";
@@ -8,6 +10,11 @@ import { startOfMonth, startOfDay } from "date-fns";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const session = await auth();
+  if (session?.user?.role === "TANKER_OPERATOR") {
+    redirect("/tankers");
+  }
+
   await refreshSlaNotifications();
   const today = startOfDay(new Date());
   const now = new Date();

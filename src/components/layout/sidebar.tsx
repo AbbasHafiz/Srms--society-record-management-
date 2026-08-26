@@ -35,43 +35,56 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import type { Role } from "@/generated/prisma/client";
+import { canAccessModule } from "@/lib/rbac";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/notifications/whatsapp", label: "WhatsApp Outbox", icon: MessageCircle },
-  { href: "/plots", label: "Plots", icon: MapPinned },
-  { href: "/transfers", label: "Transfers", icon: ArrowLeftRight },
-  { href: "/owners", label: "Ownership", icon: Users },
-  { href: "/memberships", label: "Memberships", icon: IdCard },
-  { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/possession", label: "Possession", icon: Home },
-  { href: "/noc", label: "NOC", icon: ShieldCheck },
-  { href: "/nec", label: "NEC", icon: ScrollText },
-  { href: "/mortgages", label: "Bank / Mortgage", icon: Landmark },
-  { href: "/open-files", label: "Open Files", icon: FolderOpen },
-  { href: "/payments", label: "Payments", icon: Wallet },
-  { href: "/annual-charges", label: "Annual Charges", icon: Receipt },
-  { href: "/finance", label: "Revenue & Expenses", icon: CircleDollarSign },
-  { href: "/physical-files", label: "Physical Files", icon: Archive },
-  { href: "/employees", label: "Employees", icon: UserCog },
-  { href: "/hr", label: "HR", icon: Users },
-  { href: "/attendance", label: "Attendance", icon: CalendarCheck },
-  { href: "/tankers", label: "Water Tankers", icon: Droplets },
-  { href: "/garbage", label: "Garbage Collection", icon: Trash2 },
-  { href: "/vehicles", label: "Vehicles", icon: Truck },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/audit", label: "Audit Logs", icon: ClipboardList },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, module: "dashboard" },
+  { href: "/notifications", label: "Notifications", icon: Bell, module: "notifications" },
+  { href: "/notifications/whatsapp", label: "WhatsApp Outbox", icon: MessageCircle, module: "notifications/whatsapp" },
+  { href: "/plots", label: "Plots", icon: MapPinned, module: "plots" },
+  { href: "/transfers", label: "Transfers", icon: ArrowLeftRight, module: "transfers" },
+  { href: "/owners", label: "Ownership", icon: Users, module: "plots" },
+  { href: "/memberships", label: "Memberships", icon: IdCard, module: "memberships" },
+  { href: "/documents", label: "Documents", icon: FileText, module: "documents" },
+  { href: "/possession", label: "Possession", icon: Home, module: "possession" },
+  { href: "/noc", label: "NOC", icon: ShieldCheck, module: "documents" },
+  { href: "/nec", label: "NEC", icon: ScrollText, module: "documents" },
+  { href: "/mortgages", label: "Bank / Mortgage", icon: Landmark, module: "mortgages" },
+  { href: "/open-files", label: "Open Files", icon: FolderOpen, module: "open-files" },
+  { href: "/payments", label: "Payments", icon: Wallet, module: "payments" },
+  { href: "/annual-charges", label: "Annual Charges", icon: Receipt, module: "annual-charges" },
+  { href: "/finance", label: "Revenue & Expenses", icon: CircleDollarSign, module: "finance" },
+  { href: "/physical-files", label: "Physical Files", icon: Archive, module: "physical-files" },
+  { href: "/employees", label: "Employees", icon: UserCog, module: "employees" },
+  { href: "/hr", label: "HR", icon: Users, module: "hr" },
+  { href: "/attendance", label: "Attendance", icon: CalendarCheck, module: "attendance" },
+  { href: "/tankers", label: "Water Tankers", icon: Droplets, module: "tankers" },
+  { href: "/garbage", label: "Garbage Collection", icon: Trash2, module: "garbage" },
+  { href: "/vehicles", label: "Vehicles", icon: Truck, module: "vehicles" },
+  { href: "/reports", label: "Reports", icon: BarChart3, module: "reports" },
+  { href: "/audit", label: "Audit Logs", icon: ClipboardList, module: "audit" },
+  { href: "/settings", label: "Settings", icon: Settings, module: "settings" },
 ];
 
-export function AppSidebar({ userName, role }: { userName: string; role: string }) {
+const TANKER_NAV_HREFS = new Set(["/dashboard", "/tankers", "/garbage"]);
+
+function navForRole(role: Role) {
+  if (role === "TANKER_OPERATOR") {
+    return NAV.filter((item) => TANKER_NAV_HREFS.has(item.href));
+  }
+  return NAV.filter((item) => canAccessModule(role, item.module));
+}
+
+export function AppSidebar({ userName, role }: { userName: string; role: Role }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const items = navForRole(role);
+  const isTankerPortal = role === "TANKER_OPERATOR";
 
   const nav = (
     <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-3">
-      {NAV.map((item) => {
+      {items.map((item) => {
         const active = pathname === item.href || pathname.startsWith(item.href + "/");
         const Icon = item.icon;
         return (
@@ -98,8 +111,12 @@ export function AppSidebar({ userName, role }: { userName: string; role: string 
     <>
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
         <div>
-          <p className="font-display text-sm font-semibold text-teal-900">Society Records</p>
-          <p className="text-xs text-slate-500">Property & Transfers</p>
+          <p className="font-display text-sm font-semibold text-teal-900">
+            {isTankerPortal ? "Tanker Desk" : "Society Records"}
+          </p>
+          <p className="text-xs text-slate-500">
+            {isTankerPortal ? "Water tanker booking" : "Property & Transfers"}
+          </p>
         </div>
         <button
           type="button"
@@ -117,7 +134,7 @@ export function AppSidebar({ userName, role }: { userName: string; role: string 
             className="flex h-full w-72 flex-col bg-slate-950 text-white"
             onClick={(e) => e.stopPropagation()}
           >
-            <SidebarBrand />
+            <SidebarBrand isTankerPortal={isTankerPortal} />
             {nav}
             <SidebarUser name={userName} role={role} />
           </aside>
@@ -125,7 +142,7 @@ export function AppSidebar({ userName, role }: { userName: string; role: string 
       ) : null}
 
       <aside className="hidden w-64 shrink-0 flex-col bg-slate-950 text-white lg:flex">
-        <SidebarBrand />
+        <SidebarBrand isTankerPortal={isTankerPortal} />
         {nav}
         <SidebarUser name={userName} role={role} />
       </aside>
@@ -133,29 +150,35 @@ export function AppSidebar({ userName, role }: { userName: string; role: string 
   );
 }
 
-function SidebarBrand() {
+function SidebarBrand({ isTankerPortal }: { isTankerPortal: boolean }) {
   return (
     <div className="border-b border-white/10 px-5 py-5">
-      <p className="font-display text-lg font-semibold tracking-tight text-white">Society Records</p>
-      <p className="mt-0.5 text-xs text-slate-400">Plot · Transfer · File History</p>
-      <Link
-        href="/search"
-        className="mt-4 flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-xs text-slate-300 hover:bg-white/15"
-      >
-        <Search className="h-3.5 w-3.5" />
-        Global search
-      </Link>
+      <p className="font-display text-lg font-semibold tracking-tight text-white">
+        {isTankerPortal ? "Tanker Desk" : "Society Records"}
+      </p>
+      <p className="mt-0.5 text-xs text-slate-400">
+        {isTankerPortal ? "Booking · Schedule · Dispatch" : "Plot · Transfer · File History"}
+      </p>
+      {!isTankerPortal ? (
+        <Link
+          href="/search"
+          className="mt-4 flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-xs text-slate-300 hover:bg-white/15"
+        >
+          <Search className="h-3.5 w-3.5" />
+          Global search
+        </Link>
+      ) : null}
     </div>
   );
 }
 
-function SidebarUser({ name, role }: { name: string; role: string }) {
+function SidebarUser({ name, role }: { name: string; role: Role }) {
   return (
     <div className="border-t border-white/10 px-4 py-4">
       <p className="truncate text-sm font-medium text-white">{name}</p>
       <p className="truncate text-xs text-slate-400">{role.replace(/_/g, " ")}</p>
       <div className="mt-2">
-        <SignOutButton />
+        <SignOutButton role={role} />
       </div>
     </div>
   );

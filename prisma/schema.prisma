@@ -22,6 +22,7 @@ enum Role {
   FINANCE
   HR_ADMIN
   SECURITY
+  TANKER_OPERATOR
   VIEWER
 }
 
@@ -264,6 +265,11 @@ enum TankerType {
   CONSTRUCTION_WATER
 }
 
+enum TankerClass {
+  BULK
+  DISTRIBUTION
+}
+
 enum TankerStatus {
   SCHEDULED
   ASSIGNED
@@ -408,6 +414,8 @@ model User {
   attendanceMarked    Attendance[]        @relation("AttendanceMarkedBy")
   financeTransactionsCreated FinanceTransaction[] @relation("FinanceTxnCreatedBy")
   tankerBookingsCreated TankerDelivery[]  @relation("TankerBookedBy")
+  tankerBulkPurchasesCreated TankerBulkPurchase[] @relation("TankerBulkPurchaseCreatedBy")
+  tankerFillsCreated TankerFill[] @relation("TankerFillCreatedBy")
   whatsappOutboxCreated WhatsAppOutbox[]  @relation("WhatsAppOutboxCreatedBy")
 
   @@index([role])
@@ -1168,6 +1176,7 @@ model WaterTanker {
   id           String   @id @default(cuid())
   tankerCode   String   @unique
   capacityLiters Int
+  tankerClass  TankerClass @default(DISTRIBUTION)
   driverId     String?
   driver       Employee? @relation(fields: [driverId], references: [id])
   isActive     Boolean  @default(true)
@@ -1176,6 +1185,49 @@ model WaterTanker {
   updatedAt    DateTime @updatedAt
 
   deliveries TankerDelivery[]
+  bulkPurchases TankerBulkPurchase[]
+  fillsReceived TankerFill[]
+}
+
+model TankerBulkPurchase {
+  id              String        @id @default(cuid())
+  purchaseNumber  String        @unique
+  purchaseDate    DateTime      @db.Date
+  sourceVendor    String
+  volumeLiters    Int
+  amount          Decimal       @db.Decimal(12, 2)
+  paymentStatus   PaymentStatus @default(PENDING)
+  motherTankerId  String?
+  motherTanker    WaterTanker?  @relation(fields: [motherTankerId], references: [id])
+  remarks         String?
+  createdById     String?
+  createdBy       User?         @relation("TankerBulkPurchaseCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  fills TankerFill[]
+
+  @@index([purchaseDate])
+  @@index([paymentStatus])
+  @@index([motherTankerId])
+}
+
+model TankerFill {
+  id           String             @id @default(cuid())
+  purchaseId   String
+  purchase     TankerBulkPurchase @relation(fields: [purchaseId], references: [id])
+  toTankerId   String
+  toTanker     WaterTanker        @relation(fields: [toTankerId], references: [id])
+  volumeLiters Int
+  filledAt     DateTime           @default(now())
+  filledById   String?
+  filledBy     User?              @relation("TankerFillCreatedBy", fields: [filledById], references: [id])
+  remarks      String?
+  createdAt    DateTime           @default(now())
+
+  @@index([purchaseId])
+  @@index([toTankerId])
+  @@index([filledAt])
 }
 
 model TankerDelivery {

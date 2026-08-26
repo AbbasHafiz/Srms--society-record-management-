@@ -122,7 +122,7 @@ async function main() {
     )
   );
 
-  const [ahmed, sara, bilal, imran, naveed, tariq, farooq, ayesha, , , , , hassanMali, aliAhmad, supervisor] = employees;
+  const [ahmed, sara, bilal, imran, naveed, tariq, farooq, ayesha, , , , kamran, hassanMali, aliAhmad, supervisor] = employees;
 
   await prisma.employee.update({
     where: { id: supervisor.id },
@@ -185,6 +185,8 @@ async function main() {
       { email: "gm@society.local", passwordHash, name: farooq.name, role: "GM", employeeId: farooq.id },
       { email: "secretary@society.local", passwordHash, name: ayesha.name, role: "SECRETARY", employeeId: ayesha.id },
       { email: "security@society.local", passwordHash, name: imran.name, role: "SECURITY", employeeId: imran.id },
+      { email: "tanker@society.local", passwordHash, name: "Tanker Desk Operator", role: "TANKER_OPERATOR" },
+      { email: "driver@society.local", passwordHash, name: kamran.name, role: "TANKER_OPERATOR", employeeId: kamran.id },
     ],
   });
 
@@ -1526,6 +1528,7 @@ async function main() {
 
   console.log("Seed complete.");
   console.log("Login: admin@society.local / password123");
+  console.log("Tanker desk: tanker@society.local / password123 (also driver@society.local)");
 }
 
 main()
