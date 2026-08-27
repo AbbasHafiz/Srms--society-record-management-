@@ -6,7 +6,8 @@ import { PageHeader } from "@/components/ui/page";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { createFinanceTxnAction, PAYMENT_METHODS } from "../actions";
+import { createFinanceTxnAction } from "../actions";
+import { PAYMENT_METHODS } from "@/lib/finance-constants";
 import { labelize } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";

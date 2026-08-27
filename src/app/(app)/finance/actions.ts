@@ -15,6 +15,7 @@ import type {
   FinanceTransactionStatus,
   PaymentMethod,
 } from "@/generated/prisma/client";
+import { PAYMENT_METHODS } from "@/lib/finance-constants";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -22,9 +23,6 @@ import {
   getErrorMessage,
   isNextNavigationError,
 } from "@/lib/action-result";
-
-const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "PO", "BANK_TRANSFER", "CHEQUE", "OTHER"];
-const TXN_STATUSES: FinanceTransactionStatus[] = ["DRAFT", "POSTED", "VOID"];
 
 function requireFinanceManage(role: Role) {
   if (!hasPermission(role, "manage_finance")) {
@@ -187,5 +185,3 @@ export async function toggleFinanceCategoryAction(formData: FormData) {
   revalidatePath("/finance/categories");
   revalidatePath("/finance");
 }
-
-export { PAYMENT_METHODS, TXN_STATUSES };
