@@ -2,6 +2,7 @@ import { format, startOfDay } from "date-fns";
 import { prisma } from "@/lib/db";
 import type { NotificationPriority, NotificationType } from "@/generated/prisma/client";
 import { plotLabel } from "@/lib/plots";
+import { LIVE_OPEN_FILE_STATUSES } from "@/lib/open-files";
 
 type UpsertInput = {
   type: NotificationType;
@@ -113,7 +114,7 @@ export async function refreshSlaNotifications() {
       take: 50,
     }),
     prisma.openFile.findMany({
-      where: { status: "ACTIVE", expiryDate: { lte: in30 } },
+      where: { status: { in: LIVE_OPEN_FILE_STATUSES }, expiryDate: { lte: in30 } },
       include: { plot: true },
       orderBy: { expiryDate: "asc" },
       take: 50,

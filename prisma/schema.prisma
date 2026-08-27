@@ -127,7 +127,8 @@ enum MortgageStatus {
 }
 
 enum OpenFileStatus {
-  ACTIVE
+  ACTIVE // legacy seed / older rows — treated as Open (on the market)
+  OPEN
   EXPIRED
   CLOSED
   CANCELLED
@@ -907,6 +908,7 @@ model OpenFile {
   plot                 Plot           @relation(fields: [plotId], references: [id])
   ownershipId          String?
   ownership            Ownership?     @relation(fields: [ownershipId], references: [id])
+  /// Linked sale transfer started (or completed) to close this file in the purchaser's name.
   transferId           String?
   transfer             Transfer?      @relation(fields: [transferId], references: [id])
   trdNumber            String?
@@ -915,6 +917,7 @@ model OpenFile {
   sellerMembershipNo   String?
   dealerName           String
   dealerOffice         String?
+  /// Registered dealer (property office). Required for new open files.
   registeredOfficeId   String?
   registeredOffice     RegisteredOffice? @relation(fields: [registeredOfficeId], references: [id])
   openingDate          DateTime
@@ -924,9 +927,15 @@ model OpenFile {
   feeConfigId          String?
   feeConfig            FeeConfiguration? @relation(fields: [feeConfigId], references: [id])
   paymentStatus        PaymentStatus  @default(PENDING)
-  status               OpenFileStatus @default(ACTIVE)
+  status               OpenFileStatus @default(OPEN)
   closedDate           DateTime?
   remarks              String?
+  letterheadDocumentId String?
+  purchaserName        String?
+  purchaserCnic        String?
+  purchaserContact     String?
+  purchaserAddress     String?
+  cancellationReason   String?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
@@ -939,6 +948,7 @@ model OpenFile {
   @@index([expiryDate])
   @@index([trdNumber])
   @@index([registeredOfficeId])
+  @@index([transferId])
 }
 
 // ─── Property Offices (registered dealers / society premises) ────────────────

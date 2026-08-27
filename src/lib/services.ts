@@ -5,6 +5,7 @@ import { AUTO_POST_FEE_TYPES, postRevenueFromPayment } from "@/lib/finance";
 import { computeAllotmentLetterDue } from "@/lib/sla";
 import { validateDeathTransferReadiness } from "@/lib/death-transfer";
 import type { Prisma } from "@/generated/prisma/client";
+import { closeOpenFilesForTransfer } from "@/lib/open-files";
 
 /**
  * Completes a transfer while preserving full ownership history.
@@ -98,14 +99,17 @@ export async function completeTransfer(transferId: string, userId: string) {
       where: { id: transfer.plotId },
       data: {
         ownershipStatus: "ACTIVE",
-        hasOpenFile: false,
       },
     });
 
-    // Close any active open files on this plot
-    await tx.openFile.updateMany({
-      where: { plotId: transfer.plotId, status: "ACTIVE" },
-      data: { status: "CLOSED", closedDate: now },
+    await closeOpenFilesForTransfer(tx, {
+      plotId: transfer.plotId,
+      transferId: transfer.id,
+      purchaserName: transfer.purchaserName,
+      purchaserCnic: transfer.purchaserCnic,
+      purchaserContact: transfer.purchaserContact,
+      purchaserAddress: transfer.purchaserAddress,
+      closedDate: now,
     });
 
     return { closed, newOwnership, completed };
@@ -234,13 +238,17 @@ export async function completeDeathSuccessionTransfer(transferId: string, userId
       where: { id: transfer.plotId },
       data: {
         ownershipStatus: "ACTIVE",
-        hasOpenFile: false,
       },
     });
 
-    await tx.openFile.updateMany({
-      where: { plotId: transfer.plotId, status: "ACTIVE" },
-      data: { status: "CLOSED", closedDate: now },
+    await closeOpenFilesForTransfer(tx, {
+      plotId: transfer.plotId,
+      transferId: transfer.id,
+      purchaserName: primaryHeir.name,
+      purchaserCnic: primaryHeir.cnic,
+      purchaserContact: primaryHeir.contact,
+      purchaserAddress: primaryHeir.address,
+      closedDate: now,
     });
 
     return { closed, newOwnership, completed };
@@ -433,6 +441,9 @@ export async function renewOpenFile(openFileId: string, periods: number, userId?
     include: { feeConfig: true },
   });
   if (!openFile) throw new Error("Open file not found");
+  if (!["ACTIVE", "OPEN", "EXPIRED"].includes(openFile.status)) {
+    throw new Error("Only an open (or expired) dealer file can be renewed");
+  }
 
   const activeFee = await prisma.feeConfiguration.findFirst({
     where: { feeType: "OPEN_FILE", status: "ACTIVE" },
@@ -464,7 +475,7 @@ export async function renewOpenFile(openFileId: string, periods: number, userId?
         expiryDate: newExpiry,
         feeAmount: Number(openFile.feeAmount) + feeAmount,
         feeConfigId: activeFee.id,
-        status: "ACTIVE",
+        status: "OPEN",
         paymentStatus: "PENDING",
       },
     });

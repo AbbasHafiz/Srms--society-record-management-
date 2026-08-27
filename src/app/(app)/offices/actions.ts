@@ -350,6 +350,9 @@ export async function assignRegisteredOfficeToOpenFile(formData: FormData) {
   if (registeredOfficeId) {
     const office = await prisma.registeredOffice.findUnique({ where: { id: registeredOfficeId } });
     if (!office) throw new Error("Registered office not found");
+    if (office.status !== "ACTIVE") {
+      throw new Error("Dealer must be active on the register to link to an open file");
+    }
     dealerName = office.officeName;
     dealerOffice = office.address ?? office.ownerName;
   }

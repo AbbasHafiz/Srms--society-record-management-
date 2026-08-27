@@ -636,7 +636,25 @@ async function main() {
       feeAmount: 21000,
       feeConfigId: openFileFee.id,
       paymentStatus: "VERIFIED",
-      status: "ACTIVE",
+      status: "OPEN",
+      payments: {
+        create: {
+          receiptNumber: "RCPT-00090",
+          plotId: plot789.id,
+          ownershipId: owner789.id,
+          feeConfigId: openFileFee.id,
+          feeType: "OPEN_FILE",
+          amount: 21000,
+          poAmount: 21000,
+          poNumber: "PO-GV-1184",
+          bankName: "HBL",
+          poDate: new Date(Date.now() - 78 * 24 * 60 * 60 * 1000),
+          paymentDate: new Date(Date.now() - 78 * 24 * 60 * 60 * 1000),
+          paymentMethod: "PO",
+          status: "VERIFIED",
+          remarks: "Open-file fee paid to society as pay order",
+        },
+      },
     },
   });
 

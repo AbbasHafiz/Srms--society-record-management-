@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { PageHeader, StatCard } from "@/components/ui/page";
 import { formatCurrency } from "@/lib/utils";
 import { refreshSlaNotifications } from "@/lib/notifications-sla";
+import { LIVE_OPEN_FILE_STATUSES } from "@/lib/open-files";
 import { startOfMonth, startOfDay } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +50,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     prisma.plot.count(),
     prisma.ownership.count({ where: { status: "ACTIVE" } }),
-    prisma.openFile.count({ where: { status: "ACTIVE" } }),
+    prisma.openFile.count({ where: { status: { in: LIVE_OPEN_FILE_STATUSES } } }),
     prisma.transfer.count({
       where: { status: { notIn: ["COMPLETED", "CANCELLED", "REJECTED"] } },
     }),
@@ -72,7 +73,7 @@ export default async function DashboardPage() {
     }),
     prisma.physicalFile.count({ where: { status: { in: ["MOVING", "CHECKED_OUT"] } } }),
     prisma.openFile.count({
-      where: { status: "ACTIVE", expiryDate: { lte: in30 } },
+      where: { status: { in: LIVE_OPEN_FILE_STATUSES }, expiryDate: { lte: in30 } },
     }),
     prisma.employee.count({ where: { status: "ACTIVE" } }),
     prisma.attendance.count({ where: { date: today, status: "PRESENT" } }),
@@ -135,7 +136,7 @@ export default async function DashboardPage() {
   });
 
   const expiringFiles = await prisma.openFile.findMany({
-    where: { status: "ACTIVE", expiryDate: { lte: in30 } },
+    where: { status: { in: LIVE_OPEN_FILE_STATUSES }, expiryDate: { lte: in30 } },
     include: { plot: true },
     orderBy: { expiryDate: "asc" },
     take: 5,

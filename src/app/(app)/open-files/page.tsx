@@ -1,14 +1,26 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { PageHeader, EmptyState } from "@/components/ui/page";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
+import { PageHeader, EmptyState, StatCard } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, daysUntil, cn } from "@/lib/utils";
-import type { OpenFileStatus } from "@/generated/prisma/client";
+import {
+  LIVE_OPEN_FILE_STATUSES,
+  OPEN_LIST_STATUSES,
+  openFileStatusLabel,
+} from "@/lib/open-files";
+import type { OpenFileStatus, Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
-const STATUSES: OpenFileStatus[] = ["ACTIVE", "EXPIRED", "CLOSED", "CANCELLED"];
+const FILTERS: { key: string; label: string; statuses?: OpenFileStatus[] }[] = [
+  { key: "", label: "All" },
+  { key: "open", label: "Open", statuses: OPEN_LIST_STATUSES },
+  { key: "closed", label: "Closed in purchaser's name", statuses: ["CLOSED"] },
+  { key: "cancelled", label: "Cancelled / withdrawn", statuses: ["CANCELLED"] },
+];
 
 export default async function OpenFilesPage({
   searchParams,
@@ -16,98 +28,173 @@ export default async function OpenFilesPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const sp = await searchParams;
-  const status = sp.status?.trim() as OpenFileStatus | undefined;
+  const filterKey = sp.status?.trim() || "";
+  const filter = FILTERS.find((f) => f.key === filterKey) ?? FILTERS[0];
 
-  const openFiles = await prisma.openFile.findMany({
-    where: status && STATUSES.includes(status) ? { status } : undefined,
-    include: { plot: true },
-    orderBy: { expiryDate: "asc" },
-    take: 100,
-  });
+  const session = await auth();
+  const canCreate = session?.user && hasPermission(session.user.role, "create");
+
+  const where: Prisma.OpenFileWhereInput | undefined = filter.statuses
+    ? { status: { in: filter.statuses } }
+    : undefined;
+
+  const [openFiles, openCount, closedCount, cancelledCount] = await Promise.all([
+    prisma.openFile.findMany({
+      where,
+      include: { plot: true, registeredOffice: { select: { officeName: true } } },
+      orderBy: { openingDate: "desc" },
+      take: 100,
+    }),
+    prisma.openFile.count({ where: { status: { in: LIVE_OPEN_FILE_STATUSES } } }),
+    prisma.openFile.count({ where: { status: "CLOSED" } }),
+    prisma.openFile.count({ where: { status: "CANCELLED" } }),
+  ]);
 
   return (
     <div>
       <PageHeader
-        title="Open Files"
-        description="Dealer open-file registrations with expiry tracking."
+        title="Dealer Open Files"
+        description="Seller lists a plot through a registered dealer: dealer letterhead plus open-file fee as a pay order to the society. Ownership stays with the seller until a purchaser is found and the file is closed in the purchaser's name."
+        actions={
+          canCreate ? (
+            <Link href="/open-files/new">
+              <Button>Register open file</Button>
+            </Link>
+          ) : undefined
+        }
       />
 
-      <form className="mb-4 flex gap-2">
-        <select
-          name="status"
-          defaultValue={status ?? ""}
-          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
-        >
-          <option value="">All statuses</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <Button type="submit">Filter</Button>
-      </form>
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <StatCard label="Open (on the market)" value={openCount} tone="warn" />
+        <StatCard label="Closed in purchaser's name" value={closedCount} tone="success" />
+        <StatCard label="Cancelled / withdrawn" value={cancelledCount} />
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {FILTERS.map((f) => {
+          const active = f.key === filter.key;
+          const href = f.key ? `/open-files?status=${f.key}` : "/open-files";
+          return (
+            <Link
+              key={f.key || "all"}
+              href={href}
+              className={cn(
+                "inline-flex h-9 items-center rounded-md border px-3 text-sm",
+                active
+                  ? "border-teal-800 bg-teal-800 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              )}
+            >
+              {f.label}
+            </Link>
+          );
+        })}
+      </div>
 
       {openFiles.length === 0 ? (
-        <EmptyState title="No open files" description="Try adjusting your filters." />
+        <EmptyState
+          title={filter.key ? "No files in this status" : "No dealer open files yet"}
+          description={
+            filter.key
+              ? "Try another filter, or register a new open file when a seller lists a plot through a dealer."
+              : "When a seller wants to sell, a registered dealer issues letterhead and pays the open-file fee as a pay order. Register that here — ownership is not changed until a purchaser buys."
+          }
+        />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Open File</th>
-                <th>Plot</th>
-                <th>Seller</th>
-                <th>Dealer</th>
-                <th>Opened</th>
-                <th>Expiry</th>
-                <th>Days Left</th>
-                <th>Fee</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {openFiles.map((f) => {
-                const days = daysUntil(f.expiryDate);
-                const expiringSoon = f.status === "ACTIVE" && days <= 30;
-                return (
-                  <tr key={f.id} className={cn(expiringSoon && "bg-amber-50/60")}>
-                    <td>
-                      <Link
-                        href={`/open-files/${f.id}`}
-                        className="font-semibold text-teal-900 hover:underline"
-                      >
-                        {f.openFileNumber}
-                      </Link>
-                    </td>
-                    <td>
-                      <Link href={`/plots/${f.plotId}`} className="text-teal-900 hover:underline">
-                        {f.plot.sector}/{f.plot.block}-{f.plot.plotNumber}
-                      </Link>
-                    </td>
-                    <td>{f.sellerName}</td>
-                    <td>{f.dealerName}</td>
-                    <td>{formatDate(f.openingDate)}</td>
-                    <td>{formatDate(f.expiryDate)}</td>
-                    <td>
-                      {f.status === "ACTIVE" ? (
-                        <span className={cn("font-medium", days <= 0 ? "text-rose-700" : days <= 30 ? "text-amber-700" : "")}>
-                          {days <= 0 ? "Expired" : `${days}d`}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>{formatCurrency(f.feeAmount)}</td>
-                    <td>
-                      <Badge status={f.status} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Open file</th>
+                  <th>Plot</th>
+                  <th>Seller</th>
+                  <th>Dealer</th>
+                  <th>Opened</th>
+                  <th>Expiry</th>
+                  <th>Days left</th>
+                  <th>Fee</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {openFiles.map((f) => {
+                  const days = daysUntil(f.expiryDate);
+                  const live = LIVE_OPEN_FILE_STATUSES.includes(f.status);
+                  const expiringSoon = live && days <= 30;
+                  return (
+                    <tr key={f.id} className={cn(expiringSoon && "bg-amber-50/60")}>
+                      <td>
+                        <Link
+                          href={`/open-files/${f.id}`}
+                          className="font-semibold text-teal-900 hover:underline"
+                        >
+                          {f.openFileNumber}
+                        </Link>
+                      </td>
+                      <td>
+                        <Link href={`/plots/${f.plotId}`} className="text-teal-900 hover:underline">
+                          {f.plot.sector}/{f.plot.block}-{f.plot.plotNumber}
+                        </Link>
+                      </td>
+                      <td>{f.sellerName}</td>
+                      <td>{f.registeredOffice?.officeName ?? f.dealerName}</td>
+                      <td>{formatDate(f.openingDate)}</td>
+                      <td>{formatDate(f.expiryDate)}</td>
+                      <td>
+                        {live || f.status === "EXPIRED" ? (
+                          <span
+                            className={cn(
+                              "font-medium",
+                              days <= 0 ? "text-rose-700" : days <= 30 ? "text-amber-700" : ""
+                            )}
+                          >
+                            {days <= 0 ? "Expired" : `${days}d`}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>{formatCurrency(f.feeAmount)}</td>
+                      <td>
+                        <Badge status={f.status}>{openFileStatusLabel(f.status)}</Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <ul className="space-y-3 md:hidden">
+            {openFiles.map((f) => {
+              const days = daysUntil(f.expiryDate);
+              const live = LIVE_OPEN_FILE_STATUSES.includes(f.status);
+              return (
+                <li key={f.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link href={`/open-files/${f.id}`} className="font-semibold text-teal-900 hover:underline">
+                      {f.openFileNumber}
+                    </Link>
+                    <Badge status={f.status}>{openFileStatusLabel(f.status)}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {f.plot.sector}/{f.plot.block}-{f.plot.plotNumber} · Seller {f.sellerName}
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    Dealer {f.registeredOffice?.officeName ?? f.dealerName} · Fee {formatCurrency(f.feeAmount)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Opened {formatDate(f.openingDate)}
+                    {live || f.status === "EXPIRED"
+                      ? ` · ${days <= 0 ? "Expired" : `expires in ${days}d`}`
+                      : ""}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
     </div>
   );

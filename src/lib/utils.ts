@@ -32,7 +32,7 @@ export function daysUntil(date: Date | string) {
 
 export function statusColor(status: string): string {
   const s = status.toUpperCase();
-  if (["ACTIVE", "COMPLETED", "VERIFIED", "PAID", "ISSUED", "APPROVED", "PRESENT", "RELEASED", "POSTED"].includes(s)) {
+  if (["ACTIVE", "OPEN", "COMPLETED", "VERIFIED", "PAID", "ISSUED", "APPROVED", "PRESENT", "RELEASED", "POSTED"].includes(s)) {
     return "bg-emerald-100 text-emerald-800 border-emerald-200";
   }
   if (["PENDING", "DRAFT", "SUBMITTED", "UNDER_REVIEW", "PAYMENT_PENDING", "SCHEDULED", "MOVING", "REPORTED", "IN_PROGRESS"].includes(s)) {
@@ -41,7 +41,7 @@ export function statusColor(status: string): string {
   if (["REJECTED", "CANCELLED", "EXPIRED", "ABSENT", "OVERDUE", "MISSING", "ACTIVE_MORTGAGE", "VOID", "SUSPENDED"].includes(s)) {
     return "bg-rose-100 text-rose-800 border-rose-200";
   }
-  if (["TRANSFERRED", "INACTIVE", "DEAD", "SUPERSEDED", "ARCHIVED"].includes(s)) {
+  if (["TRANSFERRED", "INACTIVE", "DEAD", "SUPERSEDED", "ARCHIVED", "CLOSED"].includes(s)) {
     return "bg-slate-100 text-slate-700 border-slate-200";
   }
   return "bg-sky-100 text-sky-800 border-sky-200";

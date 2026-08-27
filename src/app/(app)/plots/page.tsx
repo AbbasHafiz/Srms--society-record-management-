@@ -9,6 +9,7 @@ import { PlotStatusBadges } from "@/components/plots/plot-status-badges";
 import { ALL_PLOT_TYPES, ALL_POSSESSION_STATUSES, plotTypeLabel } from "@/lib/plots";
 import { hasPermission } from "@/lib/rbac";
 import type { PlotType, PossessionStatus } from "@/generated/prisma/client";
+import { LIVE_OPEN_FILE_STATUSES } from "@/lib/open-files";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export default async function PlotsPage({
     include: {
       ownerships: { where: { status: "ACTIVE" }, take: 1 },
       mortgages: { where: { status: "ACTIVE" }, take: 1 },
-      openFiles: { where: { status: "ACTIVE" }, take: 1 },
+      openFiles: { where: { status: { in: LIVE_OPEN_FILE_STATUSES } }, take: 1 },
     },
     orderBy: [{ sector: "asc" }, { plotNumber: "asc" }],
     take: 100,

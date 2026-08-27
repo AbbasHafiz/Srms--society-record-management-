@@ -87,6 +87,7 @@ export default async function TransferDetailPage({
       fromOwnership: true,
       heirs: { orderBy: { createdAt: "asc" } },
       documents: { where: { status: "ACTIVE" }, orderBy: { createdAt: "desc" } },
+      openFiles: { orderBy: { openingDate: "desc" }, take: 5 },
     },
   });
 
@@ -184,6 +185,22 @@ export default async function TransferDetailPage({
           </div>
         }
       />
+
+      {transfer.openFiles.length > 0 ? (
+        <div className="mb-4 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">
+          This sale closes dealer open file{" "}
+          {transfer.openFiles.map((f, i) => (
+            <span key={f.id}>
+              {i > 0 ? ", " : ""}
+              <Link href={`/open-files/${f.id}`} className="font-medium underline">
+                {f.openFileNumber}
+              </Link>
+            </span>
+          ))}
+          . Completing the transfer records the purchaser on plot ownership history and marks the
+          open file closed in the purchaser&apos;s name.
+        </div>
+      ) : null}
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Badge status={transfer.status} />

@@ -109,7 +109,7 @@ export default async function PlotProfilePage({
   const plotId = plot.id;
   const activeOwner = plot.ownerships.find((o) => o.status === "ACTIVE");
   const activeMortgage = plot.mortgages.find((m) => m.status === "ACTIVE");
-  const activeOpenFile = plot.openFiles.find((f) => f.status === "ACTIVE");
+  const activeOpenFile = plot.openFiles.find((f) => f.status === "ACTIVE" || f.status === "OPEN");
   const pendingNoc = plot.nocs.find((n) => ["SUBMITTED", "UNDER_REVIEW"].includes(n.status));
 
   function tabHref(t: Tab) {
@@ -199,7 +199,7 @@ export default async function PlotProfilePage({
           ) : null}
           {activeOpenFile ? (
             <WarningBanner>
-              Open File {activeOpenFile.openFileNumber} expires in{" "}
+              Dealer open file {activeOpenFile.openFileNumber} expires in{" "}
               {daysUntil(activeOpenFile.expiryDate)} days ({formatDate(activeOpenFile.expiryDate)})
             </WarningBanner>
           ) : null}
@@ -759,6 +759,12 @@ export default async function PlotProfilePage({
           )}
 
           {tab === "open-file" && (
+            plot.openFiles.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-slate-600">
+                No dealer open files on this plot. An open file is a seller listing through a
+                registered dealer (letterhead + pay-order fee) — it does not change ownership.
+              </p>
+            ) : (
             <table className="data-table">
               <thead>
                 <tr>
@@ -783,12 +789,21 @@ export default async function PlotProfilePage({
                     </td>
                     <td>{formatCurrency(f.feeAmount)}</td>
                     <td>
-                      <Badge status={f.status} />
+                      <Badge status={f.status}>
+                        {f.status === "CLOSED"
+                          ? "Closed in purchaser's name"
+                          : f.status === "CANCELLED"
+                            ? "Cancelled / withdrawn"
+                            : f.status === "OPEN" || f.status === "ACTIVE"
+                              ? "Open"
+                              : f.status}
+                      </Badge>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            )
           )}
 
           {tab === "physical-file" && plot.physicalFile && (

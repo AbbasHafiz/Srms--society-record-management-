@@ -166,7 +166,7 @@ export default async function SearchPage({
           ) : null}
 
           {openFiles.length > 0 ? (
-            <SearchSection title="Open Files">
+            <SearchSection title="Dealer Open Files">
               {openFiles.map((f) => (
                 <SearchRow
                   key={f.id}

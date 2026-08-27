@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/rbac";
 import { startOfMonth, endOfMonth } from "date-fns";
+import { LIVE_OPEN_FILE_STATUSES } from "@/lib/open-files";
 
 function csvEscape(value: string | number | null | undefined) {
   const s = String(value ?? "");
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
     cutoff.setDate(cutoff.getDate() + days);
 
     const files = await prisma.openFile.findMany({
-      where: { status: "ACTIVE", expiryDate: { lte: cutoff } },
+      where: { status: { in: LIVE_OPEN_FILE_STATUSES }, expiryDate: { lte: cutoff } },
       include: { plot: true },
       orderBy: { expiryDate: "asc" },
     });

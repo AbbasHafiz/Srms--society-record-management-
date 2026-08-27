@@ -10,6 +10,8 @@ export type RegisteredOfficeOption = {
   address: string | null;
   premisesType: string;
   status: string;
+  licenseNumber: string | null;
+  expiryDate: string | null;
 };
 
 type Props = {
@@ -84,7 +86,7 @@ export function RegisteredOfficeSelect({
               onSelect?.(null);
             }
           }}
-          placeholder="Search registered office…"
+          placeholder="Search registered dealer / office…"
           className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
           autoComplete="off"
         />
@@ -109,6 +111,7 @@ export function RegisteredOfficeSelect({
                   <span className="font-medium">{o.officeName}</span>
                   <span className="block text-xs text-slate-500">
                     {o.ownerName} · {o.phone}
+                    {o.licenseNumber ? ` · ${o.licenseNumber}` : ""}
                   </span>
                 </button>
               </li>

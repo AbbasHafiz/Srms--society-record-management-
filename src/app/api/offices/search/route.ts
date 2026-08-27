@@ -38,6 +38,8 @@ export async function GET(request: Request) {
       address: true,
       premisesType: true,
       status: true,
+      licenseNumber: true,
+      expiryDate: true,
     },
     orderBy: { officeName: "asc" },
     take: 25,

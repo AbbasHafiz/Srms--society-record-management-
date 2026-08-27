@@ -6,6 +6,7 @@ import { PageHeader, StatCard } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
+import { LIVE_OPEN_FILE_STATUSES, openFileStatusLabel } from "@/lib/open-files";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,13 @@ export default async function OpenFilesReportPage({
 
   const [expiring, expired, active] = await Promise.all([
     prisma.openFile.findMany({
-      where: { status: "ACTIVE", expiryDate: { lte: cutoff } },
+      where: { status: { in: LIVE_OPEN_FILE_STATUSES }, expiryDate: { lte: cutoff } },
       include: { plot: true },
       orderBy: { expiryDate: "asc" },
       take: 200,
     }),
     prisma.openFile.count({ where: { status: "EXPIRED" } }),
-    prisma.openFile.count({ where: { status: "ACTIVE" } }),
+    prisma.openFile.count({ where: { status: { in: LIVE_OPEN_FILE_STATUSES } } }),
   ]);
 
   const exportParams = new URLSearchParams({
@@ -41,8 +42,8 @@ export default async function OpenFilesReportPage({
   return (
     <div>
       <PageHeader
-        title="Open Files Expiring Report"
-        description="Dealer open files nearing expiry — action required before transfer window closes."
+        title="Dealer Open Files Expiring"
+        description="Registered-dealer listings (letterhead + pay-order fee) nearing expiry — renew, close in a purchaser's name, or withdraw without changing ownership."
         actions={
           <div className="flex gap-2">
             <Link href="/reports" className="text-sm text-teal-800 hover:underline">← Reports</Link>
@@ -73,7 +74,7 @@ export default async function OpenFilesReportPage({
       </form>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <StatCard label="Active Open Files" value={active} />
+        <StatCard label="Open dealer files" value={active} />
         <StatCard label={`Expiring ≤${days}d`} value={expiring.length} tone="warn" />
         <StatCard label="Already Expired" value={expired} tone="danger" />
       </div>
@@ -102,7 +103,7 @@ export default async function OpenFilesReportPage({
                 <td>{f.dealerName}</td>
                 <td>{f.sellerName}</td>
                 <td>{formatDate(f.expiryDate)}</td>
-                <td><Badge status={f.status} /></td>
+                <td><Badge status={f.status}>{openFileStatusLabel(f.status)}</Badge></td>
               </tr>
             ))}
           </tbody>

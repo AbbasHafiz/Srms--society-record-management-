@@ -31,7 +31,7 @@ export default async function FileScanPage({
   const { plot, physicalFile } = result;
   const activeOwner = plot.ownerships.find((o) => o.status === "ACTIVE");
   const activeMortgage = plot.mortgages.find((m) => m.status === "ACTIVE");
-  const activeOpenFile = plot.openFiles.find((f) => f.status === "ACTIVE");
+  const activeOpenFile = plot.openFiles.find((f) => f.status === "ACTIVE" || f.status === "OPEN");
   const outstanding = summarizeOutstanding(plot);
   const nonPossession = isNonPossession(plot.possessionStatus, plot.developmentStatus);
 

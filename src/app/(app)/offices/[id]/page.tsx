@@ -219,9 +219,9 @@ export default async function OfficeDetailPage({ params }: { params: Promise<{ i
         ) : null}
 
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-          <h2 className="font-display mb-4 text-lg font-semibold">Open file history</h2>
+          <h2 className="font-display mb-4 text-lg font-semibold">Dealer open files</h2>
           {office.openFiles.length === 0 ? (
-            <p className="text-sm text-slate-500">No open files linked to this office.</p>
+            <p className="text-sm text-slate-500">No dealer open files (letterhead listings) linked to this office.</p>
           ) : (
             <table className="data-table text-sm">
               <thead>
@@ -246,7 +246,7 @@ export default async function OfficeDetailPage({ params }: { params: Promise<{ i
                     </td>
                     <td>{formatDate(f.openingDate)}</td>
                     <td>{formatDate(f.expiryDate)}</td>
-                    <td><Badge status={f.status} /></td>
+                    <td><Badge status={f.status}>{f.status === "CLOSED" ? "Closed in purchaser's name" : f.status === "CANCELLED" ? "Cancelled / withdrawn" : f.status === "OPEN" || f.status === "ACTIVE" ? "Open" : f.status}</Badge></td>
                   </tr>
                 ))}
               </tbody>
