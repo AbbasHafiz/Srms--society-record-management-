@@ -7,5 +7,5 @@ export default async function HomePage() {
   if (session?.user) {
     redirect(getPostLoginPath(session.user.role));
   }
-  redirect("/dashboard");
+  redirect("/login");
 }

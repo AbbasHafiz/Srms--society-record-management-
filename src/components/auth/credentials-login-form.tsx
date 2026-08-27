@@ -2,12 +2,19 @@
 
 import { signIn, getSession } from "next-auth/react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getPostLoginPath } from "@/lib/auth-redirect";
+
+function safeNextPath(next: string | null, role: Parameters<typeof getPostLoginPath>[0]): string {
+  if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
+    return next;
+  }
+  return getPostLoginPath(role);
+}
 
 type LoginVariant = "main" | "tanker";
 
@@ -57,6 +64,7 @@ const VARIANTS: Record<
 
 export function CredentialsLoginForm({ variant }: { variant: LoginVariant }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const config = VARIANTS[variant];
   const [email, setEmail] = useState(config.defaultEmail);
   const [password, setPassword] = useState("password123");
@@ -79,7 +87,8 @@ export function CredentialsLoginForm({ variant }: { variant: LoginVariant }) {
     }
 
     const session = await getSession();
-    const destination = getPostLoginPath(session?.user?.role ?? "VIEWER");
+    const role = session?.user?.role ?? "VIEWER";
+    const destination = safeNextPath(searchParams.get("next"), role);
 
     router.push(destination);
     router.refresh();

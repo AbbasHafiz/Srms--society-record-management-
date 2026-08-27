@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { CredentialsLoginForm } from "@/components/auth/credentials-login-form";
 
 export default function LoginPage() {
-  return <CredentialsLoginForm variant="main" />;
+  return (
+    <Suspense fallback={null}>
+      <CredentialsLoginForm variant="main" />
+    </Suspense>
+  );
 }

@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { signOut } from "@/lib/auth";
+import { publicUrl } from "@/lib/request-origin";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   await signOut({ redirect: false });
-  return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL || "http://127.0.0.1:43127"), {
+  return NextResponse.redirect(publicUrl(req, "/login"), {
     status: 303,
   });
 }

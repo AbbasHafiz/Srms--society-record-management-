@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 import { canAccessPath } from "@/lib/rbac";
 import { getPostLoginPath } from "@/lib/auth-redirect";
+import { publicUrl } from "@/lib/request-origin";
 import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
@@ -12,19 +13,22 @@ export default auth((req) => {
 
   if (pathname.startsWith("/login")) {
     if (session?.user) {
-      return NextResponse.redirect(new URL(getPostLoginPath(session.user.role), req.url));
+      const next = req.nextUrl.searchParams.get("next");
+      const safeNext =
+        next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")
+          ? next
+          : getPostLoginPath(session.user.role);
+      return NextResponse.redirect(publicUrl(req, safeNext));
     }
     return NextResponse.next();
   }
 
   if (!session?.user) {
-    const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(publicUrl(req, "/login", { next: pathname }));
   }
 
   if (!canAccessPath(session.user.role, pathname)) {
-    return NextResponse.redirect(new URL(getPostLoginPath(session.user.role), req.url));
+    return NextResponse.redirect(publicUrl(req, getPostLoginPath(session.user.role)));
   }
 
   return NextResponse.next();

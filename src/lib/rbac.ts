@@ -141,6 +141,11 @@ const PATH_MODULES = ([
   ["/mess", "mess"],
   ["/audit", "audit"],
   ["/plots", "plots"],
+  ["/search", "dashboard"],
+  ["/hr", "hr"],
+  ["/noc", "documents"],
+  ["/nec", "documents"],
+  ["/f", "plots"],
 ] as [string, string][]).sort((a, b) => b[0].length - a[0].length);
 
 export function getModuleForPath(pathname: string): string | null {
@@ -153,11 +158,12 @@ export function getModuleForPath(pathname: string): string | null {
 }
 
 export function canAccessPath(role: Role, pathname: string): boolean {
-  const module = getModuleForPath(pathname);
-  if (!module) {
+  if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
+  const routeModule = getModuleForPath(pathname);
+  if (!routeModule) {
     return role !== "TANKER_OPERATOR";
   }
-  return canAccessModule(role, module);
+  return canAccessModule(role, routeModule);
 }
 
 export function canAccessModule(role: Role, module: string): boolean {
