@@ -21,7 +21,7 @@ import {
 import {
   updateTransferStep,
   approveTransferAction,
-  completeTransferAction,
+  completeTransferFormAction,
   verifyTransferPaymentAction,
   addTransferHeir,
   removeTransferHeir,
@@ -32,7 +32,6 @@ import {
 import { HeirRelationFields } from "@/components/transfers/heir-relation-fields";
 import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
-import { bindFormAction } from "@/lib/action-result";
 import { getFbrTaxRates } from "@/lib/fbr-tax";
 import { FbrTaxAssessmentsPanel } from "@/components/tax/fbr-tax-assessments-panel";
 
@@ -569,7 +568,7 @@ function DeathWorkflow({
 
             {canComplete && transfer.status === "APPROVED" ? (
               <ConfirmActionForm
-                action={bindFormAction(completeTransferAction)}
+                action={completeTransferFormAction}
                 confirmTitle="Complete succession transfer?"
                 confirmDescription="This will issue a new membership to the primary heir and mark the deceased membership as TRANSFERRED. Ownership history is preserved and this step cannot be undone."
                 submitLabel="Complete succession (new membership)"
@@ -878,7 +877,7 @@ function SaleWorkflow({
 
             {canComplete && transfer.status === "APPROVED" ? (
               <ConfirmActionForm
-                action={bindFormAction(completeTransferAction)}
+                action={completeTransferFormAction}
                 confirmTitle="Complete transfer?"
                 confirmDescription="This will issue a new membership to the purchaser and mark the seller membership as TRANSFERRED. Ownership history is preserved and this step cannot be undone. FBR 236C and 236K snapshots already recorded on this transfer are kept as-is."
                 submitLabel="Complete transfer (new membership + history)"

@@ -384,6 +384,14 @@ export async function completeTransferAction(formData: FormData): Promise<Action
   }
 }
 
+/** useActionState-compatible export — do not wrap with bindFormAction in a Server Component. */
+export async function completeTransferFormAction(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  return completeTransferAction(formData);
+}
+
 export async function markAllotmentPrintedAction(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");

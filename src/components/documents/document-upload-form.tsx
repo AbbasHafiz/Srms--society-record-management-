@@ -62,7 +62,7 @@ export function DocumentUploadForm({
   defaultDocumentType?: DocumentType;
   compact?: boolean;
 }) {
-  const [documentType, setDocumentType] = useState<DocumentType>(defaultDocumentType ?? "OTHER");
+  const [documentType, setDocumentType] = useState<DocumentType>(defaultDocumentType ?? "CNIC");
 
   return (
     <form action={action} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/50 p-4">

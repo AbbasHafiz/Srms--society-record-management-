@@ -7,7 +7,6 @@ import { prisma } from "@/lib/db";
 import { canRegisterOpenFile, hasPermission } from "@/lib/rbac";
 import { nextOpenFileNumber, nextReceiptNumber, nextTransferNumber, nextTaxAssessmentNumber } from "@/lib/numbering";
 import { writeAuditLog } from "@/lib/audit";
-import { assignRegisteredOfficeToOpenFile } from "@/app/(app)/offices/actions";
 import { createDocumentWithUpload } from "@/lib/documents";
 import { computeTransferSlaDue } from "@/lib/sla";
 import { softCheckCnic } from "@/lib/validation";
@@ -41,8 +40,6 @@ import type {
   PaymentMethod,
   SellerAppearance,
 } from "@/generated/prisma/client";
-
-export { assignRegisteredOfficeToOpenFile };
 
 function asFile(value: FormDataEntryValue | null): File | null {
   if (value instanceof File && value.size > 0) return value;
