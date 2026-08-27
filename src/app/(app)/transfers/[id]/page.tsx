@@ -33,6 +33,8 @@ import { HeirRelationFields } from "@/components/transfers/heir-relation-fields"
 import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { bindFormAction } from "@/lib/action-result";
+import { getFbrTaxRates } from "@/lib/fbr-tax";
+import { FbrTaxAssessmentsPanel } from "@/components/tax/fbr-tax-assessments-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +89,12 @@ export default async function TransferDetailPage({
       fromOwnership: true,
       heirs: { orderBy: { createdAt: "asc" } },
       documents: { where: { status: "ACTIVE" }, orderBy: { createdAt: "desc" } },
-      openFiles: { orderBy: { openingDate: "desc" }, take: 5 },
+      openFiles: {
+        orderBy: { openingDate: "desc" },
+        take: 5,
+        include: { taxAssessments: { orderBy: { createdAt: "asc" } } },
+      },
+      taxAssessments: { orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -99,8 +106,21 @@ export default async function TransferDetailPage({
   const canComplete = session?.user && hasPermission(session.user.role, "complete_transfer");
   const canVerifyPay = session?.user && hasPermission(session.user.role, "verify_payment");
   const canEdit = session?.user && hasPermission(session.user.role, "edit");
+  const canMarkPaid =
+    session?.user &&
+    (hasPermission(session.user.role, "verify_payment") ||
+      hasPermission(session.user.role, "edit") ||
+      hasPermission(session.user.role, "complete_transfer"));
   const verifiedPay = transfer.payments.find((p) => p.status === "VERIFIED");
   const pendingPay = transfer.payments.find((p) => p.status === "SUBMITTED");
+  const fbrRates = isDeath ? null : await getFbrTaxRates();
+  const mergedTaxAssessments = [
+    ...transfer.taxAssessments,
+    ...transfer.openFiles.flatMap((f) => f.taxAssessments),
+  ].filter((row, index, all) => all.findIndex((r) => r.id === row.id) === index);
+  const has236C = mergedTaxAssessments.some((a) => a.taxSection === "SECTION_236C");
+  const has236K = mergedTaxAssessments.some((a) => a.taxSection === "SECTION_236K");
+  const taxesReady = has236C && has236K;
 
   const deathReadiness = isDeath
     ? validateDeathTransferReadiness({
@@ -250,15 +270,54 @@ export default async function TransferDetailPage({
           deathDocChecklist={deathDocChecklist}
         />
       ) : (
-        <SaleWorkflow
-          transfer={transfer}
-          canApprove={!!canApprove}
-          canComplete={!!canComplete}
-          canVerifyPay={!!canVerifyPay}
-          activeMortgage={activeMortgage}
-          verifiedPay={verifiedPay}
-          pendingPay={pendingPay}
-        />
+        <>
+          {fbrRates ? (
+            <div className="mb-6">
+              <FbrTaxAssessmentsPanel
+                assessments={mergedTaxAssessments.map((a) => ({
+                  id: a.id,
+                  assessmentNumber: a.assessmentNumber,
+                  taxSection: a.taxSection,
+                  partyRole: a.partyRole,
+                  filerStatus: a.filerStatus,
+                  dcValueSnapshot: String(a.dcValueSnapshot),
+                  ratePercent: String(a.ratePercent),
+                  amount: String(a.amount),
+                  paymentStatus: a.paymentStatus,
+                  challanNumber: a.challanNumber,
+                  cprNumber: a.cprNumber,
+                  paidAt: a.paidAt,
+                  partyName: a.partyName,
+                  partyCnic: a.partyCnic,
+                  createdAt: a.createdAt,
+                }))}
+                plotId={transfer.plotId}
+                transferId={transfer.id}
+                openFileId={transfer.openFiles[0]?.id ?? null}
+                dcValueDefault={transfer.plot.dcValue ? String(transfer.plot.dcValue) : ""}
+                rates={fbrRates}
+                sellerName={transfer.sellerName}
+                purchaserName={transfer.purchaserName}
+                canRecord={!!canEdit && transfer.status !== "COMPLETED"}
+                canMarkPaid={!!canMarkPaid}
+                allow236C
+                allow236K
+                emptyTitle="No FBR tax recorded on this transfer"
+                emptyDescription="Direct sales record seller 236C and purchaser 236K on the DC value at transfer. Open-file sales already have 236C from the open file; record 236K when the purchaser is named."
+              />
+            </div>
+          ) : null}
+          <SaleWorkflow
+            transfer={transfer}
+            canApprove={!!canApprove}
+            canComplete={!!canComplete}
+            canVerifyPay={!!canVerifyPay}
+            activeMortgage={activeMortgage}
+            verifiedPay={verifiedPay}
+            pendingPay={pendingPay}
+            taxesReady={taxesReady}
+          />
+        </>
       )}
     </div>
   );
@@ -545,6 +604,7 @@ function SaleWorkflow({
   activeMortgage,
   verifiedPay,
   pendingPay,
+  taxesReady,
 }: {
   transfer: NonNullable<Awaited<ReturnType<typeof prisma.transfer.findUnique>> & object> & {
     plot: { mortgages: { bankName: string }[]; physicalFile: { fileNumber: string } | null };
@@ -560,6 +620,7 @@ function SaleWorkflow({
   activeMortgage?: { bankName: string };
   verifiedPay?: { id: string };
   pendingPay?: { id: string };
+  taxesReady: boolean;
 }) {
   return (
     <>
@@ -769,14 +830,21 @@ function SaleWorkflow({
               <ConfirmActionForm
                 action={bindFormAction(completeTransferAction)}
                 confirmTitle="Complete transfer?"
-                confirmDescription="This will issue a new membership to the purchaser and mark the seller membership as TRANSFERRED. Ownership history is preserved and this step cannot be undone."
+                confirmDescription="This will issue a new membership to the purchaser and mark the seller membership as TRANSFERRED. Ownership history is preserved and this step cannot be undone. FBR 236C and 236K snapshots already recorded on this transfer are kept as-is."
                 submitLabel="Complete transfer (new membership + history)"
                 className="w-full"
                 buttonClassName="w-full"
-                disabled={!!activeMortgage}
+                disabled={!!activeMortgage || !taxesReady}
               >
                 <input type="hidden" name="id" value={transfer.id} />
               </ConfirmActionForm>
+            ) : null}
+
+            {canComplete && transfer.status === "APPROVED" && !taxesReady ? (
+              <p className="text-sm text-amber-800">
+                Record seller 236C and purchaser 236K (paid or unpaid) against this transfer before
+                completing.
+              </p>
             ) : null}
 
             {transfer.status === "COMPLETED" && transfer.toOwnership ? (

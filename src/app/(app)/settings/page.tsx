@@ -20,6 +20,9 @@ import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import type { FeeType } from "@/generated/prisma/client";
 import { updateTankerPriceConfig } from "@/app/(app)/tankers/actions";
 import { getActiveTankerPrice, TANKER_TYPE_LABELS } from "@/lib/tankers";
+import { updateFbrTaxRates } from "./tax-actions";
+import { FBR_TAX_RATE_DEFAULTS, FBR_TAX_RATE_KEYS } from "@/lib/fbr-tax-shared";
+import { getFbrTaxRates } from "@/lib/fbr-tax";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +84,7 @@ export default async function SettingsPage() {
     (hasPermission(session.user.role, "manage_settings") ||
       hasPermission(session.user.role, "configure_fees"));
 
-  const [feeConfigs, sequences, systemSettings, sizeOptions, cleanWaterPrice, constructionWaterPrice] =
+  const [feeConfigs, sequences, systemSettings, sizeOptions, cleanWaterPrice, constructionWaterPrice, fbrRates] =
     await Promise.all([
     prisma.feeConfiguration.findMany({
       orderBy: [{ feeType: "asc" }, { effectiveFrom: "desc" }],
@@ -94,6 +97,7 @@ export default async function SettingsPage() {
     }),
     getActiveTankerPrice("CLEAN_WATER"),
     getActiveTankerPrice("CONSTRUCTION_WATER"),
+    getFbrTaxRates(),
   ]);
 
   const slaSettingsMap = Object.fromEntries(systemSettings.map((s) => [s.key, s.value]));
@@ -209,6 +213,74 @@ export default async function SettingsPage() {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="font-display text-lg font-semibold">FBR 236C / 236K tax rates</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Percent of the plot DC value. Filer (active taxpayer) is lower; non-filer is higher, up to
+              10.5%. 236C is the seller&apos;s tax; 236K is the purchaser&apos;s tax when they transfer into
+              their name. Changing rates does not rewrite assessments already snapped on a transfer or
+              open file.
+            </p>
+          </div>
+          {canConfigure ? (
+            <form
+              action={updateFbrTaxRates}
+              className="grid gap-4 border-b border-slate-100 bg-slate-50/50 px-5 py-4 sm:grid-cols-2 lg:grid-cols-4"
+            >
+              {(
+                [
+                  { key: FBR_TAX_RATE_KEYS.cFiler, value: fbrRates.cFiler },
+                  { key: FBR_TAX_RATE_KEYS.cNonFiler, value: fbrRates.cNonFiler },
+                  { key: FBR_TAX_RATE_KEYS.kFiler, value: fbrRates.kFiler },
+                  { key: FBR_TAX_RATE_KEYS.kNonFiler, value: fbrRates.kNonFiler },
+                ] as const
+              ).map(({ key, value }) => (
+                <div key={key}>
+                  <Label htmlFor={key}>{FBR_TAX_RATE_DEFAULTS[key].label}</Label>
+                  <Input
+                    id={key}
+                    name={key}
+                    type="number"
+                    min={0.01}
+                    max={10.5}
+                    step="0.1"
+                    required
+                    className="mt-1"
+                    defaultValue={value}
+                  />
+                </div>
+              ))}
+              <div className="flex items-end sm:col-span-2 lg:col-span-4">
+                <Button type="submit">Save FBR tax rates</Button>
+              </div>
+            </form>
+          ) : (
+            <p className="px-5 py-3 text-sm text-slate-600">You do not have permission to change tax rates.</p>
+          )}
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Section</th>
+                <th>Filer</th>
+                <th>Non-filer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>236C seller</td>
+                <td className="font-mono">{fbrRates.cFiler}%</td>
+                <td className="font-mono">{fbrRates.cNonFiler}%</td>
+              </tr>
+              <tr>
+                <td>236K purchaser</td>
+                <td className="font-mono">{fbrRates.kFiler}%</td>
+                <td className="font-mono">{fbrRates.kNonFiler}%</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
         {canConfigure ? (
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
             <div className="border-b border-slate-100 px-5 py-4">

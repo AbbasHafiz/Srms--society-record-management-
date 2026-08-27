@@ -94,3 +94,7 @@ export async function nextNecNumber(sector?: string) {
 export async function nextPoaNumber() {
   return nextSequence("poa", "POA", 4);
 }
+
+export async function nextTaxAssessmentNumber() {
+  return nextSequence("tax_assessment", "FBR", 4);
+}

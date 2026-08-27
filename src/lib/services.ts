@@ -6,6 +6,7 @@ import { computeAllotmentLetterDue } from "@/lib/sla";
 import { validateDeathTransferReadiness } from "@/lib/death-transfer";
 import type { Prisma } from "@/generated/prisma/client";
 import { closeOpenFilesForTransfer } from "@/lib/open-files";
+import { attachOpenFileSellerTaxToTransfer, requireSaleTaxAssessments } from "@/lib/fbr-tax";
 
 /**
  * Completes a transfer while preserving full ownership history.
@@ -56,6 +57,12 @@ export async function completeTransfer(transferId: string, userId: string) {
   if (!verifiedPayment) {
     throw new Error("Transfer payment must be verified by Finance before completion");
   }
+
+  await attachOpenFileSellerTaxToTransfer(prisma, {
+    plotId: transfer.plotId,
+    transferId: transfer.id,
+  });
+  await requireSaleTaxAssessments(prisma, transfer.id);
 
   const activeOwner = transfer.plot.ownerships[0];
   if (!activeOwner) throw new Error("No active ownership found for plot");

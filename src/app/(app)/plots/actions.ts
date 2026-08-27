@@ -43,6 +43,12 @@ function parsePlotForm(formData: FormData) {
   const sizeSqYdRaw = String(formData.get("sizeSqYd") || "").trim();
   const sizeSqYd = sizeSqYdRaw ? Number(sizeSqYdRaw) : null;
 
+  const dcValueRaw = String(formData.get("dcValue") || "").replace(/,/g, "").trim();
+  const dcValue = dcValueRaw ? Number(dcValueRaw) : null;
+  if (dcValueRaw && (!Number.isFinite(dcValue) || dcValue! <= 0)) {
+    throw new Error("DC value must be a positive amount in PKR");
+  }
+
   return {
     plotNumber: String(formData.get("plotNumber") || "").trim(),
     sector: String(formData.get("sector") || "").trim(),
@@ -50,6 +56,7 @@ function parsePlotForm(formData: FormData) {
     street: String(formData.get("street") || "").trim() || null,
     sizeMarla,
     sizeSqYd,
+    dcValue,
     plotType: plotType as PlotType,
     otherDetail,
     possessionStatus: possessionStatus as PossessionStatus,

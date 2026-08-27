@@ -14,6 +14,8 @@ import { formatCurrency } from "@/lib/utils";
 import { LIVE_OPEN_FILE_STATUSES, UNPAID_PLOT_CHARGE_STATUSES } from "@/lib/open-files";
 import { OPEN_FILE_STORY } from "@/lib/open-files-shared";
 import { isSalePoa } from "@/lib/poa-shared";
+import { getFbrTaxRates } from "@/lib/fbr-tax";
+import { Seller236COpenFileFields } from "@/components/tax/seller-236c-open-file-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +32,7 @@ export default async function NewOpenFilePage({
   const sp = await searchParams;
   const q = sp.q?.trim();
 
-  const [plots, fee, activeDealerCount] = await Promise.all([
+  const [plots, fee, activeDealerCount, fbrRates] = await Promise.all([
     prisma.plot.findMany({
       where: q
         ? {
@@ -85,6 +87,7 @@ export default async function NewOpenFilePage({
       orderBy: { effectiveFrom: "desc" },
     }),
     prisma.registeredOffice.count({ where: { status: "ACTIVE" } }),
+    getFbrTaxRates(),
   ]);
 
   const selectedPlot = sp.plotId ? plots.find((p) => p.id === sp.plotId) : undefined;
@@ -237,6 +240,13 @@ export default async function NewOpenFilePage({
               month: c.month,
               amount: String(c.amount),
             }))}
+          />
+
+          <Seller236COpenFileFields
+            dcValueDefault={selectedPlot.dcValue ? String(selectedPlot.dcValue) : ""}
+            filerRate={fbrRates.cFiler}
+            nonFilerRate={fbrRates.cNonFiler}
+            sellerName={owner.ownerName}
           />
 
           <div className="sm:col-span-2">

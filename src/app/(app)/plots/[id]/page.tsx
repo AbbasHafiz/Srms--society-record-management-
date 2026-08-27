@@ -20,6 +20,7 @@ import { plotSizeDisplay, NOC_PURPOSE_LABELS } from "@/lib/property-sizes";
 import { hasPermission } from "@/lib/rbac";
 import { formatCurrency, formatDate, formatDateTime, daysUntil, labelize } from "@/lib/utils";
 import { poaKindLabel, poaPurposeLabel, poaStatusLabel } from "@/lib/poa-shared";
+import { PlotDcValueForm } from "@/components/tax/plot-dc-value-form";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,7 @@ export default async function PlotProfilePage({
       openFiles: { include: { renewals: true }, orderBy: { openingDate: "desc" } },
       powerOfAttorneys: { orderBy: { createdAt: "desc" } },
       payments: { orderBy: { createdAt: "desc" } },
+      taxAssessments: { orderBy: { createdAt: "desc" } },
       plotCharges: { orderBy: [{ year: "desc" }, { month: "desc" }] },
       physicalFile: {
         include: {
@@ -237,6 +239,10 @@ export default async function PlotProfilePage({
                 <Row label="Development" value={labelize(plot.developmentStatus)} />
                 <Row label="Possession" value={labelize(plot.possessionStatus)} />
                 <Row label="Annual Charges" value={labelize(plot.annualChargesStatus)} />
+                <Row
+                  label="DC value"
+                  value={plot.dcValue ? formatCurrency(plot.dcValue) : "Not set"}
+                />
               </InfoBlock>
               <InfoBlock title="Current Snapshot">
                 <Row label="Owner" value={activeOwner?.ownerName || "—"} />
@@ -253,6 +259,65 @@ export default async function PlotProfilePage({
                   }
                 />
               </InfoBlock>
+              {canEdit ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+                  <h3 className="font-display mb-2 text-base font-semibold">Deputy Commissioner (DC) value</h3>
+                  <PlotDcValueForm
+                    plotId={plot.id}
+                    currentDcValue={plot.dcValue ? String(plot.dcValue) : null}
+                  />
+                </div>
+              ) : null}
+              {plot.taxAssessments.length > 0 ? (
+                <div className="md:col-span-2">
+                  <h3 className="font-display mb-3 text-lg font-semibold">FBR tax snapshots</h3>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>No.</th>
+                        <th>Section</th>
+                        <th>Party</th>
+                        <th>DC / rate</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plot.taxAssessments.map((a) => (
+                        <tr key={a.id}>
+                          <td className="font-mono text-sm">{a.assessmentNumber}</td>
+                          <td>{a.taxSection === "SECTION_236C" ? "236C seller" : "236K purchaser"}</td>
+                          <td>
+                            {a.partyName}
+                            {a.transferId ? (
+                              <>
+                                {" "}
+                                <Link href={`/transfers/${a.transferId}`} className="text-teal-800 hover:underline">
+                                  transfer
+                                </Link>
+                              </>
+                            ) : a.openFileId ? (
+                              <>
+                                {" "}
+                                <Link href={`/open-files/${a.openFileId}`} className="text-teal-800 hover:underline">
+                                  open file
+                                </Link>
+                              </>
+                            ) : null}
+                          </td>
+                          <td>
+                            {formatCurrency(a.dcValueSnapshot)} · {String(a.ratePercent)}%
+                          </td>
+                          <td>{formatCurrency(a.amount)}</td>
+                          <td>
+                            <Badge status={a.paymentStatus} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
               <div className="md:col-span-2">
                 <h3 className="font-display mb-3 text-lg font-semibold">Ownership Timeline</h3>
                 <OwnershipTimeline ownerships={plot.ownerships} />

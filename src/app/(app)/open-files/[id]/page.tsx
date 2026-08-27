@@ -23,6 +23,8 @@ import { canRegisterOpenFile, hasPermission } from "@/lib/rbac";
 import { isLiveOpenFileStatus, openFileStatusLabel } from "@/lib/open-files";
 import { OPEN_FILE_STORY, holderTypeLabel, sellerAppearanceLabel } from "@/lib/open-files-shared";
 import { poaKindLabel } from "@/lib/poa-shared";
+import { getFbrTaxRates } from "@/lib/fbr-tax";
+import { FbrTaxAssessmentsPanel } from "@/components/tax/fbr-tax-assessments-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +72,7 @@ export default async function OpenFileDetailPage({
       renewals: { orderBy: { renewalDate: "desc" } },
       payments: { orderBy: { createdAt: "desc" } },
       considerations: { orderBy: { createdAt: "desc" } },
+      taxAssessments: { orderBy: { createdAt: "asc" } },
       documents: {
         where: { documentType: { in: ["DEALER_LETTERHEAD", "ALLOTMENT_LETTER"] } },
         orderBy: { version: "desc" },
@@ -82,6 +85,12 @@ export default async function OpenFileDetailPage({
   const session = await auth();
   const canCreate = session?.user && canRegisterOpenFile(session.user.role);
   const canEdit = session?.user && (hasPermission(session.user.role, "edit") || canCreate);
+  const canMarkPaid =
+    session?.user &&
+    (hasPermission(session.user.role, "verify_payment") ||
+      hasPermission(session.user.role, "edit") ||
+      hasPermission(session.user.role, "complete_transfer"));
+  const fbrRates = await getFbrTaxRates();
   const days = daysUntil(openFile.expiryDate);
   const live = isLiveOpenFileStatus(openFile.status);
   const canClose = live || openFile.status === "EXPIRED";
@@ -695,6 +704,41 @@ export default async function OpenFileDetailPage({
               title: "Other open-file papers",
             },
           ]}
+        />
+      </div>
+
+      <div className="mt-6">
+        <FbrTaxAssessmentsPanel
+          assessments={openFile.taxAssessments.map((a) => ({
+            id: a.id,
+            assessmentNumber: a.assessmentNumber,
+            taxSection: a.taxSection,
+            partyRole: a.partyRole,
+            filerStatus: a.filerStatus,
+            dcValueSnapshot: String(a.dcValueSnapshot),
+            ratePercent: String(a.ratePercent),
+            amount: String(a.amount),
+            paymentStatus: a.paymentStatus,
+            challanNumber: a.challanNumber,
+            cprNumber: a.cprNumber,
+            paidAt: a.paidAt,
+            partyName: a.partyName,
+            partyCnic: a.partyCnic,
+            createdAt: a.createdAt,
+          }))}
+          plotId={openFile.plotId}
+          transferId={openFile.transferId}
+          openFileId={openFile.id}
+          dcValueDefault={openFile.plot.dcValue ? String(openFile.plot.dcValue) : ""}
+          rates={fbrRates}
+          sellerName={openFile.sellerName}
+          purchaserName={openFile.purchaserName}
+          canRecord={!!canEdit && live}
+          canMarkPaid={!!canMarkPaid}
+          allow236C
+          allow236K={false}
+          emptyTitle="No seller 236C recorded"
+          emptyDescription="Open files record only seller FBR 236C on the DC value. Purchaser 236K is assessed when an end buyer transfers into their name."
         />
       </div>
     </div>

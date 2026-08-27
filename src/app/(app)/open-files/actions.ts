@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { canRegisterOpenFile, hasPermission } from "@/lib/rbac";
-import { nextOpenFileNumber, nextReceiptNumber, nextTransferNumber } from "@/lib/numbering";
+import { nextOpenFileNumber, nextReceiptNumber, nextTransferNumber, nextTaxAssessmentNumber } from "@/lib/numbering";
 import { writeAuditLog } from "@/lib/audit";
 import { assignRegisteredOfficeToOpenFile } from "@/app/(app)/offices/actions";
 import { createDocumentWithUpload } from "@/lib/documents";
@@ -29,6 +29,12 @@ import {
   OPEN_FILE_SUPPORTING_DOC_TYPES,
 } from "@/lib/open-files-shared";
 import { requireActiveSalePoa } from "@/lib/poa";
+import {
+  createImmutableTaxAssessment,
+  parseTaxForm,
+  resolvePlotDcValue,
+  attachOpenFileSellerTaxToTransfer,
+} from "@/lib/fbr-tax";
 import type {
   DocumentType,
   OpenFileHolderType,
@@ -219,6 +225,15 @@ export async function createOpenFile(formData: FormData) {
       }
     }
 
+    const taxParsed = parseTaxForm(formData);
+    const sellerDcValue = (await resolvePlotDcValue(prisma, plotId, taxParsed.dcValueRaw)).dcValue;
+    if (taxParsed.paymentStatus === "PAID" && !taxParsed.challanNumber && !taxParsed.cprNumber) {
+      redirectWithError(
+        returnPath,
+        "Seller 236C is marked paid. Enter the PSID / challan or CPR number."
+      );
+    }
+
     const activeFee = await prisma.feeConfiguration.findFirst({
       where: { feeType: "OPEN_FILE", status: "ACTIVE" },
       orderBy: { effectiveFrom: "desc" },
@@ -235,6 +250,7 @@ export async function createOpenFile(formData: FormData) {
 
     const openFileNumber = await nextOpenFileNumber();
     const receiptNumber = await nextReceiptNumber();
+    const taxAssessmentNumber = await nextTaxAssessmentNumber();
     const chargeReceiptNumbers = await Promise.all(chargesToClear.map(() => nextReceiptNumber()));
 
     const openFile = await prisma.$transaction(async (tx) => {
@@ -345,6 +361,23 @@ export async function createOpenFile(formData: FormData) {
           data: { hasOpenFile: true },
         });
       }
+
+      await createImmutableTaxAssessment(tx, {
+        assessmentNumber: taxAssessmentNumber,
+        plotId,
+        openFileId: created.id,
+        taxSection: "SECTION_236C",
+        partyRole: "SELLER",
+        partyName: owner.ownerName,
+        partyCnic: owner.cnic,
+        filerStatus: taxParsed.filerStatus,
+        dcValue: sellerDcValue,
+        paymentStatus: taxParsed.paymentStatus,
+        challanNumber: taxParsed.challanNumber,
+        cprNumber: taxParsed.cprNumber,
+        remarks: taxParsed.remarks ?? "Seller FBR 236C recorded at open file (no 236K — purchaser empty)",
+        recordedById: session.user.id,
+      });
 
       return created;
     });
@@ -498,6 +531,10 @@ export async function startCloseInPurchaserName(formData: FormData) {
           purchaserAddress,
         },
       });
+      await attachOpenFileSellerTaxToTransfer(prisma, {
+        plotId: openFile.plotId,
+        transferId: openFile.transfer.id,
+      });
       await createDocumentWithUpload({
         plotId: openFile.plotId,
         ownershipId: owner.id,
@@ -555,6 +592,11 @@ export async function startCloseInPurchaserName(formData: FormData) {
       });
 
       return created;
+    });
+
+    await attachOpenFileSellerTaxToTransfer(prisma, {
+      plotId: openFile.plotId,
+      transferId: transfer.id,
     });
 
     await createDocumentWithUpload({

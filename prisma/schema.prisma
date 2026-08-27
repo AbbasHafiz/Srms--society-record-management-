@@ -206,6 +206,27 @@ enum FeeType {
   OTHER
 }
 
+/// FBR withholding on sale/purchase of immovable property (Income Tax Ordinance).
+enum TaxSection {
+  SECTION_236C
+  SECTION_236K
+}
+
+enum FilerStatus {
+  FILER
+  NON_FILER
+}
+
+enum TaxPartyRole {
+  SELLER
+  PURCHASER
+}
+
+enum TaxPaymentStatus {
+  PAID
+  UNPAID
+}
+
 enum FileStatus {
   IN_LOCKER
   CHECKED_OUT
@@ -558,6 +579,8 @@ model User {
   poasReceived          PowerOfAttorney[] @relation("PoaReceivedBy")
   poasCreated           PowerOfAttorney[] @relation("PoaCreatedBy")
   openFileDuesOverrides OpenFile[]        @relation("OpenFileDuesOverrideBy")
+  taxAssessmentsRecorded TransferTaxAssessment[] @relation("TaxAssessmentRecordedBy")
+  taxAssessmentsPaid     TransferTaxAssessment[] @relation("TaxAssessmentPaidBy")
 
   @@index([role])
   @@index([email])
@@ -605,12 +628,15 @@ model Plot {
   hasActiveMortgage     Boolean           @default(false)
   hasOpenFile           Boolean           @default(false)
   annualChargesStatus   ChargePeriodStatus @default(PENDING)
+  /// Deputy Commissioner (DC) valuation in PKR. Society-set; FBR 236C/236K are assessed on this figure.
+  dcValue               Decimal?          @db.Decimal(14, 2)
   remarks               String?
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
   ownerships       Ownership[]
   transfers        Transfer[]
+  taxAssessments   TransferTaxAssessment[]
   documents        Document[]
   possessions      Possession[]
   nocs             Noc[]
@@ -763,6 +789,7 @@ model Transfer {
   fileMovements FileMovement[]
   openFiles     OpenFile[]
   heirs         TransferHeir[]
+  taxAssessments TransferTaxAssessment[]
   whatsappOutbox WhatsAppOutbox[]
 
   @@index([plotId])
@@ -793,6 +820,46 @@ model TransferHeir {
 
   @@index([transferId])
   @@index([cnic])
+}
+
+/// Immutable FBR 236C (seller) / 236K (purchaser) snapshot against a transfer or open file.
+/// DC value, rate, filer status, and amount are never overwritten. Payment may move UNPAID → PAID.
+model TransferTaxAssessment {
+  id                 String           @id @default(cuid())
+  assessmentNumber   String           @unique
+  taxSection         TaxSection
+  partyRole          TaxPartyRole
+  filerStatus        FilerStatus
+  dcValueSnapshot    Decimal          @db.Decimal(14, 2)
+  ratePercent        Decimal          @db.Decimal(5, 2)
+  amount             Decimal          @db.Decimal(14, 2)
+  paymentStatus      TaxPaymentStatus @default(UNPAID)
+  challanNumber      String?
+  cprNumber          String?
+  paidAt             DateTime?
+  partyName          String
+  partyCnic          String?
+  remarks            String?
+
+  plotId             String
+  plot               Plot             @relation(fields: [plotId], references: [id])
+  transferId         String?
+  transfer           Transfer?        @relation(fields: [transferId], references: [id])
+  openFileId         String?
+  openFile           OpenFile?        @relation(fields: [openFileId], references: [id])
+
+  recordedById       String?
+  recordedBy         User?            @relation("TaxAssessmentRecordedBy", fields: [recordedById], references: [id])
+  paymentRecordedById String?
+  paymentRecordedBy  User?            @relation("TaxAssessmentPaidBy", fields: [paymentRecordedById], references: [id])
+
+  createdAt          DateTime         @default(now())
+
+  @@index([plotId])
+  @@index([transferId])
+  @@index([openFileId])
+  @@index([taxSection, paymentStatus])
+  @@index([assessmentNumber])
 }
 
 // ─── Documents (versioned, scoped to plot/owner/transfer) ────────────────────
@@ -1037,6 +1104,7 @@ model OpenFile {
   documents      Document[]
   payments       Payment[]
   considerations OpenFileConsideration[]
+  taxAssessments TransferTaxAssessment[]
 
   @@index([plotId])
   @@index([status])

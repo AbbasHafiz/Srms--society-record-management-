@@ -61,6 +61,22 @@ export default async function NewPlotPage() {
           <PlotPropertyDetailsFields sizeOptions={serializedSizes} />
           <div>
             <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+              DC value (PKR, optional)
+            </label>
+            <input
+              name="dcValue"
+              type="number"
+              min={1}
+              step="1"
+              placeholder="Deputy Commissioner valuation"
+              className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Used for FBR 236C (seller) and 236K (purchaser) tax. Can be set later on the plot profile.
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
               Remarks
             </label>
             <textarea

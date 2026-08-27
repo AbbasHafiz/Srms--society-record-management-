@@ -35,6 +35,8 @@ async function main() {
   await prisma.physicalFile.deleteMany();
   await prisma.fileLocation.deleteMany();
   await prisma.openFileRenewal.deleteMany();
+  await prisma.transferTaxAssessment.deleteMany();
+  await prisma.openFileConsideration.deleteMany();
   await prisma.document.deleteMany();
   await prisma.financeTransaction.deleteMany();
   await prisma.financeCategory.deleteMany();
@@ -52,6 +54,8 @@ async function main() {
   await prisma.transferHeir.deleteMany();
   await prisma.ownership.updateMany({ data: { transferInId: null, transferOutId: null } });
   await prisma.transfer.deleteMany();
+  await prisma.powerOfAttorneyStep.deleteMany();
+  await prisma.powerOfAttorney.deleteMany();
   await prisma.ownership.deleteMany();
   await prisma.plot.deleteMany();
   await prisma.feeConfiguration.deleteMany();
@@ -281,6 +285,7 @@ async function main() {
       { key: "receipt", prefix: "RCPT", nextValue: 1000, padLength: 5 },
       { key: "open_file", prefix: "OF", nextValue: 90, padLength: 4 },
       { key: "poa", prefix: "POA", nextValue: 10, padLength: 4 },
+      { key: "tax_assessment", prefix: "FBR", nextValue: 10, padLength: 4 },
       { key: "employee", prefix: "EMP", nextValue: 15, padLength: 3 },
       { key: "noc_application", prefix: "NOC", nextValue: 300, padLength: 4 },
       { key: "noc_issue", prefix: "NOC-E17", nextValue: 250, padLength: 4 },
@@ -330,6 +335,10 @@ async function main() {
       { key: "sla_noc_days", value: "7", label: "NOC issuance (days)" },
       { key: "sla_nec_days", value: "7", label: "NEC issuance (days)" },
       { key: "sla_utility_noc_days", value: "7", label: "Utility connection NOC (days)" },
+      { key: "fbr_236c_filer_percent", value: "1", label: "FBR 236C seller — active taxpayer / filer (%)" },
+      { key: "fbr_236c_nonfiler_percent", value: "2.7", label: "FBR 236C seller — non-filer (%)" },
+      { key: "fbr_236k_filer_percent", value: "2.7", label: "FBR 236K purchaser — active taxpayer / filer (%)" },
+      { key: "fbr_236k_nonfiler_percent", value: "10.5", label: "FBR 236K purchaser — non-filer (%)" },
       { key: "whatsapp_enabled", value: "true", label: "WhatsApp notifications enabled" },
       { key: "whatsapp_default_country_code", value: "92", label: "WhatsApp default country code (PK)" },
     ],
@@ -397,6 +406,7 @@ async function main() {
       hasActiveMortgage: false,
       hasOpenFile: false,
       annualChargesStatus: "PAID",
+      dcValue: 8000000,
     },
   });
 
@@ -493,6 +503,81 @@ async function main() {
   await prisma.ownership.update({ where: { id: owner2.id }, data: { transferInId: t1.id, transferOutId: t2.id } });
   await prisma.ownership.update({ where: { id: owner3.id }, data: { transferInId: t2.id } });
 
+  await prisma.transferTaxAssessment.createMany({
+    data: [
+      {
+        assessmentNumber: "FBR-0001",
+        taxSection: "SECTION_236C",
+        partyRole: "SELLER",
+        filerStatus: "FILER",
+        dcValueSnapshot: 8000000,
+        ratePercent: 1,
+        amount: 80000,
+        paymentStatus: "PAID",
+        challanNumber: "PSID-2018-236C-1001",
+        cprNumber: "CPR-236C-1001",
+        paidAt: owner1.endDate,
+        partyName: owner1.ownerName,
+        partyCnic: owner1.cnic,
+        plotId: plot123.id,
+        transferId: t1.id,
+        recordedById: admin.id,
+      },
+      {
+        assessmentNumber: "FBR-0002",
+        taxSection: "SECTION_236K",
+        partyRole: "PURCHASER",
+        filerStatus: "FILER",
+        dcValueSnapshot: 8000000,
+        ratePercent: 2.7,
+        amount: 216000,
+        paymentStatus: "PAID",
+        challanNumber: "PSID-2018-236K-1820",
+        cprNumber: "CPR-236K-1820",
+        paidAt: owner1.endDate,
+        partyName: owner2.ownerName,
+        partyCnic: owner2.cnic,
+        plotId: plot123.id,
+        transferId: t1.id,
+        recordedById: admin.id,
+      },
+      {
+        assessmentNumber: "FBR-0003",
+        taxSection: "SECTION_236C",
+        partyRole: "SELLER",
+        filerStatus: "NON_FILER",
+        dcValueSnapshot: 8000000,
+        ratePercent: 2.7,
+        amount: 216000,
+        paymentStatus: "PAID",
+        challanNumber: "PSID-2024-236C-1820",
+        cprNumber: "CPR-236C-1820",
+        paidAt: owner2.endDate,
+        partyName: owner2.ownerName,
+        partyCnic: owner2.cnic,
+        plotId: plot123.id,
+        transferId: t2.id,
+        recordedById: admin.id,
+      },
+      {
+        assessmentNumber: "FBR-0004",
+        taxSection: "SECTION_236K",
+        partyRole: "PURCHASER",
+        filerStatus: "FILER",
+        dcValueSnapshot: 8000000,
+        ratePercent: 2.7,
+        amount: 216000,
+        paymentStatus: "UNPAID",
+        partyName: owner3.ownerName,
+        partyCnic: owner3.cnic,
+        plotId: plot123.id,
+        transferId: t2.id,
+        recordedById: admin.id,
+        remarks: "Snapshot stored unpaid at completion; challan may be recorded later.",
+      },
+    ],
+  });
+
   await prisma.possession.create({
     data: {
       plotId: plot123.id,
@@ -585,6 +670,7 @@ async function main() {
       developmentStatus: "DEVELOPED",
       hasOpenFile: true,
       annualChargesStatus: "PENDING",
+      dcValue: 4500000,
     },
   });
 
@@ -619,7 +705,7 @@ async function main() {
     },
   });
 
-  await prisma.openFile.create({
+  const openFile084 = await prisma.openFile.create({
     data: {
       openFileNumber: "OF-0084",
       plotId: plot789.id,
@@ -661,6 +747,28 @@ async function main() {
           remarks: "Open-file fee paid to society as pay order",
         },
       },
+    },
+  });
+
+  await prisma.transferTaxAssessment.create({
+    data: {
+      assessmentNumber: "FBR-0005",
+      taxSection: "SECTION_236C",
+      partyRole: "SELLER",
+      filerStatus: "FILER",
+      dcValueSnapshot: 4500000,
+      ratePercent: 1,
+      amount: 45000,
+      paymentStatus: "PAID",
+      challanNumber: "PSID-OF-0084-236C",
+      cprNumber: "CPR-OF-0084-236C",
+      paidAt: new Date(Date.now() - 78 * 24 * 60 * 60 * 1000),
+      partyName: owner789.ownerName,
+      partyCnic: owner789.cnic,
+      plotId: plot789.id,
+      openFileId: openFile084.id,
+      recordedById: admin.id,
+      remarks: "Seller 236C at open file. Purchaser 236K not recorded — end buyer still empty.",
     },
   });
 
