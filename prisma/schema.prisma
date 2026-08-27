@@ -1976,6 +1976,7 @@ model Notification {
   @@index([isRead, createdAt])
   @@index([type])
   @@index([plotId])
+  @@index([type, recordId])
 }
 
 // ─── WhatsApp Notify Outbox (separate from in-app Notification alerts) ───────

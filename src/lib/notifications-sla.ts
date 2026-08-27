@@ -14,15 +14,22 @@ type UpsertInput = {
   recordId: string;
 };
 
+function dailyRecordId(recordId: string, dayKey: string) {
+  return `${recordId}:${dayKey}`;
+}
+
 async function upsertDailyNotification(input: UpsertInput) {
   const dayStart = startOfDay(new Date());
   const dayKey = format(dayStart, "yyyy-MM-dd");
+  const storedRecordId = dailyRecordId(input.recordId, dayKey);
 
   const existing = await prisma.notification.findFirst({
     where: {
       type: input.type,
-      recordId: input.recordId,
-      createdAt: { gte: dayStart },
+      OR: [
+        { recordId: storedRecordId },
+        { recordId: input.recordId, createdAt: { gte: dayStart } },
+      ],
     },
     orderBy: { createdAt: "desc" },
   });
@@ -37,6 +44,7 @@ async function upsertDailyNotification(input: UpsertInput) {
         href: input.href ?? undefined,
         plotId: input.plotId ?? undefined,
         priority: input.priority,
+        recordId: storedRecordId,
       },
     });
   }
@@ -49,12 +57,33 @@ async function upsertDailyNotification(input: UpsertInput) {
       message: input.message,
       href: input.href ?? undefined,
       plotId: input.plotId ?? undefined,
-      recordId: `${input.recordId}:${dayKey}`,
+      recordId: storedRecordId,
     },
   });
 }
 
+/** Collapse prior duplicate SLA rows caused by a recordId lookup/store mismatch. */
+async function collapseDuplicateSlaNotifications() {
+  await prisma.$executeRawUnsafe(`
+    WITH ranked AS (
+      SELECT
+        id,
+        row_number() OVER (
+          PARTITION BY type, regexp_replace(COALESCE("recordId", ''), ':[0-9]{4}-[0-9]{2}-[0-9]{2}$', '')
+          ORDER BY "createdAt" DESC
+        ) AS rn
+      FROM "Notification"
+    )
+    DELETE FROM "Notification" WHERE id IN (SELECT id FROM ranked WHERE rn > 1)
+  `);
+}
+
 export async function refreshSlaNotifications() {
+  const unreadCount = await prisma.notification.count({ where: { isRead: false } });
+  if (unreadCount > 40) {
+    await collapseDuplicateSlaNotifications();
+  }
+
   const now = new Date();
   const today = startOfDay(now);
   const in30 = new Date();

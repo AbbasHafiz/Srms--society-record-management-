@@ -58,11 +58,13 @@ export async function completeTransfer(transferId: string, userId: string) {
     throw new Error("Transfer payment must be verified by Finance before completion");
   }
 
-  await attachOpenFileSellerTaxToTransfer(prisma, {
-    plotId: transfer.plotId,
-    transferId: transfer.id,
-  });
-  await requireSaleTaxAssessments(prisma, transfer.id);
+  if (transfer.transferType === "SALE") {
+    await attachOpenFileSellerTaxToTransfer(prisma, {
+      plotId: transfer.plotId,
+      transferId: transfer.id,
+    });
+    await requireSaleTaxAssessments(prisma, transfer.id);
+  }
 
   const activeOwner = transfer.plot.ownerships[0];
   if (!activeOwner) throw new Error("No active ownership found for plot");

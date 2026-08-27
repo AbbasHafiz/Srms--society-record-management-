@@ -89,6 +89,15 @@ export default async function TransferDetailPage({
       fromOwnership: true,
       heirs: { orderBy: { createdAt: "asc" } },
       documents: { where: { status: "ACTIVE" }, orderBy: { createdAt: "desc" } },
+      powerOfAttorney: {
+        select: {
+          id: true,
+          poaNumber: true,
+          attorneyName: true,
+          attorneyCnic: true,
+          status: true,
+        },
+      },
       openFiles: {
         orderBy: { openingDate: "desc" },
         take: 5,
@@ -613,6 +622,13 @@ function SaleWorkflow({
     approvedBy: { name: string } | null;
     completedBy: { name: string } | null;
     toOwnership: { membershipNumber: string; ownerName: string } | null;
+    powerOfAttorney?: {
+      id: string;
+      poaNumber: string;
+      attorneyName: string;
+      attorneyCnic: string;
+      status: string;
+    } | null;
   };
   canApprove: boolean;
   canComplete: boolean;
@@ -643,8 +659,18 @@ function SaleWorkflow({
             <Row label="Contact" value={transfer.sellerContact || "—"} />
             <Row
               label="Present personally"
-              value={transfer.sellerPresentPersonally ? "Yes" : "No"}
+              value={transfer.sellerPresentPersonally ? "Yes" : transfer.powerOfAttorneyId ? "No — via attorney" : "No"}
             />
+            {transfer.powerOfAttorney ? (
+              <Row
+                label="Sale PoA"
+                value={
+                  <Link href={`/poa/${transfer.powerOfAttorney.id}`} className="text-teal-900 hover:underline">
+                    {transfer.powerOfAttorney.poaNumber} · {transfer.powerOfAttorney.attorneyName}
+                  </Link>
+                }
+              />
+            ) : null}
             <Row
               label="Identity verified"
               value={transfer.sellerIdentityVerified ? "Yes" : "No"}
@@ -657,20 +683,44 @@ function SaleWorkflow({
             <form action={updateTransferStep} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
               <input type="hidden" name="id" value={transfer.id} />
               <input type="hidden" name="step" value="3" />
-              <p className="text-sm font-medium text-slate-800">Step 3 — Seller identity verification</p>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="sellerPresentPersonally" value="yes" required />
-                Seller present personally
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="sellerIdentityVerified" value="yes" required />
-                Identity verified against CNIC
-              </label>
+              {transfer.powerOfAttorneyId ? (
+                <>
+                  <p className="text-sm font-medium text-slate-800">
+                    Step 3 — Attorney identity verification
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Seller is not appearing in person. Verify the attorney named on the linked sale
+                    PoA{transfer.powerOfAttorney ? ` (${transfer.powerOfAttorney.attorneyName})` : ""}.
+                  </p>
+                  <input type="hidden" name="sellerPresentPersonally" value="no" />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="attorneyPresent" value="yes" required />
+                    Attorney present at society with original PoA and identity documents
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="sellerIdentityVerified" value="yes" required />
+                    Attorney identity verified against CNIC
+                    {transfer.powerOfAttorney?.attorneyCnic ? ` (${transfer.powerOfAttorney.attorneyCnic})` : ""}
+                  </label>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-slate-800">Step 3 — Seller identity verification</p>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="sellerPresentPersonally" value="yes" required />
+                    Seller present personally
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="sellerIdentityVerified" value="yes" required />
+                    Identity verified against CNIC
+                  </label>
+                </>
+              )}
               <div>
                 <Label htmlFor="notes">Verification notes</Label>
                 <Input id="notes" name="sellerVerificationNotes" className="mt-1" />
               </div>
-              <Button type="submit">Confirm seller verification</Button>
+              <Button type="submit">Confirm {transfer.powerOfAttorneyId ? "attorney" : "seller"} verification</Button>
             </form>
           ) : null}
         </section>
