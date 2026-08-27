@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: society
+      POSTGRES_PASSWORD: society_dev
+      POSTGRES_DB: society_records
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U society -d society_records"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "43127:43127"
+    environment:
+      DATABASE_URL: postgresql://society:society_dev@db:5432/society_records?schema=public
+      AUTH_SECRET: society-records-docker-dev-secret-change-me
+      NEXTAUTH_URL: http://localhost:43127
+      UPLOAD_DIR: ./uploads
+      MEMBERSHIP_PREFIX: M
+      ALLOTMENT_PREFIX: AL
+      TRANSFER_PREFIX: TRD
+      FILE_PREFIX: PF
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

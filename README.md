@@ -76,6 +76,55 @@ Active mortgages block completion until bank clearance.
 | `npm run db:seed` | Seed demo data |
 | `npm run db:reset` | Reset schema + reseed |
 
+## Testing / Host
+
+### Cloud / local dev (port 43127)
+
+```bash
+cp .env.example .env   # set DATABASE_URL + AUTH_SECRET
+npm install
+npx prisma db push
+npm run db:seed        # skip if the database already has users
+npm run dev
+```
+
+Open [http://127.0.0.1:43127/login](http://127.0.0.1:43127/login).
+
+**Demo logins**
+
+| Email | Password | Role |
+|-------|----------|------|
+| admin@society.local | password123 | SUPER_ADMIN |
+| tanker@society.local | password123 | TANKER_OPERATOR (tanker desk) |
+| driver@society.local | password123 | TANKER_OPERATOR (driver-linked) |
+
+Tanker-specific UI: [http://127.0.0.1:43127/login/tanker](http://127.0.0.1:43127/login/tanker)
+
+Other seeded roles (same password): `transfer@society.local`, `finance@society.local`, `records@society.local`, `gm@society.local`, `secretary@society.local`, `security@society.local`.
+
+### Docker Compose (VPS / offline testing)
+
+No Vercel/Railway/Fly token is required. Run the app and PostgreSQL together:
+
+```bash
+docker compose up --build
+```
+
+On first start the entrypoint runs `prisma db push` and seeds when the `User` table is empty. The container runs the **Next.js dev server** (suitable for testing; use `npm run build && npm start` for production). App listens on [http://localhost:43127](http://localhost:43127).
+
+**Required environment** (set in `docker-compose.yml` or override):
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `AUTH_SECRET` | NextAuth session secret (long random string) |
+| `NEXTAUTH_URL` | Public base URL of the app (e.g. `http://localhost:43127`) |
+| `UPLOAD_DIR` | Writable path for uploaded documents (default `./uploads`) |
+
+Optional: `WHATSAPP_API_URL`, `WHATSAPP_API_TOKEN` for outbound WhatsApp gateway; otherwise wa.me deep links are generated only.
+
+Persisted volumes: `pgdata` (database), `uploads` (files).
+
 ## Git remotes
 
 This project uses two remotes:

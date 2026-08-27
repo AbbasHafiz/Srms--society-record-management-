@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { plotLabel } from "@/lib/plots";
+import { plotLabel } from "@/lib/plots-shared";
 import type { TankerDestinationMode } from "@/lib/tankers";
 
 type PlotResult = {

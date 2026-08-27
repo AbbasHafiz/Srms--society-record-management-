@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/db";
 import type { Role } from "@/generated/prisma/client";
 import type { FileLocation } from "@/generated/prisma/client";
+import { possessionLabel, isNonPossession } from "@/lib/plot-scan-shared";
+
+export { possessionLabel, isNonPossession } from "@/lib/plot-scan-shared";
 
 const OUTSTANDING_CHARGE_STATUSES = ["PENDING", "BILLED", "OVERDUE"] as const;
 const OUTSTANDING_PAYMENT_STATUSES = ["PENDING", "SUBMITTED", "OVERDUE", "UNPAID", "PARTIAL"] as const;
@@ -111,26 +114,4 @@ export function summarizeOutstanding(plot: {
     paymentTotal,
     grandTotal: chargeTotal + paymentTotal,
   };
-}
-
-export function possessionLabel(status: string): string {
-  switch (status) {
-    case "ISSUED":
-      return "Possession Issued";
-    case "APPROVED":
-      return "Possession Approved";
-    case "PENDING":
-      return "Possession Pending";
-    case "APPLIED":
-      return "Possession Applied";
-    case "REJECTED":
-      return "Possession Rejected";
-    case "NOT_APPLIED":
-    default:
-      return "Non-Possession / Not Applied";
-  }
-}
-
-export function isNonPossession(possessionStatus: string, developmentStatus: string): boolean {
-  return possessionStatus !== "ISSUED" || developmentStatus === "UNDEVELOPED" || developmentStatus === "VACANT";
 }

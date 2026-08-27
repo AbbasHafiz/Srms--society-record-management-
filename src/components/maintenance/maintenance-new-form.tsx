@@ -10,7 +10,7 @@ import {
   MAINTENANCE_PAYMENT_STATUSES,
   MAINTENANCE_STATUSES,
   MAINTENANCE_TYPE_SUGGESTIONS,
-} from "@/lib/maintenance";
+} from "@/lib/maintenance-shared";
 import { OtherSpecify } from "@/components/ui/other-specify";
 import { labelize } from "@/lib/utils";
 import { createMaintenanceWork } from "@/app/(app)/maintenance/actions";

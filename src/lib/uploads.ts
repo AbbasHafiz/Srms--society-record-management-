@@ -3,9 +3,11 @@ import fs from "fs/promises";
 import path from "path";
 import type { DocumentType, Role } from "@/generated/prisma/client";
 import { hasPermission } from "@/lib/rbac";
+import { fileDownloadHref, MAX_UPLOAD_BYTES } from "@/lib/uploads-shared";
+
+export { fileDownloadHref, MAX_UPLOAD_BYTES } from "@/lib/uploads-shared";
 
 export const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), "uploads");
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -84,8 +86,4 @@ export function canAccessDocumentFile(role: Role, documentType?: DocumentType | 
     return hasPermission(role, "view");
   }
   return hasPermission(role, "upload_document") || hasPermission(role, "verify_payment");
-}
-
-export function fileDownloadHref(relativePath: string): string {
-  return `/api/files/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OtherSpecify } from "@/components/ui/other-specify";
-import { VEHICLE_TYPE_OPTIONS, VEHICLE_USED_FOR_OPTIONS } from "@/lib/vehicles";
+import { VEHICLE_TYPE_OPTIONS, VEHICLE_USED_FOR_OPTIONS } from "@/lib/vehicles-shared";
 
 type Props = {
   action: (formData: FormData) => void | Promise<void>;

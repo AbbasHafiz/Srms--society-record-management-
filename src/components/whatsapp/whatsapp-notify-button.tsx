@@ -18,7 +18,7 @@ import {
 } from "@/app/(app)/notifications/whatsapp/actions";
 import type { NotifyRecipientType } from "@/generated/prisma/client";
 import type { WhatsAppNotifyResult } from "@/lib/whatsapp";
-import { renderTemplate } from "@/lib/whatsapp";
+import { renderTemplate } from "@/lib/whatsapp-shared";
 
 export type WhatsAppPresetRecipient = {
   key: string;

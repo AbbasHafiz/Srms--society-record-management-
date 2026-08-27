@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { OtherSpecify } from "@/components/ui/other-specify";
-import { HEIR_RELATION_LABELS } from "@/lib/death-transfer";
+import { HEIR_RELATION_LABELS } from "@/lib/death-transfer-shared";
 
 export function HeirRelationFields({
   defaultRelation = "SON",

@@ -6,7 +6,7 @@ import {
   ALL_PLOT_TYPES,
   ALL_POSSESSION_STATUSES,
   plotTypeLabel,
-} from "@/lib/plots";
+} from "@/lib/plots-shared";
 import { OtherSpecify } from "@/components/ui/other-specify";
 import { labelize } from "@/lib/utils";
 
