@@ -31,8 +31,19 @@ export async function completeTransfer(transferId: string, userId: string) {
   if (!transfer.purchaserName || !transfer.purchaserCnic) {
     throw new Error("Purchaser details are required");
   }
-  if (!transfer.sellerPresentPersonally || !transfer.sellerIdentityVerified) {
-    throw new Error("Seller must appear personally and be identity-verified");
+  if (!transfer.sellerIdentityVerified) {
+    throw new Error("Seller or attorney identity must be verified before completing the transfer.");
+  }
+  if (!transfer.sellerPresentPersonally && !transfer.powerOfAttorneyId) {
+    throw new Error(
+      "Seller must appear personally, or an active sale power of attorney must be linked to this case."
+    );
+  }
+  if (transfer.powerOfAttorneyId) {
+    const poa = await prisma.powerOfAttorney.findUnique({ where: { id: transfer.powerOfAttorneyId } });
+    if (!poa || poa.status !== "ACTIVE") {
+      throw new Error("Linked sale PoA is not active. Activate it before completing the transfer.");
+    }
   }
 
   if (transfer.plot.mortgages.length > 0) {

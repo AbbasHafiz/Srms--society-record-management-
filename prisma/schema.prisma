@@ -87,6 +87,13 @@ enum DocumentType {
   PAYMENT_PO
   DEALER_LETTERHEAD
   OPEN_FILE_DOCUMENT
+  SITE_PLAN
+  PREVIOUS_TRANSFER
+  POA_INSTRUMENT
+  POA_TEHSILDAR_CERTIFICATE
+  POA_FOREIGN_OFFICE_ATTESTATION
+  POA_ATTORNEY_CNIC
+  POA_PLOT_DOCUMENTS
   SIGNATURE
   THUMB_IMPRESSION
   OTHER
@@ -132,6 +139,60 @@ enum OpenFileStatus {
   EXPIRED
   CLOSED
   CANCELLED
+}
+
+enum OpenFileHolderType {
+  INVESTOR
+  DEALER
+}
+
+enum SellerAppearance {
+  IN_PERSON
+  VIA_ATTORNEY
+}
+
+enum PrincipalAbsenceReason {
+  ABROAD
+  UNWELL
+  OTHER
+}
+
+enum PowerOfAttorneyKind {
+  GENERAL_SALE
+  SPECIAL
+}
+
+enum PowerOfAttorneyPurpose {
+  SALE_OPEN_FILE_TRANSFER
+  POSSESSION_CONSTRUCTION
+  NOC_CERTIFICATE
+  OTHER
+}
+
+enum PowerOfAttorneyStatus {
+  DRAFT
+  SUBMITTED
+  TEHSILDAR_VERIFIED
+  FOREIGN_OFFICE_VERIFIED
+  ACCEPTED_BY_SOCIETY
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum PoaExecutionPlace {
+  PAKISTAN
+  ABROAD
+}
+
+enum PoaVerificationStepType {
+  EXECUTED
+  TEHSILDAR
+  FOREIGN_OFFICE
+  PRESENTED_TO_SOCIETY
+  ACTIVATED
+  REVOKED
+  EXPIRED
 }
 
 enum FeeType {
@@ -494,6 +555,9 @@ model User {
   messMealsCreated      MessMeal[]        @relation("MessMealCreatedBy")
   electricityBillsCreated ElectricityBill[] @relation("ElectricityBillCreatedBy")
   maintenanceWorksCreated MaintenanceWork[] @relation("MaintenanceWorkCreatedBy")
+  poasReceived          PowerOfAttorney[] @relation("PoaReceivedBy")
+  poasCreated           PowerOfAttorney[] @relation("PoaCreatedBy")
+  openFileDuesOverrides OpenFile[]        @relation("OpenFileDuesOverrideBy")
 
   @@index([role])
   @@index([email])
@@ -553,6 +617,7 @@ model Plot {
   necs             Nec[]
   mortgages        Mortgage[]
   openFiles        OpenFile[]
+  powerOfAttorneys PowerOfAttorney[]
   physicalFile     PhysicalFile?
   plotCharges      PlotCharge[]
   payments         Payment[]
@@ -621,6 +686,7 @@ model Ownership {
   necs        Nec[]
   mortgages   Mortgage[]
   openFiles   OpenFile[]
+  powerOfAttorneys PowerOfAttorney[]
   plotCharges PlotCharge[]
   payments    Payment[]
   financeTransactions FinanceTransaction[]
@@ -652,6 +718,8 @@ model Transfer {
   sellerContact         String?
   sellerAddress         String?
   sellerPresentPersonally Boolean      @default(false)
+  powerOfAttorneyId     String?
+  powerOfAttorney       PowerOfAttorney? @relation(fields: [powerOfAttorneyId], references: [id])
   sellerIdentityVerified  Boolean      @default(false)
   sellerVerifiedById    String?
   sellerVerifiedBy      User?          @relation("TransferVerifiedBy", fields: [sellerVerifiedById], references: [id])
@@ -705,6 +773,7 @@ model Transfer {
   @@index([sellerCnic])
   @@index([purchaserCnic])
   @@index([slaDueAt])
+  @@index([powerOfAttorneyId])
 }
 
 model TransferHeir {
@@ -742,6 +811,8 @@ model Document {
   mortgage       Mortgage?      @relation(fields: [mortgageId], references: [id])
   registeredOfficeId String?
   registeredOffice RegisteredOffice? @relation(fields: [registeredOfficeId], references: [id])
+  powerOfAttorneyId String?
+  powerOfAttorney PowerOfAttorney? @relation(fields: [powerOfAttorneyId], references: [id])
   documentType   DocumentType
   otherDetail    String?
   documentNumber String?
@@ -767,6 +838,7 @@ model Document {
   @@index([ownershipId])
   @@index([transferId])
   @@index([registeredOfficeId, documentType])
+  @@index([powerOfAttorneyId])
   @@index([status])
 }
 
@@ -790,11 +862,14 @@ model Possession {
   approvedById          String?
   approvedBy            User?             @relation("PossessionApprovedBy", fields: [approvedById], references: [id])
   remarks               String?
+  powerOfAttorneyId     String?
+  powerOfAttorney       PowerOfAttorney? @relation(fields: [powerOfAttorneyId], references: [id])
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
   @@index([plotId])
   @@index([approvalStatus])
+  @@index([powerOfAttorneyId])
 }
 
 model Noc {
@@ -822,6 +897,8 @@ model Noc {
   approvedById      String?
   approvedBy        User?             @relation("NocApprovedBy", fields: [approvedById], references: [id])
   remarks           String?
+  powerOfAttorneyId String?
+  powerOfAttorney   PowerOfAttorney? @relation(fields: [powerOfAttorneyId], references: [id])
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -830,6 +907,7 @@ model Noc {
   @@index([purpose])
   @@index([nocNumber])
   @@index([slaDueAt])
+  @@index([powerOfAttorneyId])
 }
 
 model PropertySizeOption {
@@ -936,12 +1014,29 @@ model OpenFile {
   purchaserContact     String?
   purchaserAddress     String?
   cancellationReason   String?
+  /// XYZ investor or dealer who paid the seller. Not the eventual end-buyer.
+  holderType           OpenFileHolderType?
+  holderName           String?
+  holderCnic           String?
+  holderContact        String?
+  holderAddress        String?
+  sellerAppearance     SellerAppearance @default(IN_PERSON)
+  powerOfAttorneyId    String?
+  powerOfAttorney      PowerOfAttorney? @relation(fields: [powerOfAttorneyId], references: [id])
+  documentsHandedOverAt DateTime?
+  allotmentLetterDocumentId String?
+  duesClearedAt        DateTime?
+  duesOverrideReason   String?
+  duesOverrideById     String?
+  duesOverrideBy       User?          @relation("OpenFileDuesOverrideBy", fields: [duesOverrideById], references: [id])
+  duesOverrideAt       DateTime?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
-  renewals  OpenFileRenewal[]
-  documents Document[]
-  payments  Payment[]
+  renewals       OpenFileRenewal[]
+  documents      Document[]
+  payments       Payment[]
+  considerations OpenFileConsideration[]
 
   @@index([plotId])
   @@index([status])
@@ -949,6 +1044,8 @@ model OpenFile {
   @@index([trdNumber])
   @@index([registeredOfficeId])
   @@index([transferId])
+  @@index([powerOfAttorneyId])
+  @@index([holderCnic])
 }
 
 // ─── Property Offices (registered dealers / society premises) ────────────────
@@ -1021,6 +1118,106 @@ model OpenFileRenewal {
   createdAt     DateTime      @default(now())
 
   @@index([openFileId])
+}
+
+/// Private sale consideration from XYZ investor/dealer to the seller. Distinct from society fees.
+model OpenFileConsideration {
+  id             String         @id @default(cuid())
+  openFileId     String
+  openFile       OpenFile       @relation(fields: [openFileId], references: [id])
+  amount         Decimal        @db.Decimal(12, 2)
+  paidAt         DateTime
+  paymentMethod  PaymentMethod
+  methodOther    String?
+  remarks        String?
+  createdAt      DateTime       @default(now())
+
+  @@index([openFileId])
+}
+
+// ─── Power of Attorney (plot-scoped, principal = owner/seller) ───────────────
+
+model PowerOfAttorney {
+  id                    String                   @id @default(cuid())
+  poaNumber             String                   @unique
+  plotId                String
+  plot                  Plot                     @relation(fields: [plotId], references: [id])
+  ownershipId           String?
+  ownership             Ownership?               @relation(fields: [ownershipId], references: [id])
+  kind                  PowerOfAttorneyKind
+  purpose               PowerOfAttorneyPurpose
+  purposeNotes          String?
+  status                PowerOfAttorneyStatus    @default(DRAFT)
+
+  principalName         String
+  principalCnic         String
+  principalMembershipNo String?
+  principalAbsenceReason PrincipalAbsenceReason?
+  principalAbsenceNotes String?
+
+  attorneyName          String
+  attorneyCnic          String
+  attorneyContact       String?
+  attorneyAddress       String?
+
+  executedAt            DateTime?
+  executionPlace        PoaExecutionPlace?
+  executionCity         String?
+
+  tehsildarOfficeName   String?
+  tehsildarCertificateNo String?
+  tehsildarVerifiedAt   DateTime?
+
+  foreignOfficeMission  String?
+  foreignOfficeCity     String?
+  foreignOfficeAttestationNo String?
+  foreignOfficeVerifiedAt DateTime?
+
+  presentedAt           DateTime?
+  receivedById          String?
+  receivedBy            User?                    @relation("PoaReceivedBy", fields: [receivedById], references: [id])
+
+  validFrom             DateTime?
+  validUntil            DateTime?
+  revokedAt             DateTime?
+  revocationReason      String?
+
+  remarks               String?
+  createdById           String?
+  createdBy             User?                    @relation("PoaCreatedBy", fields: [createdById], references: [id])
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  steps                 PowerOfAttorneyStep[]
+  documents             Document[]
+  openFiles             OpenFile[]
+  possessions           Possession[]
+  nocs                  Noc[]
+  transfers             Transfer[]
+
+  @@index([plotId])
+  @@index([ownershipId])
+  @@index([status])
+  @@index([principalCnic])
+  @@index([attorneyCnic])
+  @@index([kind, purpose])
+}
+
+model PowerOfAttorneyStep {
+  id                 String                  @id @default(cuid())
+  powerOfAttorneyId  String
+  powerOfAttorney    PowerOfAttorney         @relation(fields: [powerOfAttorneyId], references: [id])
+  stepType           PoaVerificationStepType
+  occurredAt         DateTime
+  officeName         String?
+  certificateNo      String?
+  notes              String?
+  recordedById       String?
+  documentId         String?
+  createdAt          DateTime                @default(now())
+
+  @@index([powerOfAttorneyId, createdAt])
+  @@index([stepType])
 }
 
 // ─── Fee Configuration (never mutate historical rates) ───────────────────────

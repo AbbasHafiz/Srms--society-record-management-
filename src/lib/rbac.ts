@@ -118,6 +118,7 @@ const PATH_MODULES = ([
   ["/notifications", "notifications"],
   ["/annual-charges", "annual-charges"],
   ["/open-files", "open-files"],
+  ["/poa", "poa"],
   ["/offices", "offices"],
   ["/physical-files", "physical-files"],
   ["/dashboard", "dashboard"],
@@ -166,6 +167,25 @@ export function canAccessPath(role: Role, pathname: string): boolean {
   return canAccessModule(role, routeModule);
 }
 
+const POA_REGISTER_ROLES: Role[] = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "SECRETARY",
+  "GM",
+  "TRANSFER_OFFICER",
+  "ASSOCIATE_TRANSFER_OFFICER",
+  "RECORD_MANAGER",
+];
+
+/** Records, transfer desk, secretary, and admins register PoA / open files. Finance is not required except fee payments. */
+export function canRegisterPoa(role: Role): boolean {
+  return POA_REGISTER_ROLES.includes(role);
+}
+
+export function canRegisterOpenFile(role: Role): boolean {
+  return canRegisterPoa(role) || hasPermission(role, "create");
+}
+
 export function canAccessModule(role: Role, module: string): boolean {
   if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
   const map: Record<string, Role[]> = {
@@ -197,6 +217,18 @@ export function canAccessModule(role: Role, module: string): boolean {
     payments: ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM", "FINANCE", "VIEWER"],
     finance: ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM", "FINANCE", "VIEWER"],
     "open-files": [
+      "SUPER_ADMIN",
+      "ADMIN",
+      "SECRETARY",
+      "GM",
+      "TRANSFER_OFFICER",
+      "ASSOCIATE_TRANSFER_OFFICER",
+      "RECORD_MANAGER",
+      "FINANCE",
+      "VIEWER",
+      "PRESIDENT",
+    ],
+    poa: [
       "SUPER_ADMIN",
       "ADMIN",
       "SECRETARY",

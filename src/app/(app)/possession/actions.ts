@@ -9,6 +9,7 @@ import { createDocumentWithUpload } from "@/lib/documents";
 import { nextPossessionApplicationNumber, nextPossessionLetterNumber } from "@/lib/numbering";
 import { canApprovePossession, canCreatePossessionApplication } from "@/lib/possession";
 import { computePossessionSlaDue } from "@/lib/sla";
+import { requireActiveSpecialPoa } from "@/lib/poa";
 import type { ApplicationStatus } from "@/generated/prisma/client";
 
 async function getActivePossessionFee() {
@@ -26,6 +27,8 @@ export async function createPossessionApplication(formData: FormData) {
   const plotId = String(formData.get("plotId") || "");
   const applicantName = String(formData.get("applicantName") || "").trim();
   const remarks = String(formData.get("remarks") || "").trim() || null;
+  const appearingInPerson = String(formData.get("ownerAppearingInPerson") || "yes") !== "no";
+  const powerOfAttorneyId = String(formData.get("powerOfAttorneyId") || "").trim() || null;
 
   if (!plotId) throw new Error("Plot is required");
 
@@ -37,6 +40,20 @@ export async function createPossessionApplication(formData: FormData) {
 
   const owner = plot.ownerships[0];
   if (!owner) throw new Error("No active owner on this plot");
+
+  let linkedPoaId: string | null = null;
+  if (!appearingInPerson) {
+    if (!powerOfAttorneyId) {
+      throw new Error("Owner is not present. Link an active special PoA for possession / construction.");
+    }
+    const poa = await requireActiveSpecialPoa({
+      poaId: powerOfAttorneyId,
+      plotId,
+      principalCnic: owner.cnic,
+      for: "possession",
+    });
+    linkedPoaId = poa.id;
+  }
 
   const feeConfig = await getActivePossessionFee();
   const applicationNumber = await nextPossessionApplicationNumber();
@@ -55,6 +72,7 @@ export async function createPossessionApplication(formData: FormData) {
       paymentStatus: "PENDING",
       approvalStatus: "SUBMITTED",
       remarks,
+      powerOfAttorneyId: linkedPoaId,
     },
   });
 

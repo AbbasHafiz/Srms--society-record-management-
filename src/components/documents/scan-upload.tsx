@@ -17,6 +17,7 @@ export type ScanUploadProps = {
   mortgageId?: string;
   openFileId?: string;
   registeredOfficeId?: string;
+  powerOfAttorneyId?: string;
   documentType: DocumentType;
   title: string;
   description?: string;
@@ -33,6 +34,7 @@ export async function ScanUpload({
   mortgageId,
   openFileId,
   registeredOfficeId,
+  powerOfAttorneyId,
   documentType,
   title,
   description,
@@ -55,6 +57,7 @@ export async function ScanUpload({
       ...(mortgageId ? { mortgageId } : {}),
       ...(openFileId ? { openFileId } : {}),
       ...(registeredOfficeId ? { registeredOfficeId } : {}),
+      ...(powerOfAttorneyId ? { powerOfAttorneyId } : {}),
       ...(documentNumber ? { documentNumber } : {}),
       ...(activeOnly ? { status: "ACTIVE" } : {}),
     },
@@ -118,6 +121,9 @@ export async function ScanUpload({
           {openFileId ? <input type="hidden" name="openFileId" value={openFileId} /> : null}
           {registeredOfficeId ? (
             <input type="hidden" name="registeredOfficeId" value={registeredOfficeId} />
+          ) : null}
+          {powerOfAttorneyId ? (
+            <input type="hidden" name="powerOfAttorneyId" value={powerOfAttorneyId} />
           ) : null}
           <input type="hidden" name="documentType" value={documentType} />
           <input type="hidden" name="title" value={title} />

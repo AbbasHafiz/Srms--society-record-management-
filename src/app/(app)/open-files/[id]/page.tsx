@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
+import { formatCurrency, formatDate, daysUntil, labelize } from "@/lib/utils";
 import { plotLabel } from "@/lib/plots";
 import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
@@ -19,11 +19,10 @@ import { RegisteredOfficeSelect } from "@/components/offices/registered-office-s
 import { QueryErrorBanner } from "@/components/ui/confirm-on-submit-form";
 import { ConfirmOnSubmitForm } from "@/components/ui/confirm-on-submit-form";
 import { fileDownloadHref } from "@/lib/uploads";
-import { hasPermission } from "@/lib/rbac";
-import {
-  isLiveOpenFileStatus,
-  openFileStatusLabel,
-} from "@/lib/open-files";
+import { canRegisterOpenFile, hasPermission } from "@/lib/rbac";
+import { isLiveOpenFileStatus, openFileStatusLabel } from "@/lib/open-files";
+import { OPEN_FILE_STORY, holderTypeLabel, sellerAppearanceLabel } from "@/lib/open-files-shared";
+import { poaKindLabel } from "@/lib/poa-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -66,13 +65,14 @@ export default async function OpenFileDetailPage({
       plot: true,
       ownership: true,
       registeredOffice: true,
+      powerOfAttorney: true,
       transfer: { select: { id: true, transferNumber: true, status: true } },
       renewals: { orderBy: { renewalDate: "desc" } },
       payments: { orderBy: { createdAt: "desc" } },
+      considerations: { orderBy: { createdAt: "desc" } },
       documents: {
-        where: { documentType: "DEALER_LETTERHEAD" },
+        where: { documentType: { in: ["DEALER_LETTERHEAD", "ALLOTMENT_LETTER"] } },
         orderBy: { version: "desc" },
-        take: 1,
       },
     },
   });
@@ -80,7 +80,7 @@ export default async function OpenFileDetailPage({
   if (!openFile) notFound();
 
   const session = await auth();
-  const canCreate = session?.user && hasPermission(session.user.role, "create");
+  const canCreate = session?.user && canRegisterOpenFile(session.user.role);
   const canEdit = session?.user && (hasPermission(session.user.role, "edit") || canCreate);
   const days = daysUntil(openFile.expiryDate);
   const live = isLiveOpenFileStatus(openFile.status);
@@ -88,13 +88,19 @@ export default async function OpenFileDetailPage({
   const expiringSoon = live && days <= 30;
   const poPayment = openFile.payments.find((p) => p.feeType === "OPEN_FILE") ?? openFile.payments[0];
   const letterhead =
-    openFile.documents.find((d) => d.id === openFile.letterheadDocumentId) ?? openFile.documents[0];
+    openFile.documents.find((d) => d.id === openFile.letterheadDocumentId) ??
+    openFile.documents.find((d) => d.documentType === "DEALER_LETTERHEAD");
+  const allotment =
+    openFile.documents.find((d) => d.id === openFile.allotmentLetterDocumentId) ??
+    openFile.documents.find((d) => d.documentType === "ALLOTMENT_LETTER");
+  const consideration = openFile.considerations[0];
+  const purchaserEmpty = !openFile.purchaserName;
 
   return (
     <div>
       <PageHeader
         title={openFile.openFileNumber}
-        description={`Dealer open file — letterhead + pay-order fee. Plot still in ${openFile.sellerName}'s name until closed in a purchaser's name.`}
+        description={OPEN_FILE_STORY}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {session?.user ? (
@@ -138,8 +144,8 @@ export default async function OpenFileDetailPage({
         <div className="mb-4">
           <WarningBanner>
             This open file expires in <strong>{days <= 0 ? "0 (overdue)" : days}</strong> day
-            {days === 1 ? "" : "s"}. Renew the dealer window, close it in a purchaser&apos;s name, or
-            withdraw it without changing ownership.
+            {days === 1 ? "" : "s"}. Renew the window, record an end buyer, or withdraw it without
+            changing ownership.
           </WarningBanner>
         </div>
       ) : null}
@@ -168,8 +174,15 @@ export default async function OpenFileDetailPage({
 
       {openFile.status === "CANCELLED" ? (
         <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
-          Withdrawn / cancelled without a purchaser. Ownership was not changed.
+          Withdrawn / cancelled without an end buyer. Ownership was not changed.
           {openFile.cancellationReason ? <> Reason: {openFile.cancellationReason}</> : null}
+        </div>
+      ) : null}
+
+      {live && purchaserEmpty ? (
+        <div className="mb-4 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">
+          {OPEN_FILE_STORY} Legal membership remains <strong>{openFile.sellerName}</strong>. Open-file
+          holder is {openFile.holderName ?? "not recorded"}.
         </div>
       ) : null}
 
@@ -195,7 +208,7 @@ export default async function OpenFileDetailPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Seller (current owner)</dt>
+                <dt className="text-xs font-medium uppercase text-slate-500">Seller (legal member)</dt>
                 <dd>{openFile.sellerName}</dd>
               </div>
               <div>
@@ -207,7 +220,43 @@ export default async function OpenFileDetailPage({
                 <dd>{openFile.sellerMembershipNo ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Dealer</dt>
+                <dt className="text-xs font-medium uppercase text-slate-500">Seller appearance</dt>
+                <dd>{sellerAppearanceLabel(openFile.sellerAppearance)}</dd>
+              </div>
+              {openFile.powerOfAttorney ? (
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-medium uppercase text-slate-500">Attorney</dt>
+                  <dd>
+                    <Link href={`/poa/${openFile.powerOfAttorney.id}`} className="text-teal-900 hover:underline">
+                      {openFile.powerOfAttorney.poaNumber}
+                    </Link>{" "}
+                    · {openFile.powerOfAttorney.attorneyName} ({poaKindLabel(openFile.powerOfAttorney.kind)})
+                  </dd>
+                </div>
+              ) : null}
+              <div>
+                <dt className="text-xs font-medium uppercase text-slate-500">Holder (XYZ)</dt>
+                <dd>
+                  {openFile.holderName ?? "—"}
+                  {openFile.holderType ? ` · ${holderTypeLabel(openFile.holderType)}` : ""}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase text-slate-500">XYZ CNIC</dt>
+                <dd>{openFile.holderCnic ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase text-slate-500">End purchaser</dt>
+                <dd>
+                  {purchaserEmpty ? (
+                    <span className="text-amber-800">Empty until a buyer purchases this open file</span>
+                  ) : (
+                    openFile.purchaserName
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase text-slate-500">Letterhead dealer</dt>
                 <dd>
                   {openFile.registeredOffice ? (
                     <Link href={`/offices/${openFile.registeredOffice.id}`} className="text-teal-900 hover:underline">
@@ -219,11 +268,7 @@ export default async function OpenFileDetailPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Dealer office / address</dt>
-                <dd>{openFile.dealerOffice ?? openFile.registeredOffice?.address ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Letterhead</dt>
+                <dt className="text-xs font-medium uppercase text-slate-500">Letterhead scan</dt>
                 <dd>
                   {letterhead ? (
                     <a
@@ -240,6 +285,23 @@ export default async function OpenFileDetailPage({
                 </dd>
               </div>
               <div>
+                <dt className="text-xs font-medium uppercase text-slate-500">Allotment letter</dt>
+                <dd>
+                  {allotment ? (
+                    <a
+                      href={fileDownloadHref(allotment.filePath)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-teal-900 hover:underline"
+                    >
+                      View scan (v{allotment.version})
+                    </a>
+                  ) : (
+                    <span className="text-amber-800">No allotment letter scan</span>
+                  )}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-xs font-medium uppercase text-slate-500">Opened</dt>
                 <dd>{formatDate(openFile.openingDate)}</dd>
               </div>
@@ -248,24 +310,24 @@ export default async function OpenFileDetailPage({
                 <dd>{formatDate(openFile.expiryDate)}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Open-file fee</dt>
+                <dt className="text-xs font-medium uppercase text-slate-500">Society open-file fee</dt>
                 <dd>{formatCurrency(openFile.feeAmount)}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">TRD number</dt>
-                <dd>{openFile.trdNumber ?? "—"}</dd>
+                <dt className="text-xs font-medium uppercase text-slate-500">Dues</dt>
+                <dd>
+                  {openFile.duesClearedAt
+                    ? `Cleared ${formatDate(openFile.duesClearedAt)}`
+                    : openFile.duesOverrideReason
+                      ? `Override: ${openFile.duesOverrideReason}`
+                      : "—"}
+                </dd>
               </div>
-              {openFile.purchaserName ? (
-                <>
-                  <div>
-                    <dt className="text-xs font-medium uppercase text-slate-500">Purchaser</dt>
-                    <dd>{openFile.purchaserName}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-medium uppercase text-slate-500">Purchaser CNIC</dt>
-                    <dd>{openFile.purchaserCnic ?? "—"}</dd>
-                  </div>
-                </>
+              {openFile.purchaserCnic ? (
+                <div>
+                  <dt className="text-xs font-medium uppercase text-slate-500">Purchaser CNIC</dt>
+                  <dd>{openFile.purchaserCnic}</dd>
+                </div>
               ) : null}
               {openFile.transfer ? (
                 <div className="sm:col-span-2">
@@ -285,7 +347,39 @@ export default async function OpenFileDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Pay order (open-file fee)</CardTitle>
+              <CardTitle>Private consideration (seller ← XYZ)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {consideration ? (
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-slate-500">Amount</dt>
+                    <dd className="font-medium">{formatCurrency(consideration.amount)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-slate-500">Date</dt>
+                    <dd>{formatDate(consideration.paidAt)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-slate-500">Method</dt>
+                    <dd>
+                      {labelize(consideration.paymentMethod)}
+                      {consideration.methodOther ? ` (${consideration.methodOther})` : ""}
+                    </dd>
+                  </div>
+                  <p className="pt-2 text-xs text-slate-500">
+                    Private sale row — not a society fee. Consideration rows are never overwritten.
+                  </p>
+                </dl>
+              ) : (
+                <p className="text-sm text-slate-600">No consideration row (older files may predate this).</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Pay order (society open-file fee)</CardTitle>
             </CardHeader>
             <CardContent>
               {poPayment ? (
@@ -339,14 +433,14 @@ export default async function OpenFileDetailPage({
           {canClose && canCreate ? (
             <Card>
               <CardHeader>
-                <CardTitle>Close file / record purchaser</CardTitle>
+                <CardTitle>Record end buyer / close file</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="mb-3 text-sm text-slate-600">
-                  When a buyer is found, record the purchaser and continue in the sale transfer
-                  wizard (documents, transfer fee, seller verification). Completing that transfer
-                  closes this file in the purchaser&apos;s name and adds them to plot ownership
-                  history.
+                  When a buyer purchases this open file they must prove identity (CNIC scan + particulars)
+                  and pay the society transfer fee in the sale transfer wizard. Completing that transfer
+                  closes this file in the buyer&apos;s name and adds a new ACTIVE ownership row — the
+                  seller row is never overwritten.
                 </p>
                 {openFile.transfer &&
                 openFile.transfer.status !== "COMPLETED" &&
@@ -356,13 +450,13 @@ export default async function OpenFileDetailPage({
                     <Link href={`/transfers/${openFile.transfer.id}`} className="font-medium text-teal-900 underline">
                       {openFile.transfer.transferNumber}
                     </Link>
-                    . Updating purchaser below continues that case.
+                    . Updating particulars below continues that case.
                   </p>
                 ) : null}
                 <form action={startCloseInPurchaserName} className="space-y-3">
                   <input type="hidden" name="openFileId" value={openFile.id} />
                   <div>
-                    <Label htmlFor="purchaserName">Purchaser name</Label>
+                    <Label htmlFor="purchaserName">End-buyer name</Label>
                     <Input
                       id="purchaserName"
                       name="purchaserName"
@@ -372,7 +466,7 @@ export default async function OpenFileDetailPage({
                     />
                   </div>
                   <div>
-                    <Label htmlFor="purchaserCnic">Purchaser CNIC</Label>
+                    <Label htmlFor="purchaserCnic">End-buyer CNIC</Label>
                     <Input
                       id="purchaserCnic"
                       name="purchaserCnic"
@@ -380,6 +474,17 @@ export default async function OpenFileDetailPage({
                       className="mt-1"
                       placeholder="12345-1234567-1"
                       defaultValue={openFile.purchaserCnic ?? ""}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="purchaserCnicScan">CNIC scan</Label>
+                    <Input
+                      id="purchaserCnicScan"
+                      name="purchaserCnicScan"
+                      type="file"
+                      required
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                      className="mt-1"
                     />
                   </div>
                   <div>
@@ -401,7 +506,7 @@ export default async function OpenFileDetailPage({
                     />
                   </div>
                   <Button type="submit" className="w-full">
-                    {openFile.transfer ? "Continue sale transfer" : "Start sale transfer"}
+                    Record end buyer / close file
                   </Button>
                 </form>
               </CardContent>
@@ -411,12 +516,12 @@ export default async function OpenFileDetailPage({
           {canClose && canEdit ? (
             <Card>
               <CardHeader>
-                <CardTitle>Withdraw without purchaser</CardTitle>
+                <CardTitle>Withdraw without end buyer</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="mb-3 text-sm text-slate-600">
-                  Cancel this listing if the seller pulls the plot or the window expires without a
-                  buyer. Ownership stays with {openFile.sellerName}.
+                  Cancel this open transfer if the seller or XYZ pulls the file. Ownership stays with{" "}
+                  {openFile.sellerName}.
                 </p>
                 <ConfirmOnSubmitForm
                   action={cancelOpenFile}
@@ -445,7 +550,7 @@ export default async function OpenFileDetailPage({
           {live ? (
             <Card>
               <CardHeader>
-                <CardTitle>Renew dealer window</CardTitle>
+                <CardTitle>Renew open-file window</CardTitle>
               </CardHeader>
               <CardContent>
                 <form action={renewAction} className="space-y-4">
@@ -535,14 +640,44 @@ export default async function OpenFileDetailPage({
       <div className="mt-8">
         <DocumentScansPanel
           heading="Open file scans"
-          description="Dealer letterhead is required at registration. Supporting papers (TRD, seller CNIC) stay versioned on this file."
+          description="Allotment letter and dealer letterhead are required at opening. Supporting papers stay versioned on this file."
           scans={[
             {
               plotId: openFile.plotId,
               openFileId: openFile.id,
               ownershipId: openFile.ownershipId ?? undefined,
+              documentType: "ALLOTMENT_LETTER",
+              title: "Allotment letter",
+              description: "Handed to XYZ with the plot documents",
+            },
+            {
+              plotId: openFile.plotId,
+              openFileId: openFile.id,
+              ownershipId: openFile.ownershipId ?? undefined,
               documentType: "DEALER_LETTERHEAD",
-              title: "Dealer letterhead",
+              title: "Dealer open-transfer letterhead",
+            },
+            {
+              plotId: openFile.plotId,
+              openFileId: openFile.id,
+              ownershipId: openFile.ownershipId ?? undefined,
+              documentType: "CNIC",
+              title: "CNIC",
+              description: "Seller, XYZ, or end-buyer identity scans",
+            },
+            {
+              plotId: openFile.plotId,
+              openFileId: openFile.id,
+              ownershipId: openFile.ownershipId ?? undefined,
+              documentType: "SITE_PLAN",
+              title: "Site plan",
+            },
+            {
+              plotId: openFile.plotId,
+              openFileId: openFile.id,
+              ownershipId: openFile.ownershipId ?? undefined,
+              documentType: "PREVIOUS_TRANSFER",
+              title: "Previous transfer",
             },
             {
               plotId: openFile.plotId,
@@ -550,7 +685,7 @@ export default async function OpenFileDetailPage({
               ownershipId: openFile.ownershipId ?? undefined,
               documentType: "PAYMENT_PO",
               title: "Pay order scan",
-              description: "Optional image of the open-file fee P.O.",
+              description: "Optional image of the society open-file fee P.O.",
             },
             {
               plotId: openFile.plotId,
@@ -558,7 +693,6 @@ export default async function OpenFileDetailPage({
               ownershipId: openFile.ownershipId ?? undefined,
               documentType: "OPEN_FILE_DOCUMENT",
               title: "Other open-file papers",
-              description: "TRD, seller CNIC, and other open-file paperwork",
             },
           ]}
         />

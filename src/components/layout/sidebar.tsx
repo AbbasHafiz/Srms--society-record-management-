@@ -57,6 +57,7 @@ const NAV = [
   { href: "/nec", label: "NEC", icon: ScrollText, module: "documents" },
   { href: "/mortgages", label: "Bank / Mortgage", icon: Landmark, module: "mortgages" },
   { href: "/open-files", label: "Open Files", icon: FolderOpen, module: "open-files" },
+  { href: "/poa", label: "Power of Attorney", icon: ScrollText, module: "poa" },
   { href: "/offices", label: "Property Offices", icon: Building2, module: "offices" },
   { href: "/payments", label: "Payments", icon: Wallet, module: "payments" },
   { href: "/annual-charges", label: "Annual Charges", icon: Receipt, module: "annual-charges" },

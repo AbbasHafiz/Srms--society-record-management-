@@ -11,6 +11,8 @@ import { plotSizeDisplay } from "@/lib/property-sizes";
 import { canCreateNocApplication } from "@/lib/noc";
 import { formatCurrency } from "@/lib/utils";
 import { redirect } from "next/navigation";
+import { OwnerAppearanceFields } from "@/components/poa/owner-appearance-fields";
+import { isNocPoa } from "@/lib/poa-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +56,19 @@ export default async function NewNocPage({
       include: {
         ownerships: { where: { status: "ACTIVE" }, take: 1 },
         mortgages: { where: { status: "ACTIVE" }, take: 1 },
+        powerOfAttorneys: {
+          where: { status: "ACTIVE" },
+          select: {
+            id: true,
+            poaNumber: true,
+            kind: true,
+            purpose: true,
+            attorneyName: true,
+            attorneyCnic: true,
+            status: true,
+            principalCnic: true,
+          },
+        },
       },
       take: 20,
       orderBy: { plotNumber: "asc" },
@@ -146,6 +161,15 @@ export default async function NewNocPage({
                     <form action={createNocApplication} className="max-w-md space-y-3 lg:min-w-[20rem]">
                       <input type="hidden" name="plotId" value={p.id} />
                       <NocApplicationFields defaultPurpose={defaultPurpose} />
+                      <OwnerAppearanceFields
+                        legend="Owner appearing for NOC"
+                        newPoaHref={`/poa/new?plotId=${p.id}`}
+                        poas={p.powerOfAttorneys.filter(
+                          (poa) =>
+                            isNocPoa(poa) &&
+                            poa.principalCnic.replace(/\D/g, "") === owner.cnic.replace(/\D/g, "")
+                        )}
+                      />
                       {mortgaged ? (
                         <label className="flex items-start gap-2 text-sm text-slate-700">
                           <input type="checkbox" name="acknowledgeMortgage" className="mt-1" />

@@ -19,6 +19,7 @@ import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-acti
 import { plotSizeDisplay, NOC_PURPOSE_LABELS } from "@/lib/property-sizes";
 import { hasPermission } from "@/lib/rbac";
 import { formatCurrency, formatDate, formatDateTime, daysUntil, labelize } from "@/lib/utils";
+import { poaKindLabel, poaPurposeLabel, poaStatusLabel } from "@/lib/poa-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ const TABS = [
   "mortgage",
   "payments",
   "open-file",
+  "poa",
   "physical-file",
   "movements",
   "audit",
@@ -67,6 +69,7 @@ export default async function PlotProfilePage({
       necs: { orderBy: { applicationDate: "desc" } },
       mortgages: { orderBy: { createdAt: "desc" } },
       openFiles: { include: { renewals: true }, orderBy: { openingDate: "desc" } },
+      powerOfAttorneys: { orderBy: { createdAt: "desc" } },
       payments: { orderBy: { createdAt: "desc" } },
       plotCharges: { orderBy: [{ year: "desc" }, { month: "desc" }] },
       physicalFile: {
@@ -199,8 +202,9 @@ export default async function PlotProfilePage({
           ) : null}
           {activeOpenFile ? (
             <WarningBanner>
-              Dealer open file {activeOpenFile.openFileNumber} expires in{" "}
-              {daysUntil(activeOpenFile.expiryDate)} days ({formatDate(activeOpenFile.expiryDate)})
+              Dealer open file {activeOpenFile.openFileNumber} is an open transfer (end purchaser not yet
+              named). Expires in {daysUntil(activeOpenFile.expiryDate)} days (
+              {formatDate(activeOpenFile.expiryDate)})
             </WarningBanner>
           ) : null}
         </div>
@@ -358,6 +362,7 @@ export default async function PlotProfilePage({
           )}
 
           {tab === "owner" && activeOwner && (
+            <div className="space-y-6">
             <InfoBlock title="Active Owner Record">
               <Row label="Name" value={activeOwner.ownerName} />
               <Row label="CNIC" value={activeOwner.cnic} />
@@ -368,6 +373,37 @@ export default async function PlotProfilePage({
               <Row label="Start" value={formatDate(activeOwner.startDate)} />
               <Row label="Status" value={<Badge status={activeOwner.status} />} />
             </InfoBlock>
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="font-medium text-slate-900">Powers of attorney</h3>
+                {canEdit ? (
+                  <Link href={`/poa/new?plotId=${plot.id}`} className="text-sm text-teal-800 hover:underline">
+                    Register PoA
+                  </Link>
+                ) : null}
+              </div>
+              {plot.powerOfAttorneys.length === 0 ? (
+                <p className="text-sm text-slate-600">
+                  No PoA on this owner. Register one if the seller is abroad or unwell, or for a special
+                  purpose (possession, NOC).
+                </p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {plot.powerOfAttorneys.map((p) => (
+                    <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-2">
+                      <Link href={`/poa/${p.id}`} className="font-medium text-teal-900 hover:underline">
+                        {p.poaNumber}
+                      </Link>
+                      <span>
+                        {p.attorneyName} · {poaKindLabel(p.kind)}
+                      </span>
+                      <Badge status={p.status}>{poaStatusLabel(p.status)}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            </div>
           )}
 
           {tab === "history" && (
@@ -761,8 +797,8 @@ export default async function PlotProfilePage({
           {tab === "open-file" && (
             plot.openFiles.length === 0 ? (
               <p className="px-5 py-8 text-sm text-slate-600">
-                No dealer open files on this plot. An open file is a seller listing through a
-                registered dealer (letterhead + pay-order fee) — it does not change ownership.
+                No open files on this plot. An open transfer is a sale to an investor or dealer — end
+                purchaser stays empty until a later buyer closes the file.
               </p>
             ) : (
             <table className="data-table">
@@ -803,6 +839,51 @@ export default async function PlotProfilePage({
                 ))}
               </tbody>
             </table>
+            )
+          )}
+
+          {tab === "poa" && (
+            plot.powerOfAttorneys.length === 0 ? (
+              <div className="px-5 py-8">
+                <p className="text-sm text-slate-600">
+                  No power of attorney on this plot. Register one if the owner is abroad or unwell, or
+                  for possession / NOC when the owner cannot appear.
+                </p>
+                {canEdit ? (
+                  <Link href={`/poa/new?plotId=${plot.id}`} className="mt-3 inline-block text-sm text-teal-800 hover:underline">
+                    Register PoA →
+                  </Link>
+                ) : null}
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>PoA</th>
+                    <th>Kind</th>
+                    <th>Purpose</th>
+                    <th>Attorney</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plot.powerOfAttorneys.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <Link href={`/poa/${p.id}`} className="text-teal-900 hover:underline">
+                          {p.poaNumber}
+                        </Link>
+                      </td>
+                      <td>{poaKindLabel(p.kind)}</td>
+                      <td>{poaPurposeLabel(p.purpose)}</td>
+                      <td>{p.attorneyName}</td>
+                      <td>
+                        <Badge status={p.status}>{poaStatusLabel(p.status)}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )
           )}
 

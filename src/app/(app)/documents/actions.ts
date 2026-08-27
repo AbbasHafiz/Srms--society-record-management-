@@ -30,6 +30,13 @@ const DOC_TYPES = new Set<string>([
   "PAYMENT_PO",
   "DEALER_LETTERHEAD",
   "OPEN_FILE_DOCUMENT",
+  "SITE_PLAN",
+  "PREVIOUS_TRANSFER",
+  "POA_INSTRUMENT",
+  "POA_TEHSILDAR_CERTIFICATE",
+  "POA_FOREIGN_OFFICE_ATTESTATION",
+  "POA_ATTORNEY_CNIC",
+  "POA_PLOT_DOCUMENTS",
   "SIGNATURE",
   "THUMB_IMPRESSION",
   "OTHER",
@@ -51,6 +58,7 @@ export async function uploadDocument(formData: FormData) {
   const mortgageId = String(formData.get("mortgageId") || "").trim() || null;
   const openFileId = String(formData.get("openFileId") || "").trim() || null;
   const registeredOfficeId = String(formData.get("registeredOfficeId") || "").trim() || null;
+  const powerOfAttorneyId = String(formData.get("powerOfAttorneyId") || "").trim() || null;
   const documentType = String(formData.get("documentType") || "") as DocumentType;
   const title = String(formData.get("title") || "").trim();
   const documentNumber = String(formData.get("documentNumber") || "").trim() || null;
@@ -76,6 +84,7 @@ export async function uploadDocument(formData: FormData) {
     openFileId,
     mortgageId,
     registeredOfficeId,
+    powerOfAttorneyId,
     documentType,
     title,
     documentNumber,
@@ -106,6 +115,8 @@ export async function uploadDocument(formData: FormData) {
   if (mortgageId) revalidatePath(`/mortgages/${mortgageId}`);
   if (openFileId) revalidatePath(`/open-files/${openFileId}`);
   if (registeredOfficeId) revalidatePath(`/offices/${registeredOfficeId}`);
+  if (powerOfAttorneyId) revalidatePath(`/poa/${powerOfAttorneyId}`);
+  revalidatePath("/poa");
   revalidatePath("/payments");
   revalidatePath("/possession");
   revalidatePath("/noc");

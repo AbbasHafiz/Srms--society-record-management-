@@ -15,6 +15,7 @@ import type {
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCustomType, requireOtherDetail } from "@/lib/other-specify";
+import { requireActiveSpecialPoa } from "@/lib/poa";
 
 const PURPOSES: NocPurpose[] = ["CONSTRUCTION", "TRANSFER", "GENERAL", "UTILITY_CONNECTION", "OTHER"];
 const CONSTRUCTION_TYPES: ConstructionType[] = [
@@ -48,6 +49,8 @@ export async function createNocApplication(formData: FormData) {
     message: "Please specify the construction type when Other is selected",
   });
   const acknowledgeMortgage = formData.get("acknowledgeMortgage") === "on";
+  const appearingInPerson = String(formData.get("ownerAppearingInPerson") || "yes") !== "no";
+  const powerOfAttorneyId = String(formData.get("powerOfAttorneyId") || "").trim() || null;
 
   if (!plotId) throw new Error("Plot is required");
   if (!PURPOSES.includes(purpose)) throw new Error("Invalid NOC purpose");
@@ -63,6 +66,20 @@ export async function createNocApplication(formData: FormData) {
 
   const owner = plot.ownerships[0];
   if (!owner) throw new Error("No active owner on this plot — cannot apply for NOC");
+
+  let linkedPoaId: string | null = null;
+  if (!appearingInPerson) {
+    if (!powerOfAttorneyId) {
+      throw new Error("Owner is not present. Link an active special PoA for NOC / society certificates.");
+    }
+    const poa = await requireActiveSpecialPoa({
+      poaId: powerOfAttorneyId,
+      plotId,
+      principalCnic: owner.cnic,
+      for: "noc",
+    });
+    linkedPoaId = poa.id;
+  }
 
   if (plot.hasActiveMortgage && purpose === "CONSTRUCTION" && !acknowledgeMortgage) {
     throw new Error("Active mortgage warning must be acknowledged before applying");
@@ -96,6 +113,7 @@ export async function createNocApplication(formData: FormData) {
       fee: feeConfig?.amount,
       paymentStatus: "PENDING",
       status: "SUBMITTED",
+      powerOfAttorneyId: linkedPoaId,
     },
   });
 

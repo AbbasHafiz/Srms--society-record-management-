@@ -90,3 +90,7 @@ export async function nextNecNumber(sector?: string) {
   const prefix = sector ? `NEC-${sector.replace(/[^A-Za-z0-9]/g, "")}` : "NEC";
   return nextSequence("nec_issue", prefix, 4);
 }
+
+export async function nextPoaNumber() {
+  return nextSequence("poa", "POA", 4);
+}

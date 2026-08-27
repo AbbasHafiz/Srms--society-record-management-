@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/db";
-import type { OpenFileStatus, Prisma } from "@/generated/prisma/client";
+import type { ChargePeriodStatus, OpenFileStatus, Prisma } from "@/generated/prisma/client";
 
 /** Files currently on the market (seller still owns the plot). */
 export const LIVE_OPEN_FILE_STATUSES: OpenFileStatus[] = ["ACTIVE", "OPEN"];
 
 /** List filter "Open" — still a dealer listing, including expired windows. */
 export const OPEN_LIST_STATUSES: OpenFileStatus[] = ["ACTIVE", "OPEN", "EXPIRED"];
+
+export const UNPAID_PLOT_CHARGE_STATUSES: ChargePeriodStatus[] = ["PENDING", "BILLED", "OVERDUE"];
 
 export function isLiveOpenFileStatus(status: string): boolean {
   return LIVE_OPEN_FILE_STATUSES.includes(status as OpenFileStatus);
@@ -36,6 +38,13 @@ export function isRegisteredDealerActive(office: {
   const expiry = office.expiryDate instanceof Date ? office.expiryDate : new Date(office.expiryDate);
   if (Number.isNaN(expiry.getTime())) return true;
   return expiry.getTime() >= Date.now();
+}
+
+export async function getOutstandingPlotCharges(plotId: string) {
+  return prisma.plotCharge.findMany({
+    where: { plotId, status: { in: UNPAID_PLOT_CHARGE_STATUSES } },
+    orderBy: [{ year: "asc" }, { month: "asc" }],
+  });
 }
 
 export async function syncPlotHasOpenFile(

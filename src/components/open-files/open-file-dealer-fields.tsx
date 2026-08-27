@@ -24,7 +24,8 @@ export function OpenFileDealerFields({ required = true }: Props) {
           <Link href="/offices/new" className="text-teal-800 hover:underline">
             Register a dealer office
           </Link>{" "}
-          first if they are not listed. Dealer letterhead is uploaded as a scan on this form.
+          first if they are not listed. Their letterhead must state the file should be made open
+          transfer. Upload that scan on this form.
         </p>
       </label>
       {required ? (

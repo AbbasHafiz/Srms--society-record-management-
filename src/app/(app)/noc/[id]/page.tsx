@@ -31,6 +31,7 @@ export default async function NocDetailPage({ params }: { params: Promise<{ id: 
       plot: true,
       ownership: true,
       approvedBy: { select: { name: true } },
+      powerOfAttorney: true,
     },
   });
 
@@ -116,6 +117,16 @@ export default async function NocDetailPage({ params }: { params: Promise<{ id: 
             <Row label="Payment" value={<Badge status={noc.paymentStatus} />} />
             {noc.applicationNotes ? (
               <Row label="Notes" value={noc.applicationNotes} />
+            ) : null}
+            {noc.powerOfAttorney ? (
+              <Row
+                label="PoA"
+                value={
+                  <Link href={`/poa/${noc.powerOfAttorney.id}`} className="text-teal-900 hover:underline">
+                    {noc.powerOfAttorney.poaNumber} · {noc.powerOfAttorney.attorneyName}
+                  </Link>
+                }
+              />
             ) : null}
           </dl>
         </section>

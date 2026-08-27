@@ -12,6 +12,7 @@ export type CreateDocumentInput = {
   openFileId?: string | null;
   mortgageId?: string | null;
   registeredOfficeId?: string | null;
+  powerOfAttorneyId?: string | null;
   documentType: DocumentType;
   title: string;
   documentNumber?: string | null;
@@ -31,6 +32,7 @@ function versionScopeWhere(input: CreateDocumentInput) {
     openFileId: input.openFileId ?? null,
     mortgageId: input.mortgageId ?? null,
     registeredOfficeId: input.registeredOfficeId ?? null,
+    powerOfAttorneyId: input.powerOfAttorneyId ?? null,
     documentType: input.documentType,
     ...(input.documentNumber ? { documentNumber: input.documentNumber } : {}),
     status: "ACTIVE" as const,
@@ -60,6 +62,7 @@ export async function createDocumentWithUpload(input: CreateDocumentInput) {
       openFileId: input.openFileId ?? undefined,
       mortgageId: input.mortgageId ?? undefined,
       registeredOfficeId: input.registeredOfficeId ?? undefined,
+      powerOfAttorneyId: input.powerOfAttorneyId ?? undefined,
       documentType: input.documentType,
       otherDetail: input.otherDetail ?? undefined,
       title: input.title,

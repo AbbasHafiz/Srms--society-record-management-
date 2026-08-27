@@ -42,8 +42,8 @@ export default async function OpenFilesReportPage({
   return (
     <div>
       <PageHeader
-        title="Dealer Open Files Expiring"
-        description="Registered-dealer listings (letterhead + pay-order fee) nearing expiry — renew, close in a purchaser's name, or withdraw without changing ownership."
+        title="Open Files Expiring"
+        description="Open transfers (sold to investor/dealer; end purchaser not yet named) nearing expiry — renew, close in a buyer's name, or withdraw without changing ownership."
         actions={
           <div className="flex gap-2">
             <Link href="/reports" className="text-sm text-teal-800 hover:underline">← Reports</Link>

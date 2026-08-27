@@ -29,7 +29,7 @@ const REPORTS = [
   },
   {
     title: "Open Files Expiring",
-    description: "Dealer open files (letterhead + P.O. fee) nearing expiry — renew, close in purchaser's name, or withdraw.",
+    description: "Open files (sale to investor/dealer; empty end purchaser) nearing expiry — renew, close in a buyer's name, or withdraw.",
     href: "/reports/open-files",
     icon: FolderOpen,
     aggregated: true,

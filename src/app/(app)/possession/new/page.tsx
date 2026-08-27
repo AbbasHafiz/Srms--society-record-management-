@@ -10,6 +10,8 @@ import { plotSizeDisplay } from "@/lib/property-sizes";
 import { canCreatePossessionApplication } from "@/lib/possession";
 import { formatCurrency } from "@/lib/utils";
 import { redirect } from "next/navigation";
+import { OwnerAppearanceFields } from "@/components/poa/owner-appearance-fields";
+import { isPossessionPoa } from "@/lib/poa-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +53,19 @@ export default async function NewPossessionPage({
           : undefined,
       include: {
         ownerships: { where: { status: "ACTIVE" }, take: 1 },
+        powerOfAttorneys: {
+          where: { status: "ACTIVE" },
+          select: {
+            id: true,
+            poaNumber: true,
+            kind: true,
+            purpose: true,
+            attorneyName: true,
+            attorneyCnic: true,
+            status: true,
+            principalCnic: true,
+          },
+        },
       },
       take: 20,
       orderBy: { plotNumber: "asc" },
@@ -142,6 +157,15 @@ export default async function NewPossessionPage({
                           className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
                         />
                       </div>
+                      <OwnerAppearanceFields
+                        legend="Owner appearing for possession"
+                        newPoaHref={`/poa/new?plotId=${p.id}`}
+                        poas={p.powerOfAttorneys.filter(
+                          (poa) =>
+                            isPossessionPoa(poa) &&
+                            poa.principalCnic.replace(/\D/g, "") === owner.cnic.replace(/\D/g, "")
+                        )}
+                      />
                       <div>
                         <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
                           Remarks

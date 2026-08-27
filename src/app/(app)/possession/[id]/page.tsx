@@ -27,7 +27,7 @@ export default async function PossessionDetailPage({
   const [possession, possessionSlaDays] = await Promise.all([
     prisma.possession.findUnique({
       where: { id },
-      include: { plot: true, ownership: true, approvedBy: { select: { name: true } } },
+      include: { plot: true, ownership: true, approvedBy: { select: { name: true } }, powerOfAttorney: true },
     }),
     getSlaDays(SLA_SETTING_KEYS.possession, 21),
   ]);
@@ -72,6 +72,13 @@ export default async function PossessionDetailPage({
         </Info>
         <Info label="Letter">{possession.letterNumber ?? "—"}</Info>
         <Info label="Issued">{formatDate(possession.issueDate)}</Info>
+        {possession.powerOfAttorney ? (
+          <Info label="PoA">
+            <Link href={`/poa/${possession.powerOfAttorney.id}`} className="text-teal-900 hover:underline">
+              {possession.powerOfAttorney.poaNumber} · {possession.powerOfAttorney.attorneyName}
+            </Link>
+          </Info>
+        ) : null}
       </div>
 
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

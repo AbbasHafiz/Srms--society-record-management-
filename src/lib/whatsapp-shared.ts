@@ -139,7 +139,7 @@ export const DEFAULT_TEMPLATE_BODIES: Record<WhatsAppTemplateKey, string> = {
   utility_noc_reminder:
     "Green Valley Society: Utility connection NOC for plot {{plotLabel}} — please submit required documents. Ref: {{applicationNumber}}.",
   open_file_expiry:
-    "Green Valley Society: Dealer open file {{openFileNumber}} for plot {{plotLabel}} expires on {{expiryDate}}. Renew, close in a purchaser's name, or withdraw before expiry.",
+    "Green Valley Society: Open file {{openFileNumber}} for plot {{plotLabel}} expires on {{expiryDate}}. This is an open transfer — end purchaser is not yet named. Renew, close in a buyer's name, or withdraw before expiry.",
   mortgage_warning:
     "Green Valley Society: Active mortgage on plot {{plotLabel}} with {{bankName}}. Transfer/completion blocked until bank clearance.",
   annual_charge_overdue:

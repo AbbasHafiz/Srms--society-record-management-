@@ -53,19 +53,19 @@ export default async function OpenFilesPage({
   return (
     <div>
       <PageHeader
-        title="Dealer Open Files"
-        description="Seller lists a plot through a registered dealer: dealer letterhead plus open-file fee as a pay order to the society. Ownership stays with the seller until a purchaser is found and the file is closed in the purchaser's name."
+        title="Open Files"
+        description="Open transfer — sold to investor/dealer; end purchaser not yet named. Legal membership stays with the seller until a later buyer proves identity, pays the society transfer fee, and the file is closed in the buyer's name."
         actions={
           canCreate ? (
             <Link href="/open-files/new">
-              <Button>Register open file</Button>
+              <Button>Open a file</Button>
             </Link>
           ) : undefined
         }
       />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <StatCard label="Open (on the market)" value={openCount} tone="warn" />
+        <StatCard label="Open (end purchaser empty)" value={openCount} tone="warn" />
         <StatCard label="Closed in purchaser's name" value={closedCount} tone="success" />
         <StatCard label="Cancelled / withdrawn" value={cancelledCount} />
       </div>
@@ -93,11 +93,11 @@ export default async function OpenFilesPage({
 
       {openFiles.length === 0 ? (
         <EmptyState
-          title={filter.key ? "No files in this status" : "No dealer open files yet"}
+          title={filter.key ? "No files in this status" : "No open files yet"}
           description={
             filter.key
-              ? "Try another filter, or register a new open file when a seller lists a plot through a dealer."
-              : "When a seller wants to sell, a registered dealer issues letterhead and pays the open-file fee as a pay order. Register that here — ownership is not changed until a purchaser buys."
+              ? "Try another filter, or open a file when a seller has sold to an investor or dealer."
+              : "When a seller sells to an investor or dealer, open the file here. End purchaser stays empty until a later buyer closes it."
           }
         />
       ) : (
@@ -109,7 +109,8 @@ export default async function OpenFilesPage({
                   <th>Open file</th>
                   <th>Plot</th>
                   <th>Seller</th>
-                  <th>Dealer</th>
+                  <th>Holder (XYZ)</th>
+                  <th>Dealer letterhead</th>
                   <th>Opened</th>
                   <th>Expiry</th>
                   <th>Days left</th>
@@ -138,6 +139,7 @@ export default async function OpenFilesPage({
                         </Link>
                       </td>
                       <td>{f.sellerName}</td>
+                      <td>{f.holderName ?? "—"}</td>
                       <td>{f.registeredOffice?.officeName ?? f.dealerName}</td>
                       <td>{formatDate(f.openingDate)}</td>
                       <td>{formatDate(f.expiryDate)}</td>
@@ -180,6 +182,7 @@ export default async function OpenFilesPage({
                   </div>
                   <p className="mt-1 text-sm text-slate-700">
                     {f.plot.sector}/{f.plot.block}-{f.plot.plotNumber} · Seller {f.sellerName}
+                    {f.holderName ? ` · Holder ${f.holderName}` : ""}
                   </p>
                   <p className="text-sm text-slate-600">
                     Dealer {f.registeredOffice?.officeName ?? f.dealerName} · Fee {formatCurrency(f.feeAmount)}

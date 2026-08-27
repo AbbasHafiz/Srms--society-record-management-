@@ -2,15 +2,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { hasPermission } from "@/lib/rbac";
+import { canRegisterOpenFile } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QueryErrorBanner } from "@/components/ui/confirm-on-submit-form";
 import { OpenFileDealerFields } from "@/components/open-files/open-file-dealer-fields";
+import { OpenFileCreateFields } from "@/components/open-files/open-file-create-fields";
 import { createOpenFile } from "../actions";
 import { formatCurrency } from "@/lib/utils";
-import { LIVE_OPEN_FILE_STATUSES } from "@/lib/open-files";
+import { LIVE_OPEN_FILE_STATUSES, UNPAID_PLOT_CHARGE_STATUSES } from "@/lib/open-files";
+import { OPEN_FILE_STORY } from "@/lib/open-files-shared";
+import { isSalePoa } from "@/lib/poa-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +23,7 @@ export default async function NewOpenFilePage({
   searchParams: Promise<{ plotId?: string; q?: string; error?: string }>;
 }) {
   const session = await auth();
-  if (!session?.user || !hasPermission(session.user.role, "create")) {
+  if (!session?.user || !canRegisterOpenFile(session.user.role)) {
     redirect("/open-files");
   }
 
@@ -57,6 +60,22 @@ export default async function NewOpenFilePage({
           take: 1,
           select: { id: true, openFileNumber: true },
         },
+        plotCharges: {
+          where: { status: { in: UNPAID_PLOT_CHARGE_STATUSES } },
+          orderBy: [{ year: "asc" }, { month: "asc" }],
+        },
+        powerOfAttorneys: {
+          where: { status: "ACTIVE" },
+          select: {
+            id: true,
+            poaNumber: true,
+            kind: true,
+            purpose: true,
+            attorneyName: true,
+            attorneyCnic: true,
+            principalCnic: true,
+          },
+        },
       },
       take: 20,
       orderBy: { plotNumber: "asc" },
@@ -71,12 +90,17 @@ export default async function NewOpenFilePage({
   const selectedPlot = sp.plotId ? plots.find((p) => p.id === sp.plotId) : undefined;
   const owner = selectedPlot?.ownerships[0];
   const existingOpen = selectedPlot?.openFiles[0];
+  const salePoas = (selectedPlot?.powerOfAttorneys ?? []).filter(
+    (p) =>
+      isSalePoa(p) &&
+      (!owner || p.principalCnic.replace(/\D/g, "") === owner.cnic.replace(/\D/g, ""))
+  );
 
   return (
     <div>
       <PageHeader
-        title="Register dealer open file"
-        description="Seller wants to sell; a registered dealer issues letterhead and pays the open-file fee to the society as a pay order. This records an open transfer — it does not change ownership."
+        title="Open a file (open transfer)"
+        description={OPEN_FILE_STORY}
         actions={
           <Link href="/open-files" className="text-sm text-teal-800 hover:underline">
             ← Open files
@@ -86,13 +110,22 @@ export default async function NewOpenFilePage({
 
       <QueryErrorBanner error={sp.error} />
 
+      <div className="mb-6 rounded-xl border border-teal-100 bg-teal-50/70 px-4 py-3 text-sm text-teal-950">
+        Seller sells the plot to an investor or dealer (XYZ), receives payment, hands over the allotment
+        letter and other documents, and clears pending society dues. A registered dealer issues letterhead
+        stating the file should be made <strong>open transfer</strong>. Purchaser (end-buyer) details stay
+        empty until a later buyer proves identity, pays the transfer fee, and the file is closed in that
+        buyer&apos;s name. Legal membership stays with the seller until close. XYZ is recorded as the
+        open-file holder.
+      </div>
+
       {activeDealerCount === 0 ? (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           No active registered dealers on file.{" "}
           <Link href="/offices/new" className="font-medium text-teal-900 underline">
             Register a dealer office
           </Link>{" "}
-          before opening a file.
+          before opening a file — letterhead must come from an active registered dealer.
         </div>
       ) : null}
 
@@ -103,9 +136,10 @@ export default async function NewOpenFilePage({
         </div>
       ) : (
         <p className="mb-4 text-sm text-slate-600">
-          Open-file fee (from current schedule):{" "}
+          Society open-file fee (from current schedule):{" "}
           <strong>{formatCurrency(fee.amount)}</strong>
           {fee.periodMonths ? ` for ${fee.periodMonths} months` : ""} · paid as pay order to the society.
+          This is not the private consideration XYZ paid the seller.
         </p>
       )}
 
@@ -167,7 +201,7 @@ export default async function NewOpenFilePage({
           <Link href={`/open-files/${existingOpen.id}`} className="font-medium underline">
             {existingOpen.openFileNumber}
           </Link>
-          . Close it in a purchaser&apos;s name or withdraw it before opening another. Ownership is
+          . Close it in an end-buyer&apos;s name or withdraw it before opening another. Ownership is
           still with {owner.ownerName}.
         </div>
       ) : null}
@@ -179,6 +213,7 @@ export default async function NewOpenFilePage({
         >
           <input type="hidden" name="plotId" value={selectedPlot.id} />
           <div className="sm:col-span-2 rounded-md bg-slate-50 px-3 py-3 text-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">1. Seller</p>
             <p>
               Plot{" "}
               <strong>
@@ -186,12 +221,30 @@ export default async function NewOpenFilePage({
               </strong>
             </p>
             <p className="mt-1 text-slate-700">
-              Current seller (membership stays in this name until a purchaser buys):{" "}
+              Current legal member (stays on record until the file is closed):{" "}
               <strong>{owner.ownerName}</strong> · CNIC {owner.cnic} · {owner.membershipNumber}
             </p>
+            <p className="mt-1 text-xs text-slate-500">{OPEN_FILE_STORY}</p>
           </div>
 
-          <OpenFileDealerFields />
+          <OpenFileCreateFields
+            plotId={selectedPlot.id}
+            salePoas={salePoas}
+            isSuperAdmin={session.user.role === "SUPER_ADMIN"}
+            charges={selectedPlot.plotCharges.map((c) => ({
+              id: c.id,
+              year: c.year,
+              month: c.month,
+              amount: String(c.amount),
+            }))}
+          />
+
+          <div className="sm:col-span-2">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+              Registered dealer letterhead (open transfer)
+            </p>
+            <OpenFileDealerFields />
+          </div>
 
           <label className="text-sm sm:col-span-2">
             <span className="mb-1 block font-medium text-slate-700">
@@ -204,18 +257,18 @@ export default async function NewOpenFilePage({
               accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
             />
             <p className="mt-1 text-xs text-slate-500">
-              Scan of the registered dealer&apos;s letterhead / undertaking to market this plot. PDF or
-              image.
+              Scan of the registered dealer&apos;s letterhead stating this file should be made open
+              transfer. PDF or image — not a checkbox.
             </p>
           </label>
 
           <div className="sm:col-span-2 rounded-lg border border-slate-200 p-4">
             <p className="mb-3 text-sm font-medium text-slate-800">
-              Open-file fee as pay order (P.O.) to the society
+              Society open-file fee as pay order (P.O.)
             </p>
             <p className="mb-3 text-xs text-slate-500">
-              Cash-in-hand is not the society path. Record the pay order that accompanies the
-              letterhead. This becomes an immutable payment row for finance to verify.
+              Paid to the society to open the file. Separate from the private consideration XYZ paid the
+              seller. This becomes an immutable payment row for finance to verify.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm">
@@ -261,15 +314,15 @@ export default async function NewOpenFilePage({
               Record open transfer
             </Button>
             <p className="mt-2 text-xs text-slate-500">
-              Status will be Open. Membership remains {owner.ownerName} until a purchaser is recorded
-              and the sale transfer completes.
+              Status will be Open. Membership remains {owner.ownerName}. XYZ is the open-file holder.
+              End purchaser stays empty until a buyer is recorded and the sale transfer completes.
             </p>
           </div>
         </form>
       ) : sp.plotId && !selectedPlot ? (
         <p className="text-sm text-rose-700">Plot not found. Search again from the open files list.</p>
       ) : sp.plotId && selectedPlot && !owner ? (
-        <p className="text-sm text-rose-700">This plot has no current owner, so it cannot be listed through a dealer.</p>
+        <p className="text-sm text-rose-700">This plot has no current owner, so it cannot be opened as a transfer file.</p>
       ) : null}
     </div>
   );
