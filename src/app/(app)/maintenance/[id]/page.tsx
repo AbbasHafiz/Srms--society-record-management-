@@ -121,7 +121,7 @@ export default async function MaintenanceDetailPage({ params }: { params: Promis
           ) : null}
 
           {canManage && !work.scanFilePath ? (
-            <form action={uploadMaintenanceScan} encType="multipart/form-data" className="mt-4 space-y-2 border-t pt-4">
+            <form action={uploadMaintenanceScan} className="mt-4 space-y-2 border-t pt-4">
               <input type="hidden" name="id" value={work.id} />
               <Label className="text-xs text-slate-500">Upload document scan</Label>
               <Input name="scan" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" />

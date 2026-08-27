@@ -199,7 +199,7 @@ export default async function NocDetailPage({ params }: { params: Promise<{ id: 
               </form>
 
               {canIssue ? (
-                <form action={issueNoc} encType="multipart/form-data" className="space-y-3 rounded-lg border border-teal-100 bg-teal-50/40 p-4">
+                <form action={issueNoc} className="space-y-3 rounded-lg border border-teal-100 bg-teal-50/40 p-4">
                   <h3 className="font-medium text-teal-950">Issue NOC</h3>
                   <input type="hidden" name="nocId" value={noc.id} />
                   <div>

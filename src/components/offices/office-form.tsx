@@ -67,7 +67,7 @@ export function OfficeForm({
   }
 
   return (
-    <form action={action} encType={showLetterheadUpload ? "multipart/form-data" : undefined} className="max-w-2xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <form action={action} className="max-w-2xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       {officeId ? <input type="hidden" name="id" value={officeId} /> : null}
       <input type="hidden" name="plotId" value={plotId} />
 

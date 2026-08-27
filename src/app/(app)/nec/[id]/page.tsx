@@ -123,7 +123,7 @@ export default async function NecDetailPage({ params }: { params: Promise<{ id: 
               </form>
 
               {canIssue ? (
-                <form action={issueNec} encType="multipart/form-data" className="space-y-3 rounded-lg border border-teal-100 bg-teal-50/40 p-4">
+                <form action={issueNec} className="space-y-3 rounded-lg border border-teal-100 bg-teal-50/40 p-4">
                   <h3 className="font-medium text-teal-950">Issue NEC</h3>
                   <input type="hidden" name="necId" value={nec.id} />
                   <div>

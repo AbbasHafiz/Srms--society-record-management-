@@ -6,20 +6,17 @@ export function ConfirmOnSubmitForm({
   action,
   confirmMessage,
   className,
-  encType,
   children,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   confirmMessage: string;
   className?: string;
-  encType?: string;
   children: React.ReactNode;
 }) {
   return (
     <form
       action={action}
       className={className}
-      encType={encType}
       onSubmit={(event) => {
         if (!window.confirm(confirmMessage)) {
           event.preventDefault();

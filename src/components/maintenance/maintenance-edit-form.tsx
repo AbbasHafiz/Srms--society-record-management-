@@ -44,7 +44,7 @@ export function MaintenanceEditForm({
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="font-display text-lg font-semibold">Edit job</h2>
-      <form action={updateMaintenanceWork} encType="multipart/form-data" className="mt-4 space-y-3">
+      <form action={updateMaintenanceWork} className="mt-4 space-y-3">
         <input type="hidden" name="id" value={work.id} />
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">

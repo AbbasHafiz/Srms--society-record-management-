@@ -107,7 +107,7 @@ export default async function PossessionDetailPage({
             </form>
 
             {canIssue ? (
-              <form action={issuePossessionLetter} encType="multipart/form-data" className="space-y-3 rounded-lg border border-teal-100 bg-teal-50/40 p-4">
+              <form action={issuePossessionLetter} className="space-y-3 rounded-lg border border-teal-100 bg-teal-50/40 p-4">
                 <h3 className="font-medium text-teal-950">Issue possession letter</h3>
                 <input type="hidden" name="possessionId" value={possession.id} />
                 <div>

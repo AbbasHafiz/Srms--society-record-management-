@@ -103,7 +103,7 @@ export default async function ElectricityBillDetailPage({ params }: { params: Pr
           ) : null}
 
           {canManage && !bill.scanFilePath ? (
-            <form action={uploadElectricityBillScan} encType="multipart/form-data" className="mt-4 space-y-2 border-t pt-4">
+            <form action={uploadElectricityBillScan} className="mt-4 space-y-2 border-t pt-4">
               <input type="hidden" name="id" value={bill.id} />
               <Label className="text-xs text-slate-500">Upload bill scan</Label>
               <Input name="scan" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" />
@@ -118,7 +118,7 @@ export default async function ElectricityBillDetailPage({ params }: { params: Pr
           {editable ? (
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="font-display text-lg font-semibold">Edit bill</h2>
-              <form action={updateElectricityBill} encType="multipart/form-data" className="mt-4 space-y-3">
+              <form action={updateElectricityBill} className="mt-4 space-y-3">
                 <input type="hidden" name="id" value={bill.id} />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="text-sm">

@@ -115,7 +115,7 @@ export default async function NewMortgagePage({
                     ) : null}
                   </div>
 
-                  <form action={createMortgage} encType="multipart/form-data" className="max-w-md space-y-3 lg:min-w-[20rem]">
+                  <form action={createMortgage} className="max-w-md space-y-3 lg:min-w-[20rem]">
                     <input type="hidden" name="plotId" value={p.id} />
                     <div>
                       <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Bank name</label>

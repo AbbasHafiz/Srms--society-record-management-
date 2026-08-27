@@ -148,7 +148,7 @@ export default async function OfficeDetailPage({ params }: { params: Promise<{ i
           )}
 
           {canUpload ? (
-            <form action={uploadOfficeLetterhead} encType="multipart/form-data" className="space-y-2 border-t border-slate-100 pt-3">
+            <form action={uploadOfficeLetterhead} className="space-y-2 border-t border-slate-100 pt-3">
               <input type="hidden" name="officeId" value={office.id} />
               <Input name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp" />
               <Button type="submit" size="sm" variant="outline">Upload letterhead</Button>

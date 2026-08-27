@@ -111,7 +111,6 @@ export default async function MortgageDetailPage({
             <h2 className="font-display mb-4 text-lg font-semibold text-teal-950">Release mortgage</h2>
             <ConfirmOnSubmitForm
               action={releaseMortgage}
-              encType="multipart/form-data"
               confirmMessage={`Record release of mortgage with ${mortgage.bankName}? Plot transfers will be unblocked once no active mortgages remain.`}
               className="max-w-lg space-y-3"
             >

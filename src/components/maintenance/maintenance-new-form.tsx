@@ -33,7 +33,6 @@ export function MaintenanceNewForm() {
 
       <form
         action={createMaintenanceWork}
-        encType="multipart/form-data"
         className="max-w-2xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
       >
         <div className="grid gap-4 sm:grid-cols-2">

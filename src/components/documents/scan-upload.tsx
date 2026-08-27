@@ -110,7 +110,7 @@ export async function ScanUpload({
       )}
 
       {canUpload ? (
-        <form action={uploadDocument} encType="multipart/form-data" className="space-y-2 border-t border-slate-100 pt-3">
+        <form action={uploadDocument} className="space-y-2 border-t border-slate-100 pt-3">
           <input type="hidden" name="plotId" value={plotId} />
           {ownershipId ? <input type="hidden" name="ownershipId" value={ownershipId} /> : null}
           {transferId ? <input type="hidden" name="transferId" value={transferId} /> : null}

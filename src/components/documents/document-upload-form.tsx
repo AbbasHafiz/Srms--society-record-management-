@@ -58,7 +58,7 @@ export function DocumentUploadForm({
   const [documentType, setDocumentType] = useState<DocumentType>(defaultDocumentType ?? "OTHER");
 
   return (
-    <form action={action} encType="multipart/form-data" className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+    <form action={action} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/50 p-4">
       <h3 className="font-medium text-slate-900">{compact ? "Upload document" : "Upload new document"}</h3>
       <input type="hidden" name="plotId" value={plotId} />
       {transferId ? <input type="hidden" name="transferId" value={transferId} /> : null}
