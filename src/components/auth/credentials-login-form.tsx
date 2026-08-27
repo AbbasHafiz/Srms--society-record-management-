@@ -24,7 +24,7 @@ const VARIANTS: Record<
     title: string;
     subtitle: string;
     defaultEmail: string;
-    demoHint: React.ReactNode;
+    demoHint: string;
     footerLink?: { href: string; label: string };
     gradient: string;
     headerClass: string;
@@ -34,13 +34,8 @@ const VARIANTS: Record<
     title: "Society Records",
     subtitle: "Property, Plot Transfer & Physical File Management",
     defaultEmail: "admin@society.local",
-    demoHint: (
-      <>
-        Demo: <strong>admin@society.local</strong> / <strong>password123</strong>
-        <br />
-        Also: transfer@, finance@, records@, gm@, secretary@, security@society.local
-      </>
-    ),
+    demoHint:
+      "Demo: admin@society.local / password123. Also: transfer@, finance@, records@, gm@, secretary@, security@society.local",
     footerLink: { href: "/login/tanker", label: "Tanker staff sign in" },
     gradient: "linear-gradient(135deg, #0b1f1c 0%, #115e59 45%, #1e3a4c 100%)",
     headerClass: "from-teal-950 to-teal-800",
@@ -49,13 +44,8 @@ const VARIANTS: Record<
     title: "Tanker Desk",
     subtitle: "Water Tanker Booking & Daily Schedule",
     defaultEmail: "tanker@society.local",
-    demoHint: (
-      <>
-        Demo: <strong>tanker@society.local</strong> / <strong>password123</strong>
-        <br />
-        Driver desk: <strong>driver@society.local</strong> / <strong>password123</strong>
-      </>
-    ),
+    demoHint:
+      "Demo: tanker@society.local / password123. Driver desk: driver@society.local / password123",
     footerLink: { href: "/login", label: "Society admin sign in" },
     gradient: "linear-gradient(135deg, #0c2340 0%, #1d4ed8 45%, #0e7490 100%)",
     headerClass: "from-blue-950 to-cyan-800",
