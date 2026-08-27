@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MEAL_TYPE_OPTIONS } from "@/lib/mess";
+import { MEAL_TYPE_OPTIONS } from "@/lib/mess-shared";
 import { OtherSpecify } from "@/components/ui/other-specify";
 
 export function MessMealTypeFields({

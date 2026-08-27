@@ -3,13 +3,7 @@ import { createFinanceTransaction } from "@/lib/finance";
 import type { MealType, MessMealStatus, PaymentMethod } from "@/generated/prisma/client";
 import { endOfDay, startOfDay } from "date-fns";
 
-export const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
-  { value: "BREAKFAST", label: "Breakfast" },
-  { value: "LUNCH", label: "Lunch" },
-  { value: "DINNER", label: "Dinner" },
-  { value: "TEA", label: "Tea / snacks" },
-  { value: "OTHER", label: "Other" },
-];
+export { MEAL_TYPE_OPTIONS } from "@/lib/mess-shared";
 
 type MessSummaryFilters = {
   from: Date;
