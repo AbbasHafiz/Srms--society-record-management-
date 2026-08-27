@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { saveUploadedFile } from "@/lib/uploads";
+import { MAX_UPLOAD_BYTES } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { error: `File exceeds maximum size of ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB` },
+        { status: 413 }
+      );
+    }
+
     const saved = await saveUploadedFile(file);
 
     return NextResponse.json({
@@ -32,6 +40,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Upload failed";
-    return NextResponse.json({ error: message }, { status: 400 });
+    const isTooLarge = message.includes("maximum size");
+    return NextResponse.json({ error: message }, { status: isTooLarge ? 413 : 400 });
   }
 }

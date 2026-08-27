@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { PageHeader } from "@/components/ui/page";
+import { FormErrorBanner } from "@/components/ui/form-error-banner";
 import { Button } from "@/components/ui/button";
 import { TankerDestinationFields } from "@/components/tankers/tanker-destination-fields";
 import { TankerScheduleFields, TankerSlotAvailabilityList } from "@/components/tankers/tanker-schedule-fields";
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
 export default async function NewTankerBookingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; type?: string }>;
+  searchParams: Promise<{ date?: string; type?: string; error?: string }>;
 }) {
   const session = await auth();
   if (!session?.user || !hasPermission(session.user.role, "create")) {
@@ -55,6 +56,8 @@ export default async function NewTankerBookingPage({
         title="New tanker booking"
         description="Book against a society plot or a walk-in house address. Price is snapshotted from the active fee configuration."
       />
+
+      {sp.error ? <FormErrorBanner message={sp.error} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <form action={createTankerBooking} className="space-y-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

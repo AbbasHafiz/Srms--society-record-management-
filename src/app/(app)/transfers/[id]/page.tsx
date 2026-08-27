@@ -31,6 +31,8 @@ import {
 } from "../actions";
 import { HeirRelationFields } from "@/components/transfers/heir-relation-fields";
 import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
+import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
+import { bindFormAction } from "@/lib/action-result";
 
 export const dynamic = "force-dynamic";
 
@@ -481,12 +483,15 @@ function DeathWorkflow({
             ) : null}
 
             {canComplete && transfer.status === "APPROVED" ? (
-              <form action={completeTransferAction}>
+              <ConfirmActionForm
+                action={bindFormAction(completeTransferAction)}
+                confirmTitle="Complete succession transfer?"
+                confirmDescription="This will issue a new membership to the primary heir and mark the deceased membership as TRANSFERRED. Ownership history is preserved and this step cannot be undone."
+                submitLabel="Complete succession (new membership)"
+                disabled={!!activeMortgage || !deathReadiness?.ok}
+              >
                 <input type="hidden" name="id" value={transfer.id} />
-                <Button type="submit" disabled={activeMortgage || !deathReadiness?.ok}>
-                  Complete succession (new membership)
-                </Button>
-              </form>
+              </ConfirmActionForm>
             ) : null}
 
             {transfer.status === "COMPLETED" && transfer.toOwnership ? (
@@ -744,12 +749,17 @@ function SaleWorkflow({
             ) : null}
 
             {canComplete && transfer.status === "APPROVED" ? (
-              <form action={completeTransferAction}>
+              <ConfirmActionForm
+                action={bindFormAction(completeTransferAction)}
+                confirmTitle="Complete transfer?"
+                confirmDescription="This will issue a new membership to the purchaser and mark the seller membership as TRANSFERRED. Ownership history is preserved and this step cannot be undone."
+                submitLabel="Complete transfer (new membership + history)"
+                className="w-full"
+                buttonClassName="w-full"
+                disabled={!!activeMortgage}
+              >
                 <input type="hidden" name="id" value={transfer.id} />
-                <Button type="submit" className="w-full" disabled={!!activeMortgage}>
-                  Complete transfer (new membership + history)
-                </Button>
-              </form>
+              </ConfirmActionForm>
             ) : null}
 
             {transfer.status === "COMPLETED" && transfer.toOwnership ? (

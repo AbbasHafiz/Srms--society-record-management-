@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import { postFinanceTxnAction, voidFinanceTxnAction } from "./actions";
+import { ConfirmOnSubmitForm, QueryErrorBanner } from "@/components/ui/confirm-on-submit-form";
 import type { FinanceCategoryType, FinanceTransactionStatus } from "@/generated/prisma/client";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ export default async function FinancePage({
     categoryId?: string;
     from?: string;
     to?: string;
+    error?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -118,6 +120,8 @@ export default async function FinancePage({
           </>
         }
       />
+
+      <QueryErrorBanner error={sp.error} />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Today's revenue" value={formatCurrency(summary.todayRevenue)} tone="success" />
@@ -269,7 +273,11 @@ export default async function FinancePage({
                           </form>
                         ) : null}
                         {txn.status !== "VOID" ? (
-                          <form action={voidFinanceTxnAction} className="flex flex-col gap-1">
+                          <ConfirmOnSubmitForm
+                            action={voidFinanceTxnAction}
+                            confirmMessage={`Void ledger entry ${txn.txnNumber}? Posted amounts are never changed — only status is set to VOID.`}
+                            className="flex flex-col gap-1"
+                          >
                             <input type="hidden" name="txnId" value={txn.id} />
                             <input
                               name="reason"
@@ -280,7 +288,7 @@ export default async function FinancePage({
                             <Button type="submit" size="sm" variant="outline" className="text-rose-800">
                               Void
                             </Button>
-                          </form>
+                          </ConfirmOnSubmitForm>
                         ) : (
                           "—"
                         )}

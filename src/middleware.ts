@@ -15,7 +15,9 @@ export default auth((req) => {
   }
 
   if (!session?.user) {
-    return NextResponse.next();
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   if (!canAccessPath(session.user.role, pathname)) {

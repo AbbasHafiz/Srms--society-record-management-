@@ -13,6 +13,16 @@ import {
   isSocietyLandOffice,
 } from "@/lib/offices";
 import { writeAuditLog } from "@/lib/audit";
+import {
+  redirectWithError,
+  getErrorMessage,
+  isNextNavigationError,
+} from "@/lib/action-result";
+import {
+  officeCreateSchema,
+  softCheckPhone,
+  zodFieldErrors,
+} from "@/lib/validation";
 import type {
   OfficePremisesType,
   OfficeRentFrequency,
@@ -36,83 +46,94 @@ function parseDecimal(value: FormDataEntryValue | null) {
 }
 
 export async function createRegisteredOffice(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
-  if (!canManageOffices(session.user.role)) throw new Error("Permission denied");
+  const returnPath = "/offices/new";
 
-  const premisesType = formData.get("premisesType") as OfficePremisesType;
-  const officeName = String(formData.get("officeName") || "").trim();
-  const ownerName = String(formData.get("ownerName") || "").trim();
-  const phone = String(formData.get("phone") || "").trim();
+  try {
+    const session = await auth();
+    if (!session?.user) redirectWithError(returnPath, "Unauthorized");
+    if (!canManageOffices(session.user.role)) redirectWithError(returnPath, "Permission denied");
 
-  if (!officeName || !ownerName || !phone) {
-    throw new Error("Office name, owner name, and phone are required");
-  }
-  if (!["SOCIETY_LAND", "PRIVATE"].includes(premisesType)) {
-    throw new Error("Invalid premises type");
-  }
+    const parsed = officeCreateSchema.safeParse({
+      officeName: formData.get("officeName"),
+      ownerName: formData.get("ownerName"),
+      phone: formData.get("phone"),
+      premisesType: formData.get("premisesType"),
+      rentAmount: formData.get("rentAmount") || undefined,
+    });
+    if (!parsed.success) redirectWithError(returnPath, zodFieldErrors(parsed.error));
 
-  const societyLand = isSocietyLandOffice(premisesType);
-  const rentAmount = parseDecimal(formData.get("rentAmount"));
-  const plotId = String(formData.get("plotId") || "").trim() || null;
+    const phoneCheck = softCheckPhone(parsed.data.phone);
+    if (!phoneCheck.ok) redirectWithError(returnPath, phoneCheck.message);
 
-  if (societyLand && (!rentAmount || rentAmount <= 0)) {
-    throw new Error("Rent amount is required for society-land offices");
-  }
+    const { officeName, ownerName, premisesType } = parsed.data;
+    const societyLand = isSocietyLandOffice(premisesType);
+    const rentAmount = parseDecimal(formData.get("rentAmount"));
+    const plotId = String(formData.get("plotId") || "").trim() || null;
 
-  const letterhead = formData.get("letterhead");
-
-  const office = await prisma.registeredOffice.create({
-    data: {
-      officeName,
-      ownerName,
-      phone,
-      email: String(formData.get("email") || "").trim() || null,
-      address: String(formData.get("address") || "").trim() || null,
-      premisesType,
-      plotId: plotId || undefined,
-      rentAmount: societyLand ? rentAmount : null,
-      rentFrequency: societyLand ? ("MONTHLY" as OfficeRentFrequency) : null,
-      rentStartDate: societyLand ? parseDate(formData.get("rentStartDate")) : null,
-      rentStatus: societyLand ? "CURRENT" : "NOT_APPLICABLE",
-      licenseNumber: !societyLand ? String(formData.get("licenseNumber") || "").trim() || null : null,
-      registrationDate: !societyLand ? parseDate(formData.get("registrationDate")) : null,
-      expiryDate: !societyLand ? parseDate(formData.get("expiryDate")) : null,
-      status: (formData.get("status") as RegisteredOfficeStatus) || "ACTIVE",
-      remarks: String(formData.get("remarks") || "").trim() || null,
-    },
-  });
-
-  if (letterhead instanceof File && letterhead.size > 0) {
-    if (office.plotId) {
-      await createDocumentWithUpload({
-        plotId: office.plotId,
-        registeredOfficeId: office.id,
-        documentType: "DEALER_LETTERHEAD",
-        title: `${office.officeName} Letterhead`,
-        uploadedById: session.user.id,
-        file: letterhead,
-      });
-    } else {
-      const saved = await saveUploadedFile(letterhead);
-      await prisma.registeredOffice.update({
-        where: { id: office.id },
-        data: { letterheadFilePath: saved.relativePath },
-      });
+    if (societyLand && (!rentAmount || rentAmount <= 0)) {
+      redirectWithError(returnPath, "Rent amount is required for society-land offices");
     }
+    if (!societyLand && rentAmount && rentAmount > 0) {
+      redirectWithError(returnPath, "Private offices cannot be billed society rent");
+    }
+
+    const letterhead = formData.get("letterhead");
+
+    const office = await prisma.registeredOffice.create({
+      data: {
+        officeName,
+        ownerName,
+        phone: phoneCheck.normalized,
+        email: String(formData.get("email") || "").trim() || null,
+        address: String(formData.get("address") || "").trim() || null,
+        premisesType,
+        plotId: plotId || undefined,
+        rentAmount: societyLand ? rentAmount : null,
+        rentFrequency: societyLand ? ("MONTHLY" as OfficeRentFrequency) : null,
+        rentStartDate: societyLand ? parseDate(formData.get("rentStartDate")) : null,
+        rentStatus: societyLand ? "CURRENT" : "NOT_APPLICABLE",
+        licenseNumber: !societyLand ? String(formData.get("licenseNumber") || "").trim() || null : null,
+        registrationDate: !societyLand ? parseDate(formData.get("registrationDate")) : null,
+        expiryDate: !societyLand ? parseDate(formData.get("expiryDate")) : null,
+        status: (formData.get("status") as RegisteredOfficeStatus) || "ACTIVE",
+        remarks: String(formData.get("remarks") || "").trim() || null,
+      },
+    });
+
+    if (letterhead instanceof File && letterhead.size > 0) {
+      if (office.plotId) {
+        await createDocumentWithUpload({
+          plotId: office.plotId,
+          registeredOfficeId: office.id,
+          documentType: "DEALER_LETTERHEAD",
+          title: `${office.officeName} Letterhead`,
+          uploadedById: session.user.id,
+          file: letterhead,
+        });
+      } else {
+        const saved = await saveUploadedFile(letterhead);
+        await prisma.registeredOffice.update({
+          where: { id: office.id },
+          data: { letterheadFilePath: saved.relativePath },
+        });
+      }
+    }
+
+    await writeAuditLog({
+      userId: session.user.id,
+      action: "REGISTERED_OFFICE_CREATED",
+      module: "offices",
+      recordId: office.id,
+      plotId: office.plotId ?? undefined,
+      newValue: { officeName, premisesType },
+    });
+
+    revalidatePath("/offices");
+    redirect(`/offices/${office.id}`);
+  } catch (err) {
+    if (isNextNavigationError(err)) throw err;
+    redirectWithError(returnPath, getErrorMessage(err));
   }
-
-  await writeAuditLog({
-    userId: session.user.id,
-    action: "REGISTERED_OFFICE_CREATED",
-    module: "offices",
-    recordId: office.id,
-    plotId: office.plotId ?? undefined,
-    newValue: { officeName, premisesType },
-  });
-
-  revalidatePath("/offices");
-  redirect(`/offices/${office.id}`);
 }
 
 export async function updateRegisteredOffice(formData: FormData) {
@@ -281,22 +302,35 @@ export async function generateOfficeRentChargesAction(formData: FormData) {
 }
 
 export async function markOfficeRentPaidAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
-  if (!hasPermission(session.user.role, "verify_payment")) throw new Error("Permission denied");
+  const returnPath = "/offices";
 
-  const chargeId = String(formData.get("chargeId") || "");
-  if (!chargeId) throw new Error("Charge ID required");
+  try {
+    const session = await auth();
+    if (!session?.user) redirectWithError(returnPath, "Unauthorized");
+    if (!hasPermission(session.user.role, "verify_payment")) {
+      redirectWithError(returnPath, "Permission denied");
+    }
 
-  const charge = await prisma.officeRentCharge.findUnique({
-    where: { id: chargeId },
-    select: { registeredOfficeId: true },
-  });
+    const chargeId = String(formData.get("chargeId") || "");
+    if (!chargeId) redirectWithError(returnPath, "Charge ID required");
 
-  await markOfficeRentChargePaid(chargeId, session.user.id);
-  revalidatePath("/offices");
-  if (charge) revalidatePath(`/offices/${charge.registeredOfficeId}`);
-  redirect(charge ? `/offices/${charge.registeredOfficeId}` : "/offices");
+    const charge = await prisma.officeRentCharge.findUnique({
+      where: { id: chargeId },
+      include: { registeredOffice: { select: { id: true, premisesType: true, officeName: true } } },
+    });
+    if (!charge) redirectWithError(returnPath, "Rent charge not found");
+    if (!isSocietyLandOffice(charge.registeredOffice.premisesType)) {
+      redirectWithError(returnPath, "Private offices cannot be billed society rent");
+    }
+
+    await markOfficeRentChargePaid(chargeId, session.user.id);
+    revalidatePath("/offices");
+    revalidatePath(`/offices/${charge.registeredOfficeId}`);
+    redirect(`/offices/${charge.registeredOfficeId}`);
+  } catch (err) {
+    if (isNextNavigationError(err)) throw err;
+    redirectWithError(returnPath, getErrorMessage(err));
+  }
 }
 
 export async function assignRegisteredOfficeToOpenFile(formData: FormData) {

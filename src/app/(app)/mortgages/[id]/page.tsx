@@ -7,14 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { releaseMortgage } from "../actions";
+import { ConfirmOnSubmitForm, QueryErrorBanner } from "@/components/ui/confirm-on-submit-form";
 import { fileDownloadHref } from "@/lib/uploads";
 import { hasPermission } from "@/lib/rbac";
 import { formatDate, labelize } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-export default async function MortgageDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MortgageDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { id } = await params;
+  const sp = await searchParams;
   const session = await auth();
   const canRelease =
     session?.user &&
@@ -54,6 +62,8 @@ export default async function MortgageDetailPage({ params }: { params: Promise<{
           </WarningBanner>
         </div>
       ) : null}
+
+      <QueryErrorBanner error={sp.error} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -99,7 +109,12 @@ export default async function MortgageDetailPage({ params }: { params: Promise<{
         {canReleaseNow ? (
           <section className="rounded-xl border border-teal-100 bg-teal-50/40 p-5 shadow-sm lg:col-span-2">
             <h2 className="font-display mb-4 text-lg font-semibold text-teal-950">Release mortgage</h2>
-            <form action={releaseMortgage} encType="multipart/form-data" className="max-w-lg space-y-3">
+            <ConfirmOnSubmitForm
+              action={releaseMortgage}
+              encType="multipart/form-data"
+              confirmMessage={`Record release of mortgage with ${mortgage.bankName}? Plot transfers will be unblocked once no active mortgages remain.`}
+              className="max-w-lg space-y-3"
+            >
               <input type="hidden" name="mortgageId" value={mortgage.id} />
               <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Release date</label>
@@ -116,7 +131,7 @@ export default async function MortgageDetailPage({ params }: { params: Promise<{
                 <textarea name="remarks" rows={2} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" />
               </div>
               <Button type="submit">Record release</Button>
-            </form>
+            </ConfirmOnSubmitForm>
           </section>
         ) : null}
       </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { PageHeader, StatCard } from "@/components/ui/page";
+import { FormErrorBanner } from "@/components/ui/form-error-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TankerNav } from "@/components/tankers/tanker-nav";
@@ -30,7 +31,7 @@ function stockTabHref(tab: string) {
 export default async function TankerStockPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; error?: string }>;
 }) {
   const sp = await searchParams;
   const tab = sp.tab === "fills" ? "fills" : "purchases";
@@ -58,6 +59,8 @@ export default async function TankerStockPage({
       />
 
       <TankerNav active="stock" />
+
+      {sp.error ? <FormErrorBanner message={sp.error} /> : null}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <StatCard

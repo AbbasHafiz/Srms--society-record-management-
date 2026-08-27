@@ -13,6 +13,12 @@ import {
   updateElectricityBillScan,
 } from "@/lib/electricity";
 import { saveUploadedFile } from "@/lib/uploads";
+import {
+  redirectWithError,
+  getErrorMessage,
+  isNextNavigationError,
+} from "@/lib/action-result";
+import { electricityBillSchema, zodFieldErrors } from "@/lib/validation";
 import type { PaymentMethod } from "@/generated/prisma/client";
 
 function parseDate(value: string) {
@@ -65,34 +71,49 @@ function parseBillForm(formData: FormData) {
 }
 
 export async function createElectricityBill(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
-  if (!canManageElectricity(session.user.role)) throw new Error("Forbidden");
+  const returnPath = "/electricity/new";
 
-  const input = parseBillForm(formData);
-  const scan = await parseScan(formData);
+  try {
+    const session = await auth();
+    if (!session?.user) redirectWithError(returnPath, "Unauthorized");
+    if (!canManageElectricity(session.user.role)) redirectWithError(returnPath, "Forbidden");
 
-  const bill = await createElectricityBillRecord({
-    ...input,
-    ...scan,
-    createdById: session.user.id,
-  });
+    const parsed = electricityBillSchema.safeParse({
+      periodMonth: formData.get("periodMonth"),
+      periodYear: formData.get("periodYear"),
+      amount: formData.get("amount"),
+      dueDate: formData.get("dueDate"),
+    });
+    if (!parsed.success) redirectWithError(returnPath, zodFieldErrors(parsed.error));
 
-  await writeAuditLog({
-    userId: session.user.id,
-    action: "ELECTRICITY_BILL_CREATED",
-    module: "electricity",
-    recordId: bill.id,
-    newValue: {
-      periodMonth: input.periodMonth,
-      periodYear: input.periodYear,
-      amount: input.amount,
-      vendor: input.vendor,
-    },
-  });
+    const input = parseBillForm(formData);
+    const scan = await parseScan(formData);
 
-  revalidatePath("/electricity");
-  redirect(`/electricity/${bill.id}`);
+    const bill = await createElectricityBillRecord({
+      ...input,
+      ...scan,
+      createdById: session.user.id,
+    });
+
+    await writeAuditLog({
+      userId: session.user.id,
+      action: "ELECTRICITY_BILL_CREATED",
+      module: "electricity",
+      recordId: bill.id,
+      newValue: {
+        periodMonth: input.periodMonth,
+        periodYear: input.periodYear,
+        amount: input.amount,
+        vendor: input.vendor,
+      },
+    });
+
+    revalidatePath("/electricity");
+    redirect(`/electricity/${bill.id}`);
+  } catch (err) {
+    if (isNextNavigationError(err)) throw err;
+    redirectWithError(returnPath, getErrorMessage(err));
+  }
 }
 
 export async function updateElectricityBill(formData: FormData) {

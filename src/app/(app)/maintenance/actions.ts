@@ -14,6 +14,12 @@ import {
 } from "@/lib/maintenance";
 import { resolveCustomWorkType } from "@/lib/other-specify";
 import { saveUploadedFile } from "@/lib/uploads";
+import {
+  redirectWithError,
+  getErrorMessage,
+  isNextNavigationError,
+} from "@/lib/action-result";
+import { maintenanceWorkSchema, zodFieldErrors } from "@/lib/validation";
 import type { MaintenanceWorkStatus, PaymentMethod, PaymentStatus } from "@/generated/prisma/client";
 
 function parseDate(value: string) {
@@ -62,33 +68,48 @@ function parseMaintenanceForm(formData: FormData) {
 }
 
 export async function createMaintenanceWork(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
-  if (!canManageMaintenance(session.user.role)) throw new Error("Forbidden");
+  const returnPath = "/maintenance/new";
 
-  const input = parseMaintenanceForm(formData);
-  const scan = await parseScan(formData);
-  const postToFinance = formData.get("postToFinance") === "on";
-  const paymentMethod = String(formData.get("paymentMethod") || "CASH") as PaymentMethod;
+  try {
+    const session = await auth();
+    if (!session?.user) redirectWithError(returnPath, "Unauthorized");
+    if (!canManageMaintenance(session.user.role)) redirectWithError(returnPath, "Forbidden");
 
-  const work = await createMaintenanceWorkRecord({
-    ...input,
-    ...scan,
-    postToFinance,
-    paymentMethod,
-    createdById: session.user.id,
-  });
+    const workType = resolveCustomWorkType(formData);
+    const parsed = maintenanceWorkSchema.safeParse({
+      workType,
+      description: formData.get("description"),
+      cost: formData.get("cost"),
+    });
+    if (!parsed.success) redirectWithError(returnPath, zodFieldErrors(parsed.error));
 
-  await writeAuditLog({
-    userId: session.user.id,
-    action: "MAINTENANCE_WORK_CREATED",
-    module: "maintenance",
-    recordId: work.id,
-    newValue: { workType: input.workType, cost: input.cost, status: input.status },
-  });
+    const input = parseMaintenanceForm(formData);
+    const scan = await parseScan(formData);
+    const postToFinance = formData.get("postToFinance") === "on";
+    const paymentMethod = String(formData.get("paymentMethod") || "CASH") as PaymentMethod;
 
-  revalidatePath("/maintenance");
-  redirect(`/maintenance/${work.id}`);
+    const work = await createMaintenanceWorkRecord({
+      ...input,
+      ...scan,
+      postToFinance,
+      paymentMethod,
+      createdById: session.user.id,
+    });
+
+    await writeAuditLog({
+      userId: session.user.id,
+      action: "MAINTENANCE_WORK_CREATED",
+      module: "maintenance",
+      recordId: work.id,
+      newValue: { workType: input.workType, cost: input.cost, status: input.status },
+    });
+
+    revalidatePath("/maintenance");
+    redirect(`/maintenance/${work.id}`);
+  } catch (err) {
+    if (isNextNavigationError(err)) throw err;
+    redirectWithError(returnPath, getErrorMessage(err));
+  }
 }
 
 export async function updateMaintenanceWork(formData: FormData) {

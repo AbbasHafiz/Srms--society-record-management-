@@ -7,6 +7,11 @@ import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit";
 import { createDocumentWithUpload } from "@/lib/documents";
 import { hasPermission } from "@/lib/rbac";
+import {
+  redirectWithError,
+  getErrorMessage,
+  isNextNavigationError,
+} from "@/lib/action-result";
 import type { MortgageStatus } from "@/generated/prisma/client";
 
 export async function createMortgage(formData: FormData) {
@@ -80,74 +85,82 @@ export async function createMortgage(formData: FormData) {
 }
 
 export async function releaseMortgage(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
-  if (!hasPermission(session.user.role, "approve") && !hasPermission(session.user.role, "edit")) {
-    throw new Error("Forbidden");
-  }
-
   const mortgageId = String(formData.get("mortgageId") || "");
-  const releaseDateRaw = String(formData.get("releaseDate") || "").trim();
-  const remarks = String(formData.get("remarks") || "").trim() || null;
-  const file = formData.get("file");
+  const returnPath = mortgageId ? `/mortgages/${mortgageId}` : "/mortgages";
 
-  if (!mortgageId) throw new Error("Mortgage id required");
+  try {
+    const session = await auth();
+    if (!session?.user) redirectWithError(returnPath, "Unauthorized");
+    if (!hasPermission(session.user.role, "approve") && !hasPermission(session.user.role, "edit")) {
+      redirectWithError(returnPath, "Forbidden");
+    }
 
-  const existing = await prisma.mortgage.findUnique({ where: { id: mortgageId } });
-  if (!existing) throw new Error("Mortgage not found");
-  if (existing.status === "RELEASED") throw new Error("Mortgage already released");
-  if (!["PENDING", "ACTIVE"].includes(existing.status)) {
-    throw new Error("Mortgage cannot be released in current status");
-  }
+    const releaseDateRaw = String(formData.get("releaseDate") || "").trim();
+    const remarks = String(formData.get("remarks") || "").trim() || null;
+    const file = formData.get("file");
 
-  const releaseDate = releaseDateRaw ? new Date(releaseDateRaw) : new Date();
+    if (!mortgageId) redirectWithError(returnPath, "Mortgage id required");
 
-  await prisma.mortgage.update({
-    where: { id: mortgageId },
-    data: {
-      status: "RELEASED",
-      releaseDate,
-      remarks: remarks ?? existing.remarks,
-    },
-  });
+    const existing = await prisma.mortgage.findUnique({ where: { id: mortgageId } });
+    if (!existing) redirectWithError(returnPath, "Mortgage not found");
+    if (existing.status === "RELEASED") redirectWithError(returnPath, "Mortgage already released");
+    if (!["PENDING", "ACTIVE"].includes(existing.status)) {
+      redirectWithError(returnPath, "Mortgage cannot be released in current status");
+    }
 
-  const otherActive = await prisma.mortgage.count({
-    where: { plotId: existing.plotId, status: "ACTIVE", id: { not: mortgageId } },
-  });
+    const releaseDate = releaseDateRaw ? new Date(releaseDateRaw) : new Date();
 
-  if (otherActive === 0) {
-    await prisma.plot.update({
-      where: { id: existing.plotId },
-      data: { hasActiveMortgage: false },
+    await prisma.mortgage.update({
+      where: { id: mortgageId },
+      data: {
+        status: "RELEASED",
+        releaseDate,
+        remarks: remarks ?? existing.remarks,
+      },
     });
-  }
 
-  if (file instanceof File && file.size > 0) {
-    await createDocumentWithUpload({
+    const otherActive = await prisma.mortgage.count({
+      where: { plotId: existing.plotId, status: "ACTIVE", id: { not: mortgageId } },
+    });
+
+    if (otherActive === 0) {
+      await prisma.plot.update({
+        where: { id: existing.plotId },
+        data: { hasActiveMortgage: false },
+      });
+    }
+
+    if (file instanceof File && file.size > 0) {
+      await createDocumentWithUpload({
+        plotId: existing.plotId,
+        ownershipId: existing.ownershipId,
+        mortgageId: existing.id,
+        documentType: "BANK_NOC",
+        title: `Bank release / NOC — ${existing.bankName}`,
+        issueDate: releaseDate,
+        uploadedById: session.user.id,
+        file,
+      });
+    }
+
+    await writeAuditLog({
+      userId: session.user.id,
+      action: "MORTGAGE_RELEASED",
+      module: "mortgages",
+      recordId: mortgageId,
       plotId: existing.plotId,
-      ownershipId: existing.ownershipId,
-      mortgageId: existing.id,
-      documentType: "BANK_NOC",
-      title: `Bank release / NOC — ${existing.bankName}`,
-      issueDate: releaseDate,
-      uploadedById: session.user.id,
-      file,
+      oldValue: { status: existing.status },
+      newValue: { status: "RELEASED", releaseDate: releaseDate.toISOString() },
+      reason: remarks,
     });
+
+    revalidatePath("/mortgages");
+    revalidatePath(`/mortgages/${mortgageId}`);
+    revalidatePath(`/plots/${existing.plotId}`);
+    revalidatePath("/documents");
+    redirect(`${returnPath}?released=1`);
+  } catch (err) {
+    if (isNextNavigationError(err)) throw err;
+    redirectWithError(returnPath, getErrorMessage(err));
   }
-
-  await writeAuditLog({
-    userId: session.user.id,
-    action: "MORTGAGE_RELEASED",
-    module: "mortgages",
-    recordId: mortgageId,
-    plotId: existing.plotId,
-    oldValue: { status: existing.status },
-    newValue: { status: "RELEASED", releaseDate: releaseDate.toISOString() },
-    reason: remarks,
-  });
-
-  revalidatePath("/mortgages");
-  revalidatePath(`/mortgages/${mortgageId}`);
-  revalidatePath(`/plots/${existing.plotId}`);
-  revalidatePath("/documents");
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { canAccessModule } from "@/lib/rbac";
 import { plotLabel } from "@/lib/plots";
 import { plotDeliveryAddress, searchPlotsForTanker } from "@/lib/tankers";
 
@@ -7,6 +8,9 @@ export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!canAccessModule(session.user.role, "plots") && !canAccessModule(session.user.role, "tankers")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);

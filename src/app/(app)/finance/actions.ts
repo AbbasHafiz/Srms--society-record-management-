@@ -17,6 +17,11 @@ import type {
 } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  redirectWithError,
+  getErrorMessage,
+  isNextNavigationError,
+} from "@/lib/action-result";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "PO", "BANK_TRANSFER", "CHEQUE", "OTHER"];
 const TXN_STATUSES: FinanceTransactionStatus[] = ["DRAFT", "POSTED", "VOID"];
@@ -84,17 +89,29 @@ export async function postFinanceTxnAction(formData: FormData) {
 }
 
 export async function voidFinanceTxnAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
-  requireFinanceManage(session.user.role);
+  const returnPath = "/finance";
 
-  const txnId = String(formData.get("txnId") || "").trim();
-  const reason = String(formData.get("reason") || "").trim();
-  if (!txnId) throw new Error("Transaction ID required");
-  if (!reason) throw new Error("Void reason is required");
+  try {
+    const session = await auth();
+    if (!session?.user) redirectWithError(returnPath, "Unauthorized");
+    requireFinanceManage(session.user.role);
 
-  await voidFinanceTransaction(txnId, session.user.id, reason);
-  revalidatePath("/finance");
+    const txnId = String(formData.get("txnId") || "").trim();
+    const reason = String(formData.get("reason") || "").trim();
+    if (!txnId) redirectWithError(returnPath, "Transaction ID required");
+    if (!reason) redirectWithError(returnPath, "Void reason is required");
+
+    const txn = await prisma.financeTransaction.findUnique({ where: { id: txnId } });
+    if (!txn) redirectWithError(returnPath, "Transaction not found");
+    if (txn.status === "VOID") redirectWithError(returnPath, "Transaction is already void");
+
+    await voidFinanceTransaction(txnId, session.user.id, reason);
+    revalidatePath("/finance");
+    redirect("/finance?voided=1");
+  } catch (err) {
+    if (isNextNavigationError(err)) throw err;
+    redirectWithError(returnPath, getErrorMessage(err));
+  }
 }
 
 export async function postPaymentToLedgerAction(formData: FormData) {

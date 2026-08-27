@@ -8,6 +8,8 @@ import { writeAuditLog } from "@/lib/audit";
 import { hasPermission } from "@/lib/rbac";
 import { nextTankerBookingNumber } from "@/lib/numbering";
 import { assertSlotCapacity, getActiveTankerPrice } from "@/lib/tankers";
+import { redirectWithError, getErrorMessage, isNextNavigationError } from "@/lib/action-result";
+import { softCheckPhone, tankerBookingSchema, zodFieldErrors } from "@/lib/validation";
 import type { PaymentStatus, TankerStatus, TankerType } from "@/generated/prisma/client";
 
 function parseDate(value: string) {
@@ -48,92 +50,125 @@ function deriveStatus(input: {
 }
 
 export async function createTankerBooking(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
+  const returnPath = "/tankers/new";
 
-  const bookerName = (formData.get("bookerName") as string)?.trim();
-  const bookerContact = (formData.get("bookerContact") as string)?.trim() || undefined;
-  const { plotId, houseNo, streetNo, streetArea } = parseDestination(formData);
-  const tankerType = formData.get("tankerType") as TankerType;
-  const distributionDate = parseDate(formData.get("distributionDate") as string);
-  const timeSlotId = (formData.get("timeSlotId") as string)?.trim();
-  const tankerId = (formData.get("tankerId") as string)?.trim() || undefined;
-  const driverId = (formData.get("driverId") as string)?.trim() || undefined;
-  const remarks = (formData.get("remarks") as string)?.trim() || undefined;
-  const destinationNotes = (formData.get("destinationNotes") as string)?.trim() || undefined;
+  try {
+    const session = await auth();
+    if (!session?.user) redirectWithError(returnPath, "Unauthorized");
 
-  if (!bookerName || !tankerType || !distributionDate || !timeSlotId) {
-    throw new Error("Booker name, tanker type, delivery date, and time slot are required");
-  }
+    const parsed = tankerBookingSchema.safeParse({
+      bookerName: formData.get("bookerName"),
+      bookerContact: formData.get("bookerContact") || undefined,
+      tankerType: formData.get("tankerType"),
+      distributionDate: formData.get("distributionDate"),
+      timeSlotId: formData.get("timeSlotId"),
+      destinationMode: formData.get("destinationMode") || "house",
+      plotId: formData.get("plotId") || undefined,
+      houseNo: formData.get("houseNo") || undefined,
+      streetNo: formData.get("streetNo") || undefined,
+      streetArea: formData.get("streetArea") || undefined,
+    });
+    if (!parsed.success) redirectWithError(returnPath, zodFieldErrors(parsed.error));
 
-  const feeConfig = await getActiveTankerPrice(tankerType);
-  if (!feeConfig) {
-    throw new Error(`No active fee configured for ${tankerType.replace(/_/g, " ").toLowerCase()}`);
-  }
-
-  const slot = await assertSlotCapacity({
-    distributionDate,
-    timeSlotId,
-    tankerId,
-  });
-
-  const bookingNumber = await nextTankerBookingNumber();
-  const charges = Number(feeConfig.amount);
-  const status = deriveStatus({ driverId, tankerId });
-
-  const booking = await prisma.tankerDelivery.create({
-    data: {
-      bookingNumber,
-      tankerType,
+    const {
       bookerName,
-      bookerContact,
-      customerName: bookerName,
+      bookerContact: contactRaw,
+      tankerType,
+      distributionDate: dateRaw,
+      timeSlotId,
+      destinationMode,
+      plotId: plotIdRaw,
       houseNo,
       streetNo,
       streetArea,
+    } = parsed.data;
+
+    const phoneCheck = softCheckPhone(contactRaw ?? "", { required: false });
+    if (!phoneCheck.ok) redirectWithError(returnPath, phoneCheck.message);
+
+    const plotId = destinationMode === "plot" ? plotIdRaw : undefined;
+    const distributionDate = parseDate(dateRaw);
+    const tankerId = (formData.get("tankerId") as string)?.trim() || undefined;
+    const driverId = (formData.get("driverId") as string)?.trim() || undefined;
+    const remarks = (formData.get("remarks") as string)?.trim() || undefined;
+    const destinationNotes = (formData.get("destinationNotes") as string)?.trim() || undefined;
+    const bookerContact = phoneCheck.normalized || undefined;
+
+    const feeConfig = await getActiveTankerPrice(tankerType);
+    if (!feeConfig) {
+      redirectWithError(
+        returnPath,
+        `No active fee configured for ${tankerType.replace(/_/g, " ").toLowerCase()}`
+      );
+    }
+
+    const slot = await assertSlotCapacity({
       distributionDate,
-      timeSlotId: slot.id,
-      slotLabel: slot.label,
-      slotStartTime: slot.startTime,
-      slotEndTime: slot.endTime,
-      charges,
-      feeConfigId: feeConfig.id,
+      timeSlotId,
       tankerId,
-      driverId,
-      plotId,
-      bookedById: session.user.id,
-      status,
-      remarks,
-      destinationNotes,
-    },
-  });
+    });
 
-  await writeAuditLog({
-    userId: session.user.id,
-    action: "TANKER_BOOKING_CREATED",
-    module: "tankers",
-    recordId: booking.id,
-    plotId: plotId ?? undefined,
-    newValue: {
-      bookingNumber,
-      tankerType,
-      bookerName,
-      houseNo,
-      streetNo,
-      distributionDate: distributionDate.toISOString(),
-      timeSlotId: slot.id,
-      slotLabel: slot.label,
-      charges,
-      driverId,
-      tankerId,
-      status,
-    },
-  });
+    const bookingNumber = await nextTankerBookingNumber();
+    const charges = Number(feeConfig.amount);
+    const status = deriveStatus({ driverId, tankerId });
 
-  revalidatePath("/tankers");
-  revalidatePath("/tankers/driver");
-  revalidatePath(`/tankers/${booking.id}`);
-  redirect(`/tankers/${booking.id}/slip?new=1`);
+    const booking = await prisma.tankerDelivery.create({
+      data: {
+        bookingNumber,
+        tankerType,
+        bookerName,
+        bookerContact,
+        customerName: bookerName,
+        houseNo: destinationMode === "house" ? houseNo : undefined,
+        streetNo: destinationMode === "house" ? streetNo : undefined,
+        streetArea: destinationMode === "house" ? streetArea : undefined,
+        distributionDate,
+        timeSlotId: slot.id,
+        slotLabel: slot.label,
+        slotStartTime: slot.startTime,
+        slotEndTime: slot.endTime,
+        charges,
+        feeConfigId: feeConfig.id,
+        tankerId,
+        driverId,
+        plotId,
+        bookedById: session.user.id,
+        status,
+        remarks,
+        destinationNotes,
+      },
+    });
+
+    await writeAuditLog({
+      userId: session.user.id,
+      action: "TANKER_BOOKING_CREATED",
+      module: "tankers",
+      recordId: booking.id,
+      plotId: plotId ?? undefined,
+      newValue: {
+        bookingNumber,
+        tankerType,
+        bookerName,
+        houseNo,
+        streetNo,
+        distributionDate: distributionDate.toISOString(),
+        timeSlotId: slot.id,
+        slotLabel: slot.label,
+        charges,
+        driverId,
+        tankerId,
+        status,
+      },
+    });
+
+    revalidatePath("/tankers");
+    revalidatePath("/tankers/driver");
+    revalidatePath(`/tankers/${booking.id}`);
+    redirect(`/tankers/${booking.id}/slip?new=1`);
+  } catch (err) {
+    if (isNextNavigationError(err)) throw err;
+    redirectWithError(returnPath, getErrorMessage(err));
+  }
 }
 
 export async function updateTankerBooking(formData: FormData) {
