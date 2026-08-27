@@ -9,7 +9,8 @@ import {
   listActiveVehiclesForFuel,
   VEHICLE_TYPE_OPTIONS,
 } from "@/lib/vehicles";
-import { formatCurrency, formatDate, labelize } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { vehicleTypeLabel } from "@/lib/vehicles-shared";
 import { endOfMonth, startOfMonth } from "date-fns";
 import type { VehicleType } from "@/generated/prisma/client";
 import { addFuelLog } from "../actions";
@@ -121,7 +122,7 @@ export default async function VehicleFuelPage({
                 <option value="">Select…</option>
                 {vehicles.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.vehicleCode} — {labelize(v.vehicleType)}
+                    {v.vehicleCode} — {vehicleTypeLabel(v.vehicleType)}
                   </option>
                 ))}
               </select>
@@ -150,7 +151,7 @@ export default async function VehicleFuelPage({
       ) : null}
 
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="font-display text-lg font-semibold">By vehicle</h2>
           </div>
@@ -175,7 +176,7 @@ export default async function VehicleFuelPage({
                         {row.vehicle.vehicleCode}
                       </Link>
                     </td>
-                    <td>{labelize(row.vehicle.vehicleType)}</td>
+                    <td>{vehicleTypeLabel(row.vehicle.vehicleType)}</td>
                     <td>{row.liters.toLocaleString("en-PK")}</td>
                     <td>{formatCurrency(row.amount)}</td>
                     <td>{row.count}</td>
@@ -186,7 +187,7 @@ export default async function VehicleFuelPage({
           )}
         </section>
 
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="font-display text-lg font-semibold">By vehicle type</h2>
           </div>
@@ -205,7 +206,7 @@ export default async function VehicleFuelPage({
               <tbody>
                 {summary.byType.map(([type, row]) => (
                   <tr key={type}>
-                    <td className="font-medium">{labelize(type)}</td>
+                    <td className="font-medium">{vehicleTypeLabel(type)}</td>
                     <td>{row.liters.toLocaleString("en-PK")}</td>
                     <td>{formatCurrency(row.amount)}</td>
                     <td>{row.count}</td>
@@ -217,7 +218,7 @@ export default async function VehicleFuelPage({
         </section>
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-5 py-4">
           <h2 className="font-display text-lg font-semibold">Fuel log history</h2>
         </div>
@@ -247,7 +248,7 @@ export default async function VehicleFuelPage({
                       <div className="text-xs text-slate-500">{log.vehicle.linkedTanker.tankerCode}</div>
                     ) : null}
                   </td>
-                  <td>{labelize(log.vehicle.vehicleType)}</td>
+                  <td>{vehicleTypeLabel(log.vehicle.vehicleType)}</td>
                   <td>{String(log.liters)}</td>
                   <td>{formatCurrency(log.amount)}</td>
                   <td>{log.driver?.name ?? "—"}</td>

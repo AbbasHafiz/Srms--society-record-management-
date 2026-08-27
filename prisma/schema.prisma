@@ -292,6 +292,14 @@ enum VehicleType {
   VAN
   BUS
   OTHER
+  MOTORCYCLE
+  CAR
+  PICKUP_TRUCK
+  TOYOTA_HIACE
+  COASTER
+  RICKSHAW
+  AMBULANCE
+  EXCAVATOR
 }
 
 enum VehicleUsedFor {

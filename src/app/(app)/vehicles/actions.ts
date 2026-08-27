@@ -8,6 +8,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { canAddFuelLog, canManageFleetRecords } from "@/lib/rbac";
 import { nextSequence } from "@/lib/numbering";
 import { requireCustomType, requireOtherDetail } from "@/lib/other-specify";
+import { isVehicleType } from "@/lib/vehicles-shared";
 import type { VehicleType, VehicleUsedFor } from "@/generated/prisma/client";
 
 function parseDate(value: string) {
@@ -25,7 +26,11 @@ export async function createVehicle(formData: FormData) {
 
   const vehicleCode = String(formData.get("vehicleCode") || "").trim();
   const registrationNo = String(formData.get("registrationNo") || "").trim() || null;
-  const vehicleType = String(formData.get("vehicleType") || "TRACTOR") as VehicleType;
+  const vehicleTypeRaw = String(formData.get("vehicleType") || "CAR");
+  if (!isVehicleType(vehicleTypeRaw)) {
+    throw new Error("Select a valid vehicle type");
+  }
+  const vehicleType: VehicleType = vehicleTypeRaw;
   const usedFor = String(formData.get("usedFor") || "OTHER") as VehicleUsedFor;
   const customType = requireCustomType(formData, vehicleType, {
     message: "Please specify the vehicle type when Other is selected",

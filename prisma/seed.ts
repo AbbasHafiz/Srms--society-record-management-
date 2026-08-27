@@ -1490,6 +1490,82 @@ async function main() {
     },
   });
 
+  await prisma.vehicle.createMany({
+    data: [
+      {
+        vehicleCode: "MC-01",
+        registrationNo: "ICT-1122",
+        vehicleType: "MOTORCYCLE",
+        usedFor: "OTHER",
+        otherDetail: "Security patrol — gate and inner roads",
+        driverId: imran.id,
+        remarks: "Honda CG 125 — night patrol",
+      },
+      {
+        vehicleCode: "CR-01",
+        registrationNo: "ICT-2201",
+        vehicleType: "CAR",
+        usedFor: "STAFF_PICKUP",
+        driverId: kamran.id,
+        remarks: "Office car — panel and GM movements",
+      },
+      {
+        vehicleCode: "PK-01",
+        registrationNo: "ICT-6704",
+        vehicleType: "PICKUP_TRUCK",
+        usedFor: "TRACTOR_WORK",
+        driverId: tariq.id,
+        remarks: "Mazda pickup — stores and horticulture loads",
+      },
+      {
+        vehicleCode: "HA-01",
+        registrationNo: "ICT-9088",
+        vehicleType: "TOYOTA_HIACE",
+        usedFor: "STAFF_PICKUP",
+        driverId: kamran.id,
+        remarks: "Toyota HiAce — morning staff van, office to gate",
+      },
+      {
+        vehicleCode: "CS-01",
+        registrationNo: "ICT-4410",
+        vehicleType: "COASTER",
+        usedFor: "STAFF_PICKUP",
+        remarks: "Coaster — bulk staff / event transport",
+      },
+      {
+        vehicleCode: "RQ-01",
+        registrationNo: "ICT-3309",
+        vehicleType: "RICKSHAW",
+        usedFor: "OTHER",
+        otherDetail: "Short hops — office, mosque, dispensary",
+        remarks: "Qingqi — dispatch and light errands",
+      },
+      {
+        vehicleCode: "AM-01",
+        registrationNo: "ICT-1190",
+        vehicleType: "AMBULANCE",
+        usedFor: "OTHER",
+        otherDetail: "Emergency medical transport",
+        remarks: "Society ambulance — 24-hour standby",
+      },
+      {
+        vehicleCode: "LD-01",
+        registrationNo: "ICT-5512",
+        vehicleType: "LOADER",
+        usedFor: "TRACTOR_WORK",
+        driverId: tariq.id,
+        remarks: "Front-end loader — debris and construction spoil",
+      },
+      {
+        vehicleCode: "EX-01",
+        registrationNo: "ICT-7781",
+        vehicleType: "EXCAVATOR",
+        usedFor: "TRACTOR_WORK",
+        remarks: "Mini excavator — drainage and trench work",
+      },
+    ],
+  });
+
   const fuelDate1 = new Date(today);
   fuelDate1.setDate(fuelDate1.getDate() - 5);
   const fuelDate2 = new Date(today);

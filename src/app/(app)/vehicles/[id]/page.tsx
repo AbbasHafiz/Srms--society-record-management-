@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { addFuelLog, addMaintenanceLog, addVehicleUsage } from "../actions";
 import { canAddFuelLog, canManageFleetRecords } from "@/lib/rbac";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
+import { vehicleTypeLabel } from "@/lib/vehicles-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +66,7 @@ export default async function VehicleDetailPage({
 
       <PageHeader
         title={vehicle.vehicleCode}
-        description={`${labelize(vehicle.vehicleType)}${vehicle.registrationNo ? ` · ${vehicle.registrationNo}` : ""}`}
+        description={`${vehicleTypeLabel(vehicle.vehicleType, vehicle.customType)}${vehicle.registrationNo ? ` · ${vehicle.registrationNo}` : ""}`}
         actions={<Badge status={vehicle.isActive ? "ACTIVE" : "INACTIVE"} />}
       />
 
@@ -73,7 +74,8 @@ export default async function VehicleDetailPage({
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <Row label="Driver" value={vehicle.driver ? `${vehicle.driver.name} (${vehicle.driver.employeeCode})` : "—"} />
           <Row label="Registration" value={vehicle.registrationNo ?? "—"} />
-          <Row label="Used for" value={labelize(vehicle.usedFor)} />
+          <Row label="Type" value={vehicleTypeLabel(vehicle.vehicleType, vehicle.customType)} />
+          <Row label="Used for" value={`${labelize(vehicle.usedFor)}${vehicle.otherDetail ? ` (${vehicle.otherDetail})` : ""}`} />
           <Row
             label="Linked tanker"
             value={

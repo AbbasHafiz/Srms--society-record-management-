@@ -1,18 +1,16 @@
 import { prisma } from "@/lib/db";
 import type { Prisma, VehicleType } from "@/generated/prisma/client";
 import { endOfDay, startOfDay } from "date-fns";
-import {
-  TANKER_VEHICLE_TYPES,
-  VEHICLE_TYPE_OPTIONS,
-  VEHICLE_USED_FOR_OPTIONS,
-  isTankerVehicleType,
-} from "@/lib/vehicles-shared";
+import { TANKER_VEHICLE_TYPES } from "@/lib/vehicles-shared";
 
 export {
   VEHICLE_TYPE_OPTIONS,
+  VEHICLE_TYPE_GROUPS,
   VEHICLE_USED_FOR_OPTIONS,
   TANKER_VEHICLE_TYPES,
   isTankerVehicleType,
+  isVehicleType,
+  vehicleTypeLabel,
 } from "@/lib/vehicles-shared";
 
 type FuelReportFilters = {
