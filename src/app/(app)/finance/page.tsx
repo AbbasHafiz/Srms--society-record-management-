@@ -126,6 +126,7 @@ export default async function FinancePage({
               importDescription="New rows are posted as fresh ledger entries. Historical payments are never overwritten."
               previewAction={previewFinanceExcelAction}
               commitAction={commitFinanceExcelAction}
+              appendNote="Append-only. Existing payments and posted amounts are never overwritten."
             />
             {canManage ? (
               <Link href="/finance/new">

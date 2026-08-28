@@ -26,6 +26,7 @@ export function ExcelImportDialog({
   previewAction,
   commitAction,
   triggerLabel = "Import Excel",
+  appendNote = "Append-only. Existing register rows are never overwritten.",
 }: {
   title: string;
   description: string;
@@ -33,6 +34,7 @@ export function ExcelImportDialog({
   previewAction: PreviewAction;
   commitAction: CommitAction;
   triggerLabel?: string;
+  appendNote?: string;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -109,7 +111,7 @@ export function ExcelImportDialog({
             Download import template
           </a>
           <p className="text-xs text-slate-500">
-            Append-only. Existing payments and posted amounts are never overwritten.
+            {appendNote}
           </p>
         </div>
 

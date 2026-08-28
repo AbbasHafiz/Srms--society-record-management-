@@ -14,6 +14,7 @@ export function ExcelToolbar({
   importDescription,
   previewAction,
   commitAction,
+  appendNote,
 }: {
   exportHref: string;
   exportLabel?: string;
@@ -24,6 +25,7 @@ export function ExcelToolbar({
   importDescription?: string;
   previewAction?: (formData: FormData) => Promise<ExcelPreviewResult>;
   commitAction?: (formData: FormData) => Promise<ExcelCommitResult>;
+  appendNote?: string;
 }) {
   return (
     <>
@@ -36,6 +38,7 @@ export function ExcelToolbar({
           templateHref={templateHref}
           previewAction={previewAction}
           commitAction={commitAction}
+          appendNote={appendNote}
         />
       ) : null}
     </>

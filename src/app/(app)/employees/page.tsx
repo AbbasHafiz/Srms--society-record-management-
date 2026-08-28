@@ -124,7 +124,7 @@ export default async function EmployeesPage({
               templateHref={excelExportHref("employees", {}, { template: true })}
               canImport={Boolean(canManage)}
               importTitle="Import staff"
-              importDescription="Bulk-add panel, staff, or contractors. Existing CNICs are skipped so current records are not overwritten."
+              importDescription="Bulk-add panel, staff, or contractors. An existing CNIC is rejected — current staff records are not overwritten."
               previewAction={previewEmployeesExcelAction}
               commitAction={commitEmployeesExcelAction}
             />
