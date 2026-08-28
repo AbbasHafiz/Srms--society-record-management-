@@ -125,6 +125,8 @@ Optional: `WHATSAPP_API_URL`, `WHATSAPP_API_TOKEN` for outbound WhatsApp gateway
 
 Persisted volumes: `pgdata` (database), `uploads` (files).
 
+**Backups:** Super Admin / GM can download a full zip from [Settings → Backup & restore](http://127.0.0.1:43127/settings/backup) (`database.dump` + uploaded files). On a VPS, also run the nightly `pg_dump` cron in [docs/HOSTING-PAKISTAN.md](docs/HOSTING-PAKISTAN.md) (`docker/backup-srms.sh`) and copy files off the server. The app needs `postgresql-client` and `zip`/`unzip` for the in-app dump.
+
 ### Production in Pakistan (VPS + HTTPS)
 
 Do **not** deploy this app to Vercel (or any serverless host) without object storage: uploaded scans live on disk and will disappear. For a housing society in Pakistan, use a Linux VPS, Docker Compose, Caddy, and persistent volumes.

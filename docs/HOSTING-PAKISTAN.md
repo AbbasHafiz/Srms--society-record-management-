@@ -293,6 +293,18 @@ gunzip -c /var/srms/backups/db-2026-08-28.sql.gz \
 
 This project applies schema with **`prisma db push`**, not a migrate history. After restore, start the stack as usual; the entrypoint will `db push` to match the current code (without `--accept-data-loss` when `NODE_ENV=production`).
 
+### In-app backup (Settings)
+
+A Super Admin or GM can also download a zip from **Settings → Backup & restore** (`/settings/backup`). The zip is named `srms-backup-YYYYMMDD-HHMM.zip` and contains:
+
+1. `database.dump` — `pg_dump` custom format of the app database
+2. `uploads/` — a copy of `UPLOAD_DIR` (production: `/var/srms/uploads` bind-mounted as `/app/uploads`)
+3. `manifest.json` — identifies the file as an SRMS backup (no secrets)
+
+Restore from the same page **replaces** the live database and uploaded files. It is irreversible. Finance Excel import is not a substitute.
+
+Keep the nightly cron above as the off-box copy. The UI is for an authorised person who needs a zip now, or who is restoring onto this server. The app container needs **`postgresql-client`** (`pg_dump` / `pg_restore`) and **`zip`/`unzip`** — the production Dockerfile installs them.
+
 ---
 
 ## 8. Email and WhatsApp

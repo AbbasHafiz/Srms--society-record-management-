@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createFeeConfiguration } from "@/lib/services";
-import { hasPermission } from "@/lib/rbac";
+import { canManageBackup, hasPermission } from "@/lib/rbac";
 import { createPropertySizeOption, togglePropertySizeOption } from "./size-actions";
 import { updateSlaSettings } from "./sla-actions";
 import { SLA_DEFAULTS } from "@/lib/sla";
@@ -114,11 +114,18 @@ export default async function SettingsPage() {
     <div>
       <PageHeader
         title="Settings"
-        description="Fee configurations, organization roles, number sequences, and system parameters."
+        description="Fee configurations, organization roles, backup, number sequences, and system parameters."
         actions={
-          <Link href="/settings/roles" className="text-sm text-teal-800 hover:underline">
-            Organization roles
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            {session?.user && canManageBackup(session.user.role) ? (
+              <Link href="/settings/backup" className="text-sm text-teal-800 hover:underline">
+                Backup & restore
+              </Link>
+            ) : null}
+            <Link href="/settings/roles" className="text-sm text-teal-800 hover:underline">
+              Organization roles
+            </Link>
+          </div>
         }
       />
 

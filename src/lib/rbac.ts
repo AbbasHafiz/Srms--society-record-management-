@@ -131,6 +131,7 @@ const PATH_MODULES = ([
   ["/mortgages", "mortgages"],
   ["/attendance", "attendance"],
   ["/employees", "employees"],
+  ["/settings/backup", "settings/backup"],
   ["/settings", "settings"],
   ["/finance", "finance"],
   ["/payments", "payments"],
@@ -162,8 +163,9 @@ export function getModuleForPath(pathname: string): string | null {
 }
 
 export function canAccessPath(role: Role, pathname: string): boolean {
-  if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
   const routeModule = getModuleForPath(pathname);
+  if (routeModule === "settings/backup") return canManageBackup(role);
+  if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
   if (!routeModule) {
     return role !== "TANKER_OPERATOR";
   }
@@ -189,7 +191,15 @@ export function canRegisterOpenFile(role: Role): boolean {
   return canRegisterPoa(role) || hasPermission(role, "create");
 }
 
+const BACKUP_ROLES: Role[] = ["SUPER_ADMIN", "GM"];
+
+/** Full database + uploads backup/restore. Not granted to ADMIN or Finance. */
+export function canManageBackup(role: Role): boolean {
+  return BACKUP_ROLES.includes(role);
+}
+
 export function canAccessModule(role: Role, module: string): boolean {
+  if (module === "settings/backup") return canManageBackup(role);
   if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
   const map: Record<string, Role[]> = {
     dashboard: ALL_ROLES,
@@ -326,6 +336,8 @@ export function canAccessModule(role: Role, module: string): boolean {
     ],
     audit: ["SUPER_ADMIN", "ADMIN", "PRESIDENT", "SECRETARY", "GM"],
     settings: ["SUPER_ADMIN", "ADMIN", "SECRETARY", "GM"],
+    /** Full DB + files backup. Finance Excel import is not a substitute. */
+    "settings/backup": ["SUPER_ADMIN", "GM"],
   };
   return map[module]?.includes(role) ?? false;
 }
