@@ -48,12 +48,20 @@ export default async function OpenFilesReportPage({
           <div className="flex gap-2">
             <Link href="/reports" className="text-sm text-teal-800 hover:underline">← Reports</Link>
             {canExport ? (
-              <a
-                href={`/reports/export?${exportParams}`}
-                className="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium hover:bg-slate-50"
-              >
-                Export CSV
-              </a>
+              <>
+                <a
+                  href={`/reports/export?${exportParams}`}
+                  className="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium hover:bg-slate-50"
+                >
+                  Export CSV
+                </a>
+                <a
+                  href={`/reports/export?${exportParams}&format=xlsx`}
+                  className="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium hover:bg-slate-50"
+                >
+                  Export Excel
+                </a>
+              </>
             ) : null}
           </div>
         }

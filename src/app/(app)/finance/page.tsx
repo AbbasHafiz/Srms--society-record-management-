@@ -12,6 +12,9 @@ import { ConfirmOnSubmitForm, QueryErrorBanner } from "@/components/ui/confirm-o
 import type { FinanceCategoryType, FinanceTransactionStatus } from "@/generated/prisma/client";
 import { cn } from "@/lib/utils";
 import { PrintButton } from "@/components/print/print-button";
+import { ExcelToolbar } from "@/components/excel/excel-toolbar";
+import { previewFinanceExcelAction, commitFinanceExcelAction } from "./excel-actions";
+import { FINANCE_EXCEL_COLUMNS } from "@/lib/finance-excel";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +47,7 @@ export default async function FinancePage({
     from?: string;
     to?: string;
     error?: string;
+    imported?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -105,6 +109,24 @@ export default async function FinancePage({
         description="Society income and expenditure ledger. Posted entries are immutable — void and re-enter to correct."
         actions={
           <>
+            <ExcelToolbar
+              exportHref={(() => {
+                const params = new URLSearchParams();
+                if (tab !== "all") params.set("tab", tab);
+                if (status) params.set("status", status);
+                if (sp.categoryId) params.set("categoryId", sp.categoryId);
+                if (sp.from) params.set("from", sp.from);
+                if (sp.to) params.set("to", sp.to);
+                const q = params.toString();
+                return q ? `/finance/export?${q}` : "/finance/export";
+              })()}
+              templateHref="/finance/template"
+              canImport={canManage}
+              importTitle="Import ledger from Excel"
+              importDescription="New rows are posted as fresh ledger entries. Historical payments are never overwritten."
+              previewAction={previewFinanceExcelAction}
+              commitAction={commitFinanceExcelAction}
+            />
             {canManage ? (
               <Link href="/finance/new">
                 <Button>Record entry</Button>
@@ -124,6 +146,12 @@ export default async function FinancePage({
       />
 
       <QueryErrorBanner error={sp.error} />
+      {sp.imported ? (
+        <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          Imported {sp.imported} new ledger {sp.imported === "1" ? "entry" : "entries"}. Existing payments were not
+          changed.
+        </p>
+      ) : null}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Today's revenue" value={formatCurrency(summary.todayRevenue)} tone="success" />
@@ -307,9 +335,39 @@ export default async function FinancePage({
       {canManage ? (
         <p className="mt-4 text-xs text-slate-500">
           Verified transfer and open-file payments auto-post to revenue on verification. Other fee types can be posted
-          manually from the Payments page.
+          manually from the Payments page. Excel import always creates new ledger rows — it never edits posted amounts.
         </p>
       ) : null}
+
+      <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="font-display text-lg font-semibold text-slate-900">Excel columns</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Export and import share the same header row. Keep the first row as these names. Empty ledgers still download
+          a header-only file so you can fill it and import.
+        </p>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                <th className="py-2 pr-3">Column</th>
+                <th className="py-2 pr-3">Required</th>
+                <th className="py-2">Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              {FINANCE_EXCEL_COLUMNS.map((col) => (
+                <tr key={col.key} className="border-b border-slate-100">
+                  <td className="py-2 pr-3 font-medium">{col.header}</td>
+                  <td className="py-2 pr-3 text-slate-600">
+                    {col.required ? "Yes" : col.importIgnored ? "Export only" : "No"}
+                  </td>
+                  <td className="py-2 text-slate-600">{col.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 const REPORTS = [
   {
     title: "Transfer Report",
-    description: "Transfers by date range with status breakdown and CSV export.",
+    description: "Transfers by date range with status breakdown and CSV or Excel export.",
     href: "/reports/transfers",
     icon: ArrowLeftRight,
     aggregated: true,
@@ -109,7 +109,7 @@ export default function ReportsPage() {
     <div>
       <PageHeader
         title="Reports"
-        description="Aggregated operational reports with CSV export, plus quick links to filtered registers."
+        description="Aggregated operational reports with CSV and Excel export, plus quick links to filtered registers."
       />
 
       <h2 className="mb-3 font-display text-lg font-semibold text-slate-800">Aggregated Reports</h2>

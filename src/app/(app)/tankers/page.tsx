@@ -20,6 +20,8 @@ import { TankerNav } from "@/components/tankers/tanker-nav";
 import { TankerScheduleBookings } from "@/components/tankers/tanker-schedule-bookings";
 import { WaterTypeSection, WaterTypeTabs } from "@/components/tankers/water-type-tabs";
 import { format, startOfDay } from "date-fns";
+import { excelExportHref } from "@/lib/excel";
+import { ExcelExportLink } from "@/components/excel/excel-export-link";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +62,10 @@ export default async function TankersPage({
         description={`Daily delivery schedule${isToday ? " — today" : ""} (${scheduleDate.toLocaleDateString("en-GB")})`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <ExcelExportLink
+              href={excelExportHref("tankers", { date: dateParam, type: typeFilter === "all" ? undefined : typeFilter })}
+              label="Export Excel"
+            />
             <Link href={printHref} target="_blank">
               <Button variant="outline">Print lists</Button>
             </Link>

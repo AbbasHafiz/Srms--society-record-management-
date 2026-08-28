@@ -10,6 +10,9 @@ import { ALL_PLOT_TYPES, ALL_POSSESSION_STATUSES, plotTypeLabel } from "@/lib/pl
 import { hasPermission } from "@/lib/rbac";
 import type { PlotType, PossessionStatus } from "@/generated/prisma/client";
 import { LIVE_OPEN_FILE_STATUSES } from "@/lib/open-files";
+import { excelExportHref } from "@/lib/excel";
+import { ExcelToolbar } from "@/components/excel/excel-toolbar";
+import { previewPlotsExcelAction, commitPlotsExcelAction } from "./excel-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -77,11 +80,22 @@ export default async function PlotsPage({
         title="Plot Register"
         description="Permanent plot master records. Ownership history is never overwritten."
         actions={
-          canCreate ? (
-            <Link href="/plots/new">
-              <Button>Register property</Button>
-            </Link>
-          ) : undefined
+          <>
+            <ExcelToolbar
+              exportHref={excelExportHref("plots", { q, type: typeFilter, possession: possessionFilter })}
+              templateHref={excelExportHref("plots", {}, { template: true })}
+              canImport={Boolean(canCreate)}
+              importTitle="Import plots and owners"
+              importDescription="Create new plots and first owners from a spreadsheet. An existing plot number is rejected — ownership history is never rewritten."
+              previewAction={previewPlotsExcelAction}
+              commitAction={commitPlotsExcelAction}
+            />
+            {canCreate ? (
+              <Link href="/plots/new">
+                <Button>Register property</Button>
+              </Link>
+            ) : null}
+          </>
         }
       />
 

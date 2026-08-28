@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import type { OwnershipStatus } from "@/generated/prisma/client";
+import { excelExportHref } from "@/lib/excel";
+import { ExcelExportLink } from "@/components/excel/excel-export-link";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,7 @@ export default async function OwnersPage({
       <PageHeader
         title="Ownership Register"
         description="Complete ownership history. Records are never overwritten — status changes preserve history."
+        actions={<ExcelExportLink href={excelExportHref("owners", { q, status })} />}
       />
 
       <form className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end">

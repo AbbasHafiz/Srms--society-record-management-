@@ -12,6 +12,8 @@ import {
   openFileStatusLabel,
 } from "@/lib/open-files";
 import type { OpenFileStatus, Prisma } from "@/generated/prisma/client";
+import { excelExportHref } from "@/lib/excel";
+import { ExcelExportLink } from "@/components/excel/excel-export-link";
 
 export const dynamic = "force-dynamic";
 
@@ -56,11 +58,14 @@ export default async function OpenFilesPage({
         title="Open Files"
         description="Open transfer — sold to investor/dealer; end purchaser not yet named. Legal membership stays with the seller until a later buyer proves identity, pays the society transfer fee, and the file is closed in the buyer's name."
         actions={
-          canCreate ? (
-            <Link href="/open-files/new">
-              <Button>Open a file</Button>
-            </Link>
-          ) : undefined
+          <>
+            <ExcelExportLink href={excelExportHref("open-files", { status: filterKey || undefined })} />
+            {canCreate ? (
+              <Link href="/open-files/new">
+                <Button>Open a file</Button>
+              </Link>
+            ) : null}
+          </>
         }
       />
 

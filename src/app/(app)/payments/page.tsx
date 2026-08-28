@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import { ScanUpload } from "@/components/documents/scan-upload";
 import { PrintButton } from "@/components/print/print-button";
+import { ExcelExportLink } from "@/components/excel/excel-export-link";
 import type { PaymentStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,11 @@ export default async function PaymentsPage({
       <PageHeader
         title="Payments"
         description="Payment receipts and PO verification for society fees."
+        actions={
+          <ExcelExportLink
+            href={status ? `/payments/export?status=${encodeURIComponent(status)}` : "/payments/export"}
+          />
+        }
       />
 
       <form className="mb-4 flex gap-2">

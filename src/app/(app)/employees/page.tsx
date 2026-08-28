@@ -15,6 +15,9 @@ import {
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import type { EmployeeStatus, EmploymentType, OrgRoleCategory } from "@/generated/prisma/client";
 import { startOfDay } from "date-fns";
+import { excelExportHref } from "@/lib/excel";
+import { ExcelToolbar } from "@/components/excel/excel-toolbar";
+import { previewEmployeesExcelAction, commitEmployeesExcelAction } from "./excel-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +112,22 @@ export default async function EmployeesPage({
         description="Society staff register — panel, management, operational staff, and contractors."
         actions={
           <>
+            <ExcelToolbar
+              exportHref={excelExportHref("employees", {
+                q,
+                status,
+                orgRoleId,
+                employmentType,
+                category,
+                group,
+              })}
+              templateHref={excelExportHref("employees", {}, { template: true })}
+              canImport={Boolean(canManage)}
+              importTitle="Import staff"
+              importDescription="Bulk-add panel, staff, or contractors. Existing CNICs are skipped so current records are not overwritten."
+              previewAction={previewEmployeesExcelAction}
+              commitAction={commitEmployeesExcelAction}
+            />
             <Link href="/hr" className="text-sm text-teal-800 hover:underline">
               HR summary
             </Link>

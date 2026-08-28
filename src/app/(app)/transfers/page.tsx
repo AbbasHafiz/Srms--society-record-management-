@@ -6,6 +6,8 @@ import { SlaBadge } from "@/components/sla-badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, labelize } from "@/lib/utils";
 import type { TransferCaseType, TransferStatus } from "@/generated/prisma/client";
+import { excelExportHref } from "@/lib/excel";
+import { ExcelExportLink } from "@/components/excel/excel-export-link";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +64,8 @@ export default async function TransfersPage({
         title="Transfers"
         description="Ownership transfer workflow. Completed transfers preserve full history."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <ExcelExportLink href={excelExportHref("transfers", { q, status, type: caseType })} />
             <Link
               href="/transfers/death/new"
               className="inline-flex h-10 items-center justify-center rounded-md border border-violet-300 bg-violet-50 px-4 text-sm font-medium text-violet-900 hover:bg-violet-100"

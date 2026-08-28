@@ -10,6 +10,8 @@ import { markAttendance, bulkMarkAttendance, createGuardShift, deleteGuardShift 
 import { formatDateTime, labelize } from "@/lib/utils";
 import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
 import { startOfDay } from "date-fns";
+import { excelExportHref } from "@/lib/excel";
+import { ExcelExportLink } from "@/components/excel/excel-export-link";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +104,7 @@ export default async function AttendancePage() {
                 label="Notify guards"
               />
             ) : null}
+            <ExcelExportLink href={excelExportHref("attendance")} />
             <Link href="/employees" className="text-sm text-teal-800 hover:underline">
               Staff register
             </Link>

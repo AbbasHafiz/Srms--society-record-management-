@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/rbac";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { LIVE_OPEN_FILE_STATUSES } from "@/lib/open-files";
+import { buildWorkbookBuffer, xlsxResponse } from "@/lib/excel";
 
 function csvEscape(value: string | number | null | undefined) {
   const s = String(value ?? "");
@@ -28,8 +29,12 @@ export async function GET(req: NextRequest) {
   }
 
   const report = req.nextUrl.searchParams.get("report");
-  let csv = "";
+  const asExcel = req.nextUrl.searchParams.get("format") === "xlsx";
+
+  let headers: string[] = [];
+  let rows: (string | number | null | undefined)[][] = [];
   let filename = "report.csv";
+  let sheetName = "Report";
 
   if (report === "transfers") {
     const from = new Date(req.nextUrl.searchParams.get("from") ?? startOfMonth(new Date()).toISOString());
@@ -45,18 +50,17 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    csv = toCsv(
-      ["Transfer Number", "Plot", "Type", "Seller", "Status", "Created"],
-      transfers.map((t) => [
-        t.transferNumber,
-        `${t.plot.sector}/${t.plot.block}-${t.plot.plotNumber}`,
-        t.transferType,
-        t.sellerName,
-        t.status,
-        t.createdAt.toISOString().slice(0, 10),
-      ])
-    );
+    headers = ["Transfer Number", "Plot", "Type", "Seller", "Status", "Created"];
+    rows = transfers.map((t) => [
+      t.transferNumber,
+      `${t.plot.sector}/${t.plot.block}-${t.plot.plotNumber}`,
+      t.transferType,
+      t.sellerName,
+      t.status,
+      t.createdAt.toISOString().slice(0, 10),
+    ]);
     filename = "transfers-report.csv";
+    sheetName = "Transfers";
   } else if (report === "open-files") {
     const days = Number(req.nextUrl.searchParams.get("days") ?? 30);
     const cutoff = new Date();
@@ -68,18 +72,17 @@ export async function GET(req: NextRequest) {
       orderBy: { expiryDate: "asc" },
     });
 
-    csv = toCsv(
-      ["Open File", "Plot", "Dealer", "Seller", "Expiry", "Status"],
-      files.map((f) => [
-        f.openFileNumber,
-        `${f.plot.sector}/${f.plot.block}-${f.plot.plotNumber}`,
-        f.dealerName,
-        f.sellerName,
-        f.expiryDate.toISOString().slice(0, 10),
-        f.status,
-      ])
-    );
+    headers = ["Open File", "Plot", "Dealer", "Seller", "Expiry", "Status"];
+    rows = files.map((f) => [
+      f.openFileNumber,
+      `${f.plot.sector}/${f.plot.block}-${f.plot.plotNumber}`,
+      f.dealerName,
+      f.sellerName,
+      f.expiryDate.toISOString().slice(0, 10),
+      f.status,
+    ]);
     filename = "open-files-expiring.csv";
+    sheetName = "Open files";
   } else if (report === "attendance") {
     const monthStr = req.nextUrl.searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
     const [year, month] = monthStr.split("-").map(Number);
@@ -106,11 +109,10 @@ export async function GET(req: NextRequest) {
       byEmployee.set(r.employeeId, entry);
     }
 
-    csv = toCsv(
-      ["Employee Code", "Name", "Present", "Absent", "Leave"],
-      [...byEmployee.values()].map((r) => [r.code, r.name, r.present, r.absent, r.leave])
-    );
+    headers = ["Employee Code", "Name", "Present", "Absent", "Leave"];
+    rows = [...byEmployee.values()].map((r) => [r.code, r.name, r.present, r.absent, r.leave]);
     filename = `attendance-${monthStr}.csv`;
+    sheetName = "Attendance";
   } else if (report === "finance") {
     const monthStr = req.nextUrl.searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
     const [year, month] = monthStr.split("-").map(Number);
@@ -123,23 +125,32 @@ export async function GET(req: NextRequest) {
       orderBy: { txnDate: "desc" },
     });
 
-    csv = toCsv(
-      ["Txn Number", "Category", "Type", "Amount", "Date", "Reference"],
-      transactions.map((t) => [
-        t.txnNumber,
-        t.category.name,
-        t.type,
-        Number(t.amount),
-        t.txnDate.toISOString().slice(0, 10),
-        t.reference,
-      ])
-    );
+    headers = ["Txn Number", "Category", "Type", "Amount", "Date", "Reference"];
+    rows = transactions.map((t) => [
+      t.txnNumber,
+      t.category.name,
+      t.type,
+      Number(t.amount),
+      t.txnDate.toISOString().slice(0, 10),
+      t.reference,
+    ]);
     filename = `finance-${monthStr}.csv`;
+    sheetName = "Finance";
   } else {
     return NextResponse.json({ error: "Unknown report type" }, { status: 400 });
   }
 
-  return new NextResponse(csv, {
+  if (asExcel) {
+    const keys = headers.map((header, i) => `c${i}`);
+    const buffer = await buildWorkbookBuffer({
+      sheetName,
+      columns: headers.map((header, i) => ({ header, key: keys[i], width: 18 })),
+      rows: rows.map((row) => Object.fromEntries(row.map((value, i) => [keys[i], value ?? ""]))),
+    });
+    return xlsxResponse(buffer, filename.replace(/\.csv$/i, ".xlsx"));
+  }
+
+  return new NextResponse(toCsv(headers, rows), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,

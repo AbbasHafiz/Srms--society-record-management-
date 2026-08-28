@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
 import { PageHeader, EmptyState, StatCard } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import type { OwnershipStatus } from "@/generated/prisma/client";
+import { excelExportHref } from "@/lib/excel";
+import { ExcelToolbar } from "@/components/excel/excel-toolbar";
+import { previewPlotsExcelAction, commitPlotsExcelAction } from "@/app/(app)/plots/excel-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +25,9 @@ export default async function MembershipsPage({
   const q = sp.q?.trim();
   const status = sp.status?.trim() as OwnershipStatus | undefined;
   const deceasedOnly = sp.deceased === "1";
+
+  const session = await auth();
+  const canCreate = session?.user && hasPermission(session.user.role, "create");
 
   const [memberships, activeCount, transferredCount, deceasedCount] = await Promise.all([
     prisma.ownership.findMany({
@@ -68,9 +76,24 @@ export default async function MembershipsPage({
         title="Membership Register"
         description="Society membership numbers linked to plot ownership. Historical memberships are preserved — never overwritten."
         actions={
-          <Link href="/owners" className="text-sm text-teal-800 hover:underline">
-            Full ownership register
-          </Link>
+          <>
+            <ExcelToolbar
+              exportHref={excelExportHref("memberships", {
+                q,
+                status,
+                deceased: deceasedOnly ? "1" : undefined,
+              })}
+              templateHref={excelExportHref("memberships", {}, { template: true })}
+              canImport={Boolean(canCreate)}
+              importTitle="Import plots and memberships"
+              importDescription="Create new plots and first owners. An existing plot number is rejected — membership history is never rewritten."
+              previewAction={previewPlotsExcelAction}
+              commitAction={commitPlotsExcelAction}
+            />
+            <Link href="/owners" className="text-sm text-teal-800 hover:underline">
+              Full ownership register
+            </Link>
+          </>
         }
       />
 
