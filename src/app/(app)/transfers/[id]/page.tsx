@@ -32,6 +32,7 @@ import {
 import { HeirRelationFields } from "@/components/transfers/heir-relation-fields";
 import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
+import { QueryErrorBanner } from "@/components/ui/confirm-on-submit-form";
 import { getFbrTaxRates } from "@/lib/fbr-tax";
 import { FbrTaxAssessmentsPanel } from "@/components/tax/fbr-tax-assessments-panel";
 
@@ -65,10 +66,13 @@ const DEATH_STEPS = [
 
 export default async function TransferDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
   const session = await auth();
   const transfer = await prisma.transfer.findUnique({
     where: { id },
@@ -144,6 +148,7 @@ export default async function TransferDetailPage({
 
   return (
     <div>
+      <QueryErrorBanner error={sp.error} />
       <PageHeader
         title={`${isDeath ? "Succession " : ""}Transfer ${transfer.transferNumber}`}
         description={`Plot ${transfer.plot.sector}/${transfer.plot.block}-${transfer.plot.plotNumber} · ${labelize(transfer.transferType)}`}
@@ -383,6 +388,11 @@ function DeathWorkflow({
           </WarningBanner>
         </div>
       ) : null}
+
+      <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950">
+        Death / succession transfers membership to the nominated legal heir. FBR 236C (seller) and 236K
+        (purchaser) are not assessed on succession — those taxes apply to sale transfers only.
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-violet-200 bg-white p-5 shadow-sm">

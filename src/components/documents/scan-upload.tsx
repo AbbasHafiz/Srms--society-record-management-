@@ -67,7 +67,12 @@ export async function ScanUpload({
   });
 
   return (
-    <div className={compact ? "rounded-md border border-slate-200 bg-white p-2" : "rounded-lg border border-slate-200 bg-white p-4"}>
+    <div
+      className={compact ? "rounded-md border border-slate-200 bg-white p-2" : "rounded-lg border border-slate-200 bg-white p-4"}
+      data-scan-type={documentType}
+      data-scan-title={title}
+      data-document-number={documentNumber ?? ""}
+    >
       {!compact ? (
         <div className="mb-3">
           <h4 className="text-sm font-semibold text-slate-900">{title}</h4>

@@ -108,6 +108,21 @@ export async function createDeathSuccessionDraft(formData: FormData) {
   const owner = plot.ownerships[0];
   if (!owner) throw new Error("No active owner on plot");
 
+  const existingDeath = await prisma.transfer.findFirst({
+    where: {
+      plotId,
+      transferType: "DEATH_SUCCESSION",
+      status: { notIn: ["COMPLETED", "REJECTED", "CANCELLED"] },
+    },
+    select: { id: true, transferNumber: true },
+  });
+  if (existingDeath) {
+    redirectWithError(
+      `/transfers/${existingDeath.id}`,
+      `This plot already has open succession case ${existingDeath.transferNumber}. Continue that case instead of opening another.`
+    );
+  }
+
   const transferNumber = await nextTransferNumber();
   const now = new Date();
   const slaDueAt = await computeTransferSlaDue("DEATH_SUCCESSION", now);

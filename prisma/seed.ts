@@ -690,6 +690,8 @@ async function main() {
   const expirySoon = new Date();
   expirySoon.setDate(expirySoon.getDate() + 12);
 
+  // Durable registered dealers — open-file submit requires at least one ACTIVE office
+  // for letterhead. Do not rely on ad-hoc inserts after seed.
   const privateOffice = await prisma.registeredOffice.create({
     data: {
       officeName: "Al-Noor Associates",
@@ -702,6 +704,23 @@ async function main() {
       registrationDate: new Date("2019-03-15"),
       expiryDate: new Date("2027-03-15"),
       status: "ACTIVE",
+      remarks: "Registered property dealer — letterhead source for open-file listings",
+    },
+  });
+
+  await prisma.registeredOffice.create({
+    data: {
+      officeName: "City Link Property Advisors",
+      ownerName: "Tariq Cheema",
+      phone: "0321-4455667",
+      email: "citylink@society.local",
+      address: "F-10 Markaz, Islamabad",
+      premisesType: "PRIVATE",
+      licenseNumber: "DO-2021-118",
+      registrationDate: new Date("2021-06-01"),
+      expiryDate: new Date("2027-06-01"),
+      status: "ACTIVE",
+      remarks: "Second registered dealer so a fresh DB can always submit an open file",
     },
   });
 
