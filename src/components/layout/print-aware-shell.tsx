@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import type { Role } from "@/generated/prisma/client";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { SignOutButton } from "@/components/layout/sign-out-button";
-import { isPrintDocumentPath } from "@/lib/print";
 
 export function PrintAwareShell({
   userName,
@@ -16,7 +15,9 @@ export function PrintAwareShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isPrintRoute = isPrintDocumentPath(pathname);
+  // Match print-shared isPrintDocumentPath without importing server print helpers.
+  const isPrintRoute =
+    Boolean(pathname) && (pathname.includes("/print") || pathname.includes("/slip"));
 
   if (isPrintRoute) {
     return <div className="min-h-screen bg-white">{children}</div>;
