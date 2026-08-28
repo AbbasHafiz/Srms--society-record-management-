@@ -1,0 +1,71 @@
+# Production stack for a Linux VPS (Pakistan or Mumbai).
+# Usage: see docs/HOSTING-PAKISTAN.md
+#
+#   cp .env.example .env   # then edit secrets + NEXTAUTH_URL + SRMS_DOMAIN
+#   sudo mkdir -p /var/srms/uploads /var/srms/backups
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# The app listens on 43127 inside the Docker network only.
+# Caddy terminates TLS on 80/443 and reverse-proxies to the app.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-society}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-society_records}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-society} -d ${POSTGRES_DB:-society_records}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      args:
+        BUILD_PRODUCTION: "1"
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "43127"
+      DATABASE_URL: ${DATABASE_URL}
+      AUTH_SECRET: ${AUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - /var/srms/uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["npm", "start"]
+    expose:
+      - "43127"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SRMS_DOMAIN: ${SRMS_DOMAIN:?Set SRMS_DOMAIN in .env (e.g. records.yoursociety.pk)}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@localhost}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

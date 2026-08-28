@@ -1,3 +1,8 @@
+# Local / test stack: Next.js dev server on port 43127 + Postgres.
+# For a public HTTPS deployment on a VPS, use docker-compose.prod.yml
+# (Caddy on 80/443, production build, host bind-mount for uploads).
+# See docs/HOSTING-PAKISTAN.md.
+
 services:
   db:
     image: postgres:16-alpine

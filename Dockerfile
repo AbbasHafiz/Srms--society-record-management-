@@ -13,6 +13,10 @@ COPY . .
 
 RUN npx prisma generate
 
+# Production image: docker compose -f docker-compose.prod.yml build
+ARG BUILD_PRODUCTION=0
+RUN if [ "$BUILD_PRODUCTION" = "1" ]; then npm run build; fi
+
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh && mkdir -p uploads
 

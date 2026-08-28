@@ -14,7 +14,12 @@ client.connect()
 done
 
 echo "Applying database schema..."
-npx prisma db push --accept-data-loss
+# Never use --accept-data-loss in production (it can drop columns).
+if [ "$NODE_ENV" = "production" ]; then
+  npx prisma db push
+else
+  npx prisma db push --accept-data-loss
+fi
 
 USER_COUNT=$(node -e "
 const { Client } = require('pg');

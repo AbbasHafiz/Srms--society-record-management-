@@ -1,0 +1,11 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$SRMS_DOMAIN} {
+	encode gzip zstd
+	request_body {
+		max_size 15MB
+	}
+	reverse_proxy app:43127
+}

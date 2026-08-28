@@ -125,6 +125,17 @@ Optional: `WHATSAPP_API_URL`, `WHATSAPP_API_TOKEN` for outbound WhatsApp gateway
 
 Persisted volumes: `pgdata` (database), `uploads` (files).
 
+### Production in Pakistan (VPS + HTTPS)
+
+Do **not** deploy this app to Vercel (or any serverless host) without object storage: uploaded scans live on disk and will disappear. For a housing society in Pakistan, use a Linux VPS, Docker Compose, Caddy, and persistent volumes.
+
+**Guide:** [docs/HOSTING-PAKISTAN.md](docs/HOSTING-PAKISTAN.md) — PKR billing, `.pk` domains, Websouls/local VPS vs Mumbai, env vars, backups.
+
+```bash
+cp .env.example .env   # set AUTH_SECRET, DATABASE_URL, NEXTAUTH_URL, SRMS_DOMAIN
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
 ## Git remotes
 
 This project uses two remotes:
