@@ -14,6 +14,7 @@ import { plotTypeLabel, plotLabel } from "@/lib/plots";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getSlaDays, SLA_SETTING_KEYS, resolveSlaDueAt } from "@/lib/sla";
 import { DocumentScansPanel } from "@/components/documents/document-scans-panel";
+import { PrintButton } from "@/components/print/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,7 @@ export default async function NecDetailPage({ params }: { params: Promise<{ id: 
               dueAt={resolveSlaDueAt(nec.slaDueAt, nec.applicationDate, necSlaDays)}
               completedAt={nec.status === "ISSUED" ? nec.issueDate : null}
             />
+            <PrintButton href={`/nec/${nec.id}/print`} label="Print certificate" />
           </div>
         }
       />

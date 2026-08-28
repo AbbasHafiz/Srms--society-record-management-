@@ -124,6 +124,7 @@ const PATH_MODULES = ([
   ["/dashboard", "dashboard"],
   ["/owners", "plots"],
   ["/transfers", "transfers"],
+  ["/tax", "transfers"],
   ["/documents", "documents"],
   ["/memberships", "memberships"],
   ["/possession", "possession"],

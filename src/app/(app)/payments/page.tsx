@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import { ScanUpload } from "@/components/documents/scan-upload";
+import { PrintButton } from "@/components/print/print-button";
 import type { PaymentStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -104,6 +105,7 @@ export default async function PaymentsPage({
                 <th>Verified By</th>
                 <th>Ledger</th>
                 <th>PO Scan</th>
+                <th>Print</th>
                 {(canVerify || canManageFinance) ? <th>Action</th> : null}
               </tr>
             </thead>
@@ -171,6 +173,9 @@ export default async function PaymentsPage({
                     ) : (
                       "—"
                     )}
+                  </td>
+                  <td>
+                    <PrintButton href={`/payments/${p.id}/print`} label="Print receipt" size="sm" />
                   </td>
                   {canVerify || canManageFinance ? (
                     <td>

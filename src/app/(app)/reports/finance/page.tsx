@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import { startOfMonth, endOfMonth } from "date-fns";
+import { PrintButton } from "@/components/print/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export default async function FinanceReportPage({
                 Export CSV
               </a>
             ) : null}
+            <PrintButton href={`/reports/finance/print?month=${monthStr}`} label="Print summary" />
           </div>
         }
       />

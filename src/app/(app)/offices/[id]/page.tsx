@@ -17,6 +17,7 @@ import {
   markOfficeRentPaidAction,
 } from "../actions";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
+import { PrintButton } from "@/components/print/print-button";
 import { ScanUpload } from "@/components/documents/scan-upload";
 
 export const dynamic = "force-dynamic";
@@ -203,12 +204,19 @@ export default async function OfficeDetailPage({ params }: { params: Promise<{ i
                       <td>{formatDate(charge.dueDate)}</td>
                       <td><Badge status={charge.status} /></td>
                       <td>
-                        {canFinance && charge.status !== "PAID" ? (
-                          <form action={markOfficeRentPaidAction}>
-                            <input type="hidden" name="chargeId" value={charge.id} />
-                            <Button type="submit" size="sm" variant="outline">Mark paid</Button>
-                          </form>
-                        ) : null}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <PrintButton
+                            href={`/offices/${office.id}/rent/${charge.id}/print`}
+                            label="Print receipt"
+                            size="sm"
+                          />
+                          {canFinance && charge.status !== "PAID" ? (
+                            <form action={markOfficeRentPaidAction}>
+                              <input type="hidden" name="chargeId" value={charge.id} />
+                              <Button type="submit" size="sm" variant="outline">Mark paid</Button>
+                            </form>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}

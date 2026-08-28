@@ -12,6 +12,7 @@ import { canApprovePossession } from "@/lib/possession";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { SlaBadge } from "@/components/sla-badge";
 import { getSlaDays, SLA_SETTING_KEYS, resolveSlaDueAt } from "@/lib/sla";
+import { PrintButton } from "@/components/print/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,7 @@ export default async function PossessionDetailPage({
               dueAt={resolveSlaDueAt(possession.slaDueAt, possession.applicationDate, possessionSlaDays)}
               completedAt={possession.approvalStatus === "ISSUED" ? possession.issueDate : null}
             />
+            <PrintButton href={`/possession/${possession.id}/print`} label="Print certificate" />
           </div>
         }
       />

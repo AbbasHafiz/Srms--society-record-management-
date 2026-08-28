@@ -81,10 +81,10 @@ a {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Printable tanker booking slip */
+/* Printable receipts, slips, certificates, and tanker sheets */
 @media print {
   @page {
-    size: A5 portrait;
+    size: A4 portrait;
     margin: 12mm;
   }
 
@@ -107,14 +107,18 @@ a {
     max-width: none !important;
   }
 
-  .tanker-slip-page {
+  .print-document-page,
+  .tanker-slip-page,
+  .driver-run-sheet-page {
     margin: 0;
     padding: 0;
   }
 
+  .print-document,
   .tanker-slip {
     box-shadow: none !important;
-    border: 1px solid #cbd5e1 !important;
+    border: none !important;
+    border-radius: 0 !important;
   }
 
   .print-water-type-section + .print-water-type-section {

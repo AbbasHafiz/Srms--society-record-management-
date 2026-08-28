@@ -11,6 +11,7 @@ import { ConfirmOnSubmitForm, QueryErrorBanner } from "@/components/ui/confirm-o
 import { fileDownloadHref } from "@/lib/uploads";
 import { hasPermission } from "@/lib/rbac";
 import { formatDate, labelize } from "@/lib/utils";
+import { PrintButton } from "@/components/print/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,12 @@ export default async function MortgageDetailPage({
       <PageHeader
         title={mortgage.bankName}
         description={`Mortgage on plot ${mortgage.plot.sector}/${mortgage.plot.block}-${mortgage.plot.plotNumber}`}
-        actions={<Badge status={mortgage.status === "ACTIVE" ? "ACTIVE_MORTGAGE" : mortgage.status} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge status={mortgage.status === "ACTIVE" ? "ACTIVE_MORTGAGE" : mortgage.status} />
+            <PrintButton href={`/mortgages/${mortgage.id}/print`} label="Print letter" />
+          </div>
+        }
       />
 
       {mortgage.status === "ACTIVE" ? (

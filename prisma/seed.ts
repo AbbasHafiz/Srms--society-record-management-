@@ -327,6 +327,8 @@ async function main() {
   await prisma.systemSetting.createMany({
     data: [
       { key: "society_name", value: "Green Valley Housing Society", label: "Society Name" },
+      { key: "society_address", value: "Main Boulevard, Sector A, Green Valley, Punjab, Pakistan", label: "Society address" },
+      { key: "society_phone", value: "+92 42 111 000 111", label: "Society phone" },
       { key: "require_bank_clearance_for_transfer", value: "true", label: "Block transfer if active mortgage" },
       { key: "open_file_expiry_alert_days", value: "30", label: "Open file expiry alert (days)" },
       { key: "sla_transfer_allotment_days", value: "14", label: "Transfer → allotment letter printing (days)" },

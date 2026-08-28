@@ -35,6 +35,7 @@ import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { QueryErrorBanner } from "@/components/ui/confirm-on-submit-form";
 import { getFbrTaxRates } from "@/lib/fbr-tax";
 import { FbrTaxAssessmentsPanel } from "@/components/tax/fbr-tax-assessments-panel";
+import { PrintButton } from "@/components/print/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -212,6 +213,7 @@ export default async function TransferDetailPage({
                 allowedModes={["preset", "custom"]}
               />
             ) : null}
+            <PrintButton href={`/transfers/${transfer.id}/print`} label="Print slip" />
             <Link href={`/plots/${transfer.plotId}`} className="text-sm text-teal-800 hover:underline">
               Open plot profile
             </Link>
@@ -786,6 +788,9 @@ function SaleWorkflow({
                   <p className="mt-1 text-slate-600">
                     {formatCurrency(p.amount)} · PO {p.poNumber || "—"} · {p.bankName || "—"}
                   </p>
+                  <div className="mt-2">
+                    <PrintButton href={`/payments/${p.id}/print`} label="Print receipt" size="sm" />
+                  </div>
                   {p.status === "SUBMITTED" && canVerifyPay ? (
                     <form action={verifyTransferPaymentAction} className="mt-2">
                       <input type="hidden" name="paymentId" value={p.id} />

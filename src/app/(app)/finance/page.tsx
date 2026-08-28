@@ -11,6 +11,7 @@ import { postFinanceTxnAction, voidFinanceTxnAction } from "./actions";
 import { ConfirmOnSubmitForm, QueryErrorBanner } from "@/components/ui/confirm-on-submit-form";
 import type { FinanceCategoryType, FinanceTransactionStatus } from "@/generated/prisma/client";
 import { cn } from "@/lib/utils";
+import { PrintButton } from "@/components/print/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +115,7 @@ export default async function FinancePage({
                 <Button variant="outline">Categories</Button>
               </Link>
             ) : null}
+            <PrintButton href={`/reports/finance/print`} label="Print summary" />
             <Link href="/payments" className="text-sm text-teal-800 hover:underline self-center">
               Payment receipts
             </Link>

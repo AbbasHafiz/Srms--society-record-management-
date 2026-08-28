@@ -17,6 +17,7 @@ import { canApproveNoc } from "@/lib/noc";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import { plotLabel } from "@/lib/plots";
 import { WhatsAppNotifyAction } from "@/components/whatsapp/whatsapp-notify-action";
+import { PrintButton } from "@/components/print/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,7 @@ export default async function NocDetailPage({ params }: { params: Promise<{ id: 
               />
             ) : null}
             <Badge status={noc.status} />
+            <PrintButton href={`/noc/${noc.id}/print`} label="Print certificate" />
           </div>
         }
       />

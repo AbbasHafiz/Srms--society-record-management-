@@ -1,5 +1,7 @@
 import { auth } from "@/lib/auth";
 import { PrintOnLoad } from "@/components/tankers/print-on-load";
+import { PrintActions } from "@/components/print/print-actions";
+import { PrintLetterhead, PrintDisclaimer } from "@/components/print/print-document";
 import { TankerScheduleBookings } from "@/components/tankers/tanker-schedule-bookings";
 import { WaterTypeSection } from "@/components/tankers/water-type-tabs";
 import {
@@ -12,6 +14,7 @@ import {
   visibleWaterTypeSections,
   waterTypeStatsFromDeliveries,
 } from "@/lib/tankers";
+import { getSocietyLetterhead } from "@/lib/print";
 import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -27,30 +30,35 @@ export default async function TankerSchedulePrintPage({
   const session = await auth();
   if (!session?.user) return null;
 
-  const schedule = await getDailySchedule(scheduleDate);
+  const [schedule, letterhead] = await Promise.all([
+    getDailySchedule(scheduleDate),
+    getSocietyLetterhead(),
+  ]);
   const typeStats = waterTypeStatsFromDeliveries(flattenDailyScheduleDeliveries(schedule));
   const sections = visibleWaterTypeSections(typeFilter);
 
   return (
     <div className="driver-run-sheet-page print-sheet mx-auto max-w-[1200px] p-6 text-slate-900">
       <PrintOnLoad />
-      <header className="mb-6 border-b border-slate-300 pb-4">
-        <p className="text-xs uppercase tracking-wide text-slate-500">Water tanker — daily schedule</p>
-        <h1 className="font-display text-2xl font-semibold">
-          Bookings for{" "}
-          {scheduleDate.toLocaleDateString("en-GB", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          {typeFilter === "all"
-            ? `${typeStats.CLEAN_WATER.total} clean water · ${typeStats.CONSTRUCTION_WATER.total} construction water`
-            : `${typeStats[typeFilter].total} ${TANKER_TYPE_LABELS[typeFilter].toLowerCase()} bookings`}
-        </p>
-      </header>
+      <PrintActions
+        backHref={`/tankers?date=${format(scheduleDate, "yyyy-MM-dd")}`}
+        backLabel="Back to schedule"
+      />
+      <PrintLetterhead
+        letterhead={letterhead}
+        title={`Tanker bookings — ${scheduleDate.toLocaleDateString("en-GB", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })}`}
+        subtitle="Daily water tanker schedule"
+      />
+      <p className="mt-2 text-sm text-slate-600">
+        {typeFilter === "all"
+          ? `${typeStats.CLEAN_WATER.total} clean water · ${typeStats.CONSTRUCTION_WATER.total} construction water`
+          : `${typeStats[typeFilter].total} ${TANKER_TYPE_LABELS[typeFilter].toLowerCase()} bookings`}
+      </p>
 
       <div className="space-y-8">
         {sections.map((section) => {
@@ -72,9 +80,7 @@ export default async function TankerSchedulePrintPage({
         })}
       </div>
 
-      <footer className="mt-8 border-t border-slate-200 pt-3 text-xs text-slate-500">
-        Printed {format(new Date(), "dd MMM yyyy HH:mm")} · Society Records
-      </footer>
+      <PrintDisclaimer extra={`Printed ${format(new Date(), "dd MMM yyyy HH:mm")}`} />
 
       <style>{`
         @media print {

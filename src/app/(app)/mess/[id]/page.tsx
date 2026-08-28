@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { canManageMess } from "@/lib/rbac";
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
+import { PrintButton } from "@/components/print/print-button";
 import { cancelMessMeal } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,12 @@ export default async function MessDetailPage({ params }: { params: Promise<{ id:
       <PageHeader
         title={`${labelize(meal.mealType)} — ${formatDate(meal.mealDate)}`}
         description="Staff mess meal record."
-        actions={<Badge status={meal.status} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge status={meal.status} />
+            <PrintButton href={`/mess/${meal.id}/print`} label="Print bill" />
+          </div>
+        }
       />
 
       <div className="mb-6 max-w-2xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSocietyName } from "@/lib/system-settings";
-import { PrintSlipActions } from "@/components/tankers/print-slip-actions";
+import { getSocietyLetterhead } from "@/lib/print";
+import { PrintPageShell } from "@/components/print/print-document";
 import { TankerBookingSlip } from "@/components/tankers/tanker-booking-slip";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export default async function TankerBookingSlipPage({
   const sp = await searchParams;
   const autoPrint = sp.new === "1";
 
-  const [booking, societyName] = await Promise.all([
+  const [booking, letterhead] = await Promise.all([
     prisma.tankerDelivery.findUnique({
       where: { id },
       include: {
@@ -27,19 +27,19 @@ export default async function TankerBookingSlipPage({
         timeSlot: { select: { label: true, startTime: true, endTime: true } },
       },
     }),
-    getSocietyName(),
+    getSocietyLetterhead(),
   ]);
 
   if (!booking) notFound();
 
   return (
-    <div className="tanker-slip-page">
-      <PrintSlipActions
-        autoPrint={autoPrint}
-        backHref={`/tankers/${booking.id}`}
-        backLabel={autoPrint ? "View booking details" : "Back to booking"}
-      />
-      <TankerBookingSlip societyName={societyName} booking={booking} />
-    </div>
+    <PrintPageShell
+      paper="a5"
+      autoPrint={autoPrint}
+      backHref={`/tankers/${booking.id}`}
+      backLabel={autoPrint ? "View booking details" : "Back to booking"}
+    >
+      <TankerBookingSlip letterhead={letterhead} booking={booking} />
+    </PrintPageShell>
   );
 }

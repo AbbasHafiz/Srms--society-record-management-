@@ -1,6 +1,7 @@
 import { formatCurrency, formatDate, labelize } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PrintButton } from "@/components/print/print-button";
 import { markSalaryPaymentPaid, recordSalaryPayment } from "@/app/(app)/employees/actions";
 
 type SalaryPaymentRow = {
@@ -121,13 +122,14 @@ export function SalarySection({ employeeId, currentSalary, payments, canManage }
             <th>Status</th>
             <th>Paid at</th>
             <th>Remarks</th>
+            <th>Print</th>
             {canManage ? <th /> : null}
           </tr>
         </thead>
         <tbody>
           {payments.length === 0 ? (
             <tr>
-              <td colSpan={canManage ? 6 : 5} className="text-slate-500">
+              <td colSpan={canManage ? 7 : 6} className="text-slate-500">
                 No salary payments recorded yet.
               </td>
             </tr>
@@ -143,6 +145,13 @@ export function SalarySection({ employeeId, currentSalary, payments, canManage }
                 </td>
                 <td>{p.paidAt ? formatDate(p.paidAt) : "—"}</td>
                 <td>{p.remarks ?? "—"}</td>
+                <td>
+                  <PrintButton
+                    href={`/employees/${employeeId}/salary/${p.id}/print`}
+                    label="Print slip"
+                    size="sm"
+                  />
+                </td>
                 {canManage ? (
                   <td>
                     {p.status === "PENDING" ? (

@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PrintOnLoad } from "@/components/tankers/print-on-load";
+import { PrintActions } from "@/components/print/print-actions";
+import { PrintLetterhead, PrintDisclaimer } from "@/components/print/print-document";
 import { DriverRunSheetContent } from "@/components/tankers/driver-run-sheet-table";
 import { WaterTypeSection } from "@/components/tankers/water-type-tabs";
 import {
@@ -11,6 +13,7 @@ import {
   TANKER_TYPE_LABELS,
   visibleWaterTypeSections,
 } from "@/lib/tankers";
+import { getSocietyLetterhead } from "@/lib/print";
 import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +37,7 @@ export default async function DriverRunSheetPrintPage({
     driverId = session.user.employeeId!;
   }
 
-  const [runSheet, driver] = await Promise.all([
+  const [runSheet, driver, letterhead] = await Promise.all([
     getDriverRunSheet(scheduleDate, driverId),
     driverId
       ? prisma.employee.findUnique({
@@ -42,6 +45,7 @@ export default async function DriverRunSheetPrintPage({
           select: { name: true, employeeCode: true },
         })
       : Promise.resolve(null),
+    getSocietyLetterhead(),
   ]);
 
   const sections = visibleWaterTypeSections(typeFilter);
@@ -53,25 +57,25 @@ export default async function DriverRunSheetPrintPage({
   return (
     <div className="driver-run-sheet-page print-sheet mx-auto max-w-[1200px] p-6 text-slate-900">
       <PrintOnLoad />
-      <header className="mb-6 border-b border-slate-300 pb-4">
-        <p className="text-xs uppercase tracking-wide text-slate-500">Water tanker — driver sheet</p>
-        <h1 className="font-display text-2xl font-semibold">
-          Deliveries for{" "}
-          {scheduleDate.toLocaleDateString("en-GB", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          {driver ? `Driver: ${driver.name} (${driver.employeeCode})` : "All drivers"}
-          {" · "}
-          {typeFilter === "all"
-            ? `${typeCounts.CLEAN_WATER} clean · ${typeCounts.CONSTRUCTION_WATER} construction`
-            : `${typeCounts[typeFilter]} ${TANKER_TYPE_LABELS[typeFilter].toLowerCase()}`}
-        </p>
-      </header>
+      <PrintActions
+        backHref={`/tankers/driver?date=${format(scheduleDate, "yyyy-MM-dd")}${driverId ? `&driverId=${driverId}` : ""}`}
+        backLabel="Back to driver sheet"
+      />
+      <PrintLetterhead
+        letterhead={letterhead}
+        title={`Driver run sheet — ${scheduleDate.toLocaleDateString("en-GB", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })}`}
+        subtitle={driver ? `${driver.name} (${driver.employeeCode})` : "All drivers"}
+      />
+      <p className="mt-2 text-sm text-slate-600">
+        {typeFilter === "all"
+          ? `${typeCounts.CLEAN_WATER} clean · ${typeCounts.CONSTRUCTION_WATER} construction`
+          : `${typeCounts[typeFilter]} ${TANKER_TYPE_LABELS[typeFilter].toLowerCase()}`}
+      </p>
 
       <div className="space-y-8">
         {sections.map((section) => {
@@ -98,9 +102,7 @@ export default async function DriverRunSheetPrintPage({
         })}
       </div>
 
-      <footer className="mt-8 border-t border-slate-200 pt-3 text-xs text-slate-500 print:fixed print:bottom-4 print:left-6 print:right-6">
-        Printed {format(new Date(), "dd MMM yyyy HH:mm")} · Society Records
-      </footer>
+      <PrintDisclaimer extra={`Printed ${format(new Date(), "dd MMM yyyy HH:mm")}`} />
 
       <style>{`
         @media print {

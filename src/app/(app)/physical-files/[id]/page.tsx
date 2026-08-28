@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { QrCodeDisplay } from "@/components/qr-code-display";
 import { getScanPath } from "@/lib/qr";
 import { formatDateTime, labelize } from "@/lib/utils";
+import { PrintButton } from "@/components/print/print-button";
 import type { FileLocation } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -98,9 +99,12 @@ export default async function PhysicalFileDetailPage({
         title={file.fileNumber}
         description={`Barcode ${file.barcode}`}
         actions={
-          <Link href="/physical-files" className="text-sm text-teal-800 hover:underline">
-            ← Back to list
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <PrintButton href={`/physical-files/${file.id}/print`} label="Print movement slip" />
+            <Link href="/physical-files" className="text-sm text-teal-800 hover:underline">
+              ← Back to list
+            </Link>
+          </div>
         }
       />
 

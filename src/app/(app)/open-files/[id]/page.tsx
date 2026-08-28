@@ -26,6 +26,7 @@ import { OPEN_FILE_STORY, holderTypeLabel, sellerAppearanceLabel } from "@/lib/o
 import { poaKindLabel } from "@/lib/poa-shared";
 import { getFbrTaxRates } from "@/lib/fbr-tax";
 import { FbrTaxAssessmentsPanel } from "@/components/tax/fbr-tax-assessments-panel";
+import { PrintButton } from "@/components/print/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -141,6 +142,7 @@ export default async function OpenFileDetailPage({
                 allowedModes={["preset", "custom"]}
               />
             ) : null}
+            <PrintButton href={`/open-files/${openFile.id}/print`} label="Print slip" />
             <Link href="/open-files" className="text-sm text-teal-800 hover:underline">
               ← Back to list
             </Link>
@@ -428,6 +430,9 @@ export default async function OpenFileDetailPage({
                     Payment rows are never overwritten. Finance verifies the P.O. from the Payments
                     register.
                   </p>
+                  <div className="pt-3">
+                    <PrintButton href={`/payments/${poPayment.id}/print`} label="Print receipt" size="sm" />
+                  </div>
                   <Link href="/payments" className="text-xs text-teal-800 hover:underline">
                     Open payments →
                   </Link>

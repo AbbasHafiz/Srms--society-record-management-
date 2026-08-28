@@ -1,12 +1,16 @@
 import type { Plot, TankerTimeSlot, WaterTanker, Employee } from "@/generated/prisma/client";
 import type { TankerType } from "@/generated/prisma/client";
 import { BookingNumberQr } from "@/components/tankers/booking-number-qr";
+import { PrintDisclaimer, PrintLetterhead, PrintSignatures } from "@/components/print/print-document";
 import { TANKER_TYPE_LABELS, formatTimeSlotLabel, formatTimeSlotWindow } from "@/lib/tankers";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { plotLabel } from "@/lib/plots";
+import type { SocietyLetterhead } from "@/lib/print-shared";
+import { SOCIETY_LETTERHEAD_DEFAULTS } from "@/lib/print-shared";
 
 type TankerBookingSlipProps = {
-  societyName: string | null;
+  societyName?: string | null;
+  letterhead?: SocietyLetterhead | null;
   booking: {
     bookingNumber: string;
     tankerType: TankerType;
@@ -52,7 +56,12 @@ function formatTimeSlot(booking: TankerBookingSlipProps["booking"]) {
   return "—";
 }
 
-export function TankerBookingSlip({ societyName, booking }: TankerBookingSlipProps) {
+export function TankerBookingSlip({ societyName, letterhead, booking }: TankerBookingSlipProps) {
+  const header: SocietyLetterhead = letterhead ?? {
+    name: societyName?.trim() || SOCIETY_LETTERHEAD_DEFAULTS.name,
+    address: SOCIETY_LETTERHEAD_DEFAULTS.address,
+    phone: SOCIETY_LETTERHEAD_DEFAULTS.phone,
+  };
   const bookerName = booking.bookerName ?? booking.customerName ?? "—";
   const plotNo = booking.plot?.plotNumber ?? booking.houseNo ?? "—";
   const block = booking.plot?.block ?? booking.streetNo ?? "—";
@@ -66,13 +75,11 @@ export function TankerBookingSlip({ societyName, booking }: TankerBookingSlipPro
 
   return (
     <article className="tanker-slip mx-auto max-w-[210mm] rounded-lg border border-slate-300 bg-white p-6 shadow-sm print:max-w-none print:rounded-none print:border-0 print:p-0 print:shadow-none">
-      <header className="border-b-2 border-teal-800 pb-4 text-center">
-        {societyName ? (
-          <p className="font-display text-xl font-semibold tracking-tight text-teal-900">{societyName}</p>
-        ) : null}
-        <h1 className="font-display mt-1 text-lg font-semibold text-slate-900">Water Tanker Delivery Slip</h1>
-        <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">Keep this slip for delivery</p>
-      </header>
+      <PrintLetterhead
+        letterhead={header}
+        title="Water Tanker Delivery Slip"
+        subtitle="Keep this slip for delivery"
+      />
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
@@ -131,10 +138,11 @@ export function TankerBookingSlip({ societyName, booking }: TankerBookingSlipPro
         </dl>
       </section>
 
-      <footer className="mt-6 border-t border-dashed border-slate-300 pt-4 text-center text-xs text-slate-600">
-        <p className="font-medium text-slate-800">Please keep this slip and present it at delivery.</p>
-        <p className="mt-1">Printed {formatDate(new Date())}</p>
-      </footer>
+      <PrintSignatures
+        preparedBy="Tanker desk"
+        receivedBy={bookerName !== "—" ? bookerName : "Booker"}
+      />
+      <PrintDisclaimer extra="Please keep this slip and present it at delivery." />
     </article>
   );
 }

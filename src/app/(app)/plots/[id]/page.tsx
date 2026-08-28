@@ -21,6 +21,7 @@ import { hasPermission } from "@/lib/rbac";
 import { formatCurrency, formatDate, formatDateTime, daysUntil, labelize } from "@/lib/utils";
 import { poaKindLabel, poaPurposeLabel, poaStatusLabel } from "@/lib/poa-shared";
 import { PlotDcValueForm } from "@/components/tax/plot-dc-value-form";
+import { PrintButton } from "@/components/print/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -175,6 +176,9 @@ export default async function PlotProfilePage({
               />
             </div>
           ) : null}
+          <div className="mt-4">
+            <PrintButton href={`/plots/${plot.id}/print`} label="Print summary" />
+          </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs text-teal-200/70">Current Owner</p>
@@ -810,6 +814,7 @@ export default async function PlotProfilePage({
                     <th>Amount</th>
                     <th>PO</th>
                     <th>Status</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
@@ -821,6 +826,9 @@ export default async function PlotProfilePage({
                       <td>{p.poNumber || "—"}</td>
                       <td>
                         <Badge status={p.status} />
+                      </td>
+                      <td>
+                        <PrintButton href={`/payments/${p.id}/print`} label="Print receipt" size="sm" />
                       </td>
                     </tr>
                   ))}

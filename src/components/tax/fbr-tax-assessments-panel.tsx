@@ -20,6 +20,7 @@ import {
   taxSectionShort,
 } from "@/lib/fbr-tax-shared";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { PrintButton } from "@/components/print/print-button";
 import type { FilerStatus, TaxPartyRole, TaxPaymentStatus, TaxSection } from "@/generated/prisma/client";
 
 export type TaxAssessmentRow = {
@@ -112,6 +113,9 @@ export function FbrTaxAssessmentsPanel({
                   ? ` · challan ${a.challanNumber || "—"} · CPR ${a.cprNumber || "—"}`
                   : ""}
               </p>
+              <div className="mt-2">
+                <PrintButton href={`/tax/${a.id}/print`} label="Print tax slip" size="sm" />
+              </div>
               {a.paymentStatus === "UNPAID" && canMarkPaid ? (
                 <ConfirmActionForm
                   action={bindFormAction(markFbrTaxPaid)}
