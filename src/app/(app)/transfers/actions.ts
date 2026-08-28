@@ -251,7 +251,7 @@ export async function submitDeathCaseForApproval(formData: FormData) {
 
   await prisma.transfer.update({
     where: { id },
-    data: { status: "APPROVAL_PENDING", currentStep: 9 },
+    data: { status: "APPROVAL_PENDING", currentStep: 5 },
   });
 
   await writeAuditLog({
@@ -349,11 +349,12 @@ export async function approveTransferAction(formData: FormData) {
   if (!hasPermission(session.user.role, "approve")) throw new Error("Forbidden");
 
   const id = String(formData.get("id"));
+  const transfer = await prisma.transfer.findUnique({ where: { id }, select: { transferType: true } });
   await prisma.transfer.update({
     where: { id },
     data: {
       status: "APPROVED",
-      currentStep: 10,
+      currentStep: transfer?.transferType === "DEATH_SUCCESSION" ? 5 : 10,
       approvedById: session.user.id,
       approvedAt: new Date(),
     },

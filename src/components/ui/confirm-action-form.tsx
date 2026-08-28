@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import type { ActionResult } from "@/lib/action-result";
 import { FormErrorBanner } from "@/components/ui/form-error-banner";
 import { Button } from "@/components/ui/button";
@@ -38,13 +38,13 @@ export function ConfirmActionForm({
   variant?: "default" | "outline" | "destructive";
   size?: "default" | "sm" | "lg";
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
+  const formId = useId();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(action, null);
 
   return (
     <>
-      <form ref={formRef} action={formAction} className={className}>
+      <form id={formId} action={formAction} className={className}>
         {state?.ok === false ? <FormErrorBanner message={state.message} /> : null}
         {children}
         <Button
@@ -70,12 +70,10 @@ export function ConfirmActionForm({
               Cancel
             </Button>
             <Button
-              type="button"
+              type="submit"
+              form={formId}
               variant={variant === "destructive" ? "destructive" : "default"}
-              onClick={() => {
-                setOpen(false);
-                formRef.current?.requestSubmit();
-              }}
+              onClick={() => setOpen(false)}
             >
               Confirm
             </Button>

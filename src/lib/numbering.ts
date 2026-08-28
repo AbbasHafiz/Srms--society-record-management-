@@ -1,5 +1,31 @@
 import { prisma } from "@/lib/db";
 
+async function bumpSequenceToAtLeast(key: string, prefix: string, minNext: number, padLength: number) {
+  const existing = await prisma.numberSequence.findUnique({ where: { key } });
+  if (!existing) {
+    await prisma.numberSequence.create({
+      data: { key, prefix, nextValue: minNext, padLength },
+    });
+    return;
+  }
+  if (existing.nextValue < minNext) {
+    await prisma.numberSequence.update({
+      where: { key },
+      data: { nextValue: minNext },
+    });
+  }
+}
+
+function maxNumericSuffix(values: string[], prefix: string): number {
+  const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-(\\d+)$`);
+  let max = 0;
+  for (const value of values) {
+    const match = value.match(re);
+    if (match) max = Math.max(max, parseInt(match[1], 10));
+  }
+  return max;
+}
+
 /** Atomically allocate the next number for a sequence key. Never reuses values. */
 export async function nextSequence(key: string, fallbackPrefix: string, padLength = 4) {
   const seq = await prisma.$transaction(async (tx) => {
@@ -24,12 +50,45 @@ export async function nextSequence(key: string, fallbackPrefix: string, padLengt
   return `${seq.prefix}-${String(seq.value).padStart(seq.padLength, "0")}`;
 }
 
+async function nextUniqueOwnershipNumber(
+  seqKey: "membership" | "allotment",
+  field: "membershipNumber" | "allotmentNumber",
+  prefix: string,
+  padLength: number
+) {
+  const rows = await prisma.ownership.findMany({ select: { [field]: true } });
+  const used = rows.map((r) => String(r[field] ?? ""));
+  const max = maxNumericSuffix(used, prefix);
+  await bumpSequenceToAtLeast(seqKey, prefix, max + 1, padLength);
+
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const value = await nextSequence(seqKey, prefix, padLength);
+    const clash = await prisma.ownership.findFirst({
+      where:
+        field === "membershipNumber" ? { membershipNumber: value } : { allotmentNumber: value },
+      select: { id: true },
+    });
+    if (!clash) return value;
+  }
+  throw new Error(`Could not allocate a unique ${field.replace(/[A-Z]/g, (c) => ` ${c.toLowerCase()}`)}`);
+}
+
 export async function nextMembershipNumber() {
-  return nextSequence("membership", process.env.MEMBERSHIP_PREFIX || "M", 4);
+  return nextUniqueOwnershipNumber(
+    "membership",
+    "membershipNumber",
+    process.env.MEMBERSHIP_PREFIX || "M",
+    4
+  );
 }
 
 export async function nextAllotmentNumber() {
-  return nextSequence("allotment", process.env.ALLOTMENT_PREFIX || "AL", 4);
+  return nextUniqueOwnershipNumber(
+    "allotment",
+    "allotmentNumber",
+    process.env.ALLOTMENT_PREFIX || "AL",
+    4
+  );
 }
 
 export async function nextTransferNumber() {

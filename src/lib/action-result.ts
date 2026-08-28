@@ -11,7 +11,18 @@ export function actionFail(message: string): ActionResult {
 }
 
 export function getErrorMessage(err: unknown, fallback = "Something went wrong"): string {
-  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === "object" && err && "code" in err) {
+    const code = String((err as { code?: string }).code ?? "");
+    if (code === "P2002") {
+      return "A unique number (membership or allotment) is already in use. Retry to allocate the next free number.";
+    }
+  }
+  if (err instanceof Error && err.message) {
+    if (/unique constraint/i.test(err.message) && /membership|allotment/i.test(err.message)) {
+      return "A unique number (membership or allotment) is already in use. Retry to allocate the next free number.";
+    }
+    return err.message;
+  }
   if (typeof err === "string" && err.trim()) return err;
   return fallback;
 }

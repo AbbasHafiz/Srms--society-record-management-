@@ -240,7 +240,7 @@ export async function completeDeathSuccessionTransfer(transferId: string, userId
       where: { id: transfer.id },
       data: {
         status: "COMPLETED",
-        currentStep: 14,
+        currentStep: 6,
         completedAt: now,
         completedById: userId,
         purchaserName: primaryHeir.name,
