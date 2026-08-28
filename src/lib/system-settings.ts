@@ -8,3 +8,7 @@ export async function getSystemSetting(key: string): Promise<string | null> {
 export async function getSocietyName(): Promise<string | null> {
   return getSystemSetting("society_name");
 }
+
+export async function getSocietyNtn(): Promise<string | null> {
+  return getSystemSetting("society_ntn");
+}

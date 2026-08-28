@@ -176,8 +176,14 @@ export default async function PlotProfilePage({
               />
             </div>
           ) : null}
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2">
             <PrintButton href={`/plots/${plot.id}/print`} label="Print summary" />
+            <PrintButton href={`/plot-status/print/${plot.id}`} label="Dues slip" />
+            <Link href={`/plot-status?q=${encodeURIComponent(activeOwner?.membershipNumber || plot.id)}`}>
+              <Button type="button" variant="outline" size="sm">
+                Plot status
+              </Button>
+            </Link>
           </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <div>

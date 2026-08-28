@@ -206,6 +206,11 @@ enum FeeType {
   OTHER
 }
 
+enum PlotDuesEntryKind {
+  DEPOSITED
+  OUTSTANDING
+}
+
 /// FBR withholding on sale/purchase of immovable property (Income Tax Ordinance).
 enum TaxSection {
   SECTION_236C
@@ -581,6 +586,7 @@ model User {
   openFileDuesOverrides OpenFile[]        @relation("OpenFileDuesOverrideBy")
   taxAssessmentsRecorded TransferTaxAssessment[] @relation("TaxAssessmentRecordedBy")
   taxAssessmentsPaid     TransferTaxAssessment[] @relation("TaxAssessmentPaidBy")
+  plotDuesEntriesCreated PlotDuesEntry[]         @relation("PlotDuesEntryCreatedBy")
 
   @@index([role])
   @@index([email])
@@ -654,6 +660,7 @@ model Plot {
   notifications    Notification[]
   whatsappOutbox   WhatsAppOutbox[]
   registeredOffices RegisteredOffice[]
+  duesEntries      PlotDuesEntry[]
 
   @@unique([sector, block, plotNumber])
   @@index([plotNumber])
@@ -716,6 +723,7 @@ model Ownership {
   plotCharges PlotCharge[]
   payments    Payment[]
   financeTransactions FinanceTransaction[]
+  duesEntries PlotDuesEntry[]
 
   @@index([plotId, status])
   @@index([cnic])
@@ -1348,6 +1356,7 @@ model Payment {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   financeTransaction FinanceTransaction?
+  duesEntries        PlotDuesEntry[]
 
   @@index([plotId])
   @@index([status])
@@ -1379,6 +1388,53 @@ model PlotCharge {
   @@unique([plotId, year, month])
   @@index([status])
   @@index([ownershipId])
+}
+
+// ─── Plot dues ledger (immutable deposited / outstanding rows) ────────────────
+
+model PlotDuesHead {
+  id                String   @id @default(cuid())
+  code              String   @unique
+  name              String
+  sortOrder         Int      @default(0)
+  showUptoDate      Boolean  @default(false)
+  showInDeposited   Boolean  @default(true)
+  showInOutstanding Boolean  @default(true)
+  isExtraFee        Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  entries PlotDuesEntry[]
+
+  @@index([isActive, sortOrder])
+}
+
+/// Append-only dues lines. Never update amount/kind; post a new row to correct history.
+model PlotDuesEntry {
+  id          String            @id @default(cuid())
+  plotId      String
+  plot        Plot              @relation(fields: [plotId], references: [id])
+  ownershipId String?
+  ownership   Ownership?        @relation(fields: [ownershipId], references: [id])
+  headId      String
+  head        PlotDuesHead      @relation(fields: [headId], references: [id])
+  kind        PlotDuesEntryKind
+  amount      Decimal           @db.Decimal(14, 2)
+  asOfDate    DateTime?
+  dueDate     DateTime?
+  paymentId   String?
+  payment     Payment?          @relation(fields: [paymentId], references: [id])
+  remarks     String?
+  createdById String?
+  createdBy   User?             @relation("PlotDuesEntryCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime          @default(now())
+
+  @@index([plotId, kind])
+  @@index([headId])
+  @@index([ownershipId])
+  @@index([paymentId])
+  @@index([createdAt])
 }
 
 // ─── Physical File / Locker ──────────────────────────────────────────────────

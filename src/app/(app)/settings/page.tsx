@@ -23,6 +23,12 @@ import { getActiveTankerPrice, TANKER_TYPE_LABELS } from "@/lib/tankers";
 import { updateFbrTaxRates } from "./tax-actions";
 import { FBR_TAX_RATE_DEFAULTS, FBR_TAX_RATE_KEYS } from "@/lib/fbr-tax-shared";
 import { getFbrTaxRates } from "@/lib/fbr-tax";
+import { canRecordPlotDues } from "@/lib/plot-dues";
+import { createPlotDuesHeadAction, updatePlotStatusSettingsAction } from "@/app/(app)/plot-status/actions";
+import {
+  DUES_SLIP_DUE_DAYS_DEFAULT,
+  DUES_SLIP_TAX_OFFICER_FEE_DEFAULT,
+} from "@/lib/plot-dues-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -83,8 +89,9 @@ export default async function SettingsPage() {
     session?.user &&
     (hasPermission(session.user.role, "manage_settings") ||
       hasPermission(session.user.role, "configure_fees"));
+  const canManageDues = session?.user && canRecordPlotDues(session.user.role);
 
-  const [feeConfigs, sequences, systemSettings, sizeOptions, cleanWaterPrice, constructionWaterPrice, fbrRates] =
+  const [feeConfigs, sequences, systemSettings, sizeOptions, cleanWaterPrice, constructionWaterPrice, fbrRates, duesHeads] =
     await Promise.all([
     prisma.feeConfiguration.findMany({
       orderBy: [{ feeType: "asc" }, { effectiveFrom: "desc" }],
@@ -98,6 +105,7 @@ export default async function SettingsPage() {
     getActiveTankerPrice("CLEAN_WATER"),
     getActiveTankerPrice("CONSTRUCTION_WATER"),
     getFbrTaxRates(),
+    prisma.plotDuesHead.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
 
   const slaSettingsMap = Object.fromEntries(systemSettings.map((s) => [s.key, s.value]));
@@ -520,6 +528,105 @@ export default async function SettingsPage() {
                     <td>{s.prefix}</td>
                     <td>{s.nextValue}</td>
                     <td>{s.padLength}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="font-display text-lg font-semibold">Plot dues ledger heads</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Configurable line items for the plot status / dues slip. Deposited and outstanding rows stay append-only.
+            </p>
+          </div>
+          {canManageDues ? (
+            <form action={updatePlotStatusSettingsAction} className="grid gap-4 border-b border-slate-100 bg-slate-50/50 px-5 py-4 sm:grid-cols-3">
+              <div>
+                <Label htmlFor="society_ntn">Society NTN</Label>
+                <Input
+                  id="society_ntn"
+                  name="society_ntn"
+                  className="mt-1"
+                  defaultValue={slaSettingsMap.society_ntn ?? ""}
+                  placeholder="3557812-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="dues_slip_due_days">Due days from issue</Label>
+                <Input
+                  id="dues_slip_due_days"
+                  name="dues_slip_due_days"
+                  type="number"
+                  min={1}
+                  className="mt-1"
+                  defaultValue={slaSettingsMap.dues_slip_due_days ?? DUES_SLIP_DUE_DAYS_DEFAULT}
+                />
+              </div>
+              <div>
+                <Label htmlFor="dues_slip_taxation_officer_fee">Taxation officer fee (PKR)</Label>
+                <Input
+                  id="dues_slip_taxation_officer_fee"
+                  name="dues_slip_taxation_officer_fee"
+                  type="number"
+                  min={0}
+                  className="mt-1"
+                  defaultValue={slaSettingsMap.dues_slip_taxation_officer_fee ?? DUES_SLIP_TAX_OFFICER_FEE_DEFAULT}
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <Button type="submit">Save dues slip settings</Button>
+              </div>
+            </form>
+          ) : null}
+          {canManageDues ? (
+            <form action={createPlotDuesHeadAction} className="grid gap-4 border-b border-slate-100 px-5 py-4 sm:grid-cols-4">
+              <div>
+                <Label htmlFor="duesHeadCode">Head code</Label>
+                <Input id="duesHeadCode" name="code" required className="mt-1 font-mono" placeholder="CORNER" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="duesHeadName">Name</Label>
+                <Input id="duesHeadName" name="name" required className="mt-1" placeholder="Corner Charges" />
+              </div>
+              <div>
+                <Label htmlFor="duesHeadSort">Sort</Label>
+                <Input id="duesHeadSort" name="sortOrder" type="number" className="mt-1" defaultValue={200} />
+              </div>
+              <div className="flex items-end">
+                <Button type="submit">Add head</Button>
+              </div>
+            </form>
+          ) : null}
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Sort</th>
+                <th>Upto date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {duesHeads.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-slate-500">
+                    No dues heads yet — they are created on first plot-status lookup, or add one above.
+                  </td>
+                </tr>
+              ) : (
+                duesHeads.map((h) => (
+                  <tr key={h.id}>
+                    <td className="font-mono text-sm">{h.code}</td>
+                    <td className="font-medium">{h.name}</td>
+                    <td>{h.sortOrder}</td>
+                    <td>{h.showUptoDate ? "Yes" : "—"}</td>
+                    <td>
+                      <Badge status={h.isActive ? "ACTIVE" : "INACTIVE"} />
+                    </td>
                   </tr>
                 ))
               )}

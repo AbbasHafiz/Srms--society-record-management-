@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { seedFinance } from "./seed-finance";
+import { seedPlotDuesDemo } from "./seed-plot-dues";
 import { DEFAULT_TEMPLATE_BODIES, WHATSAPP_TEMPLATE_KEYS } from "../src/lib/whatsapp";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
@@ -11,6 +12,8 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("Seeding Society Records…");
 
+  await prisma.plotDuesEntry.deleteMany();
+  await prisma.plotDuesHead.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.whatsAppOutbox.deleteMany();
   await prisma.notifyTemplate.deleteMany();
@@ -343,6 +346,9 @@ async function main() {
       { key: "fbr_236k_nonfiler_percent", value: "10.5", label: "FBR 236K purchaser — non-filer (%)" },
       { key: "whatsapp_enabled", value: "true", label: "WhatsApp notifications enabled" },
       { key: "whatsapp_default_country_code", value: "92", label: "WhatsApp default country code (PK)" },
+      { key: "society_ntn", value: "3557812-2", label: "Society NTN" },
+      { key: "dues_slip_due_days", value: "11", label: "Plot dues slip due days from issue" },
+      { key: "dues_slip_taxation_officer_fee", value: "20000", label: "Default taxation officer fee (PKR)" },
     ],
   });
 
@@ -2021,6 +2027,8 @@ async function main() {
       },
     ],
   });
+
+  await seedPlotDuesDemo(prisma, admin.id);
 
   console.log("Seed complete.");
   console.log("Login: admin@society.local / password123");
