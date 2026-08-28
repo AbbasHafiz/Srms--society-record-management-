@@ -128,8 +128,8 @@ export function AppSidebar({ userName, role }: { userName: string; role: Role })
 
   return (
     <>
-      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
-        <div>
+      <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-slate-200 bg-white/90 px-3 py-2.5 backdrop-blur lg:hidden">
+        <div className="min-w-0">
           <p className="font-display text-sm font-semibold text-teal-900">
             {isTankerPortal ? "Tanker Desk" : "Society Records"}
           </p>
@@ -137,14 +137,17 @@ export function AppSidebar({ userName, role }: { userName: string; role: Role })
             {isTankerPortal ? "Water tanker booking" : "Property & Transfers"}
           </p>
         </div>
-        <button
-          type="button"
-          className="rounded-md border border-slate-200 p-2"
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Toggle menu"
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <SignOutButton role={role} size="sm" appearance="header" />
+          <button
+            type="button"
+            className="rounded-md border border-slate-200 p-2"
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Toggle menu"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {open ? (
@@ -196,8 +199,8 @@ function SidebarUser({ name, role }: { name: string; role: Role }) {
     <div className="border-t border-white/10 px-4 py-4">
       <p className="truncate text-sm font-medium text-white">{name}</p>
       <p className="truncate text-xs text-slate-400">{role.replace(/_/g, " ")}</p>
-      <div className="mt-2">
-        <SignOutButton role={role} />
+      <div className="mt-3">
+        <SignOutButton role={role} appearance="sidebar" />
       </div>
     </div>
   );
