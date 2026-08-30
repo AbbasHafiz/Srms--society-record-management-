@@ -11,6 +11,10 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
 
+  if (pathname.startsWith("/serwist") || pathname === "/~offline") {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/login")) {
     if (session?.user) {
       const next = req.nextUrl.searchParams.get("next");

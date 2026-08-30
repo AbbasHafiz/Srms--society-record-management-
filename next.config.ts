@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSerwist } from "@serwist/turbopack";
 
 const nextConfig: NextConfig = {
   // Allow client JS/HMR when previewing via 127.0.0.1 or Cloudflare quick tunnels.
@@ -18,4 +19,4 @@ const nextConfig: NextConfig = {
   ],
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);

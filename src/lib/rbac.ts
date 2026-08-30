@@ -147,6 +147,7 @@ const PATH_MODULES = ([
   ["/dues-slip", "plot-status"],
   ["/plots", "plots"],
   ["/search", "dashboard"],
+  ["/offline", "dashboard"],
   ["/hr", "hr"],
   ["/noc", "documents"],
   ["/nec", "documents"],

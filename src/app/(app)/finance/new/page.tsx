@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { createFinanceTxnAction } from "../actions";
 import { PAYMENT_METHODS } from "@/lib/finance-constants";
 import { labelize } from "@/lib/utils";
+import { OfflineFinanceForm } from "@/components/offline/offline-finance-form";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export default async function NewFinanceTxnPage({
         }
       />
 
-      <form
+      <OfflineFinanceForm
         action={createFinanceTxnAction}
         className="max-w-2xl space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
@@ -189,7 +190,7 @@ export default async function NewFinanceTxnPage({
             </Button>
           </Link>
         </div>
-      </form>
+      </OfflineFinanceForm>
     </div>
   );
 }

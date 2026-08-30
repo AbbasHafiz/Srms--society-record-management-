@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import type { Role } from "@/generated/prisma/client";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { OfflineBanner } from "@/components/offline/offline-banner";
 
 export function PrintAwareShell({
   userName,
@@ -30,6 +31,7 @@ export function PrintAwareShell({
         <header className="no-print sticky top-0 z-30 hidden items-center justify-end border-b border-slate-200 bg-white/95 px-6 py-3 shadow-sm backdrop-blur lg:flex">
           <SignOutButton role={role} appearance="header" />
         </header>
+        <OfflineBanner />
         <main className="safe-pad flex-1 overflow-x-hidden px-4 py-5 md:px-8 md:py-7">
           <div className="mx-auto max-w-7xl">{children}</div>
         </main>

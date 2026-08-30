@@ -37,6 +37,7 @@ import {
   UtensilsCrossed,
   Zap,
   Wrench,
+  WifiOff,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,7 @@ const NAV = [
   { href: "/reports", label: "Reports", icon: BarChart3, module: "reports" },
   { href: "/audit", label: "Audit Logs", icon: ClipboardList, module: "audit" },
   { href: "/settings", label: "Settings", icon: Settings, module: "settings" },
+  { href: "/offline/pending", label: "Offline queue", icon: WifiOff, module: "dashboard" },
 ];
 
 const TANKER_NAV_HREFS = new Set(["/dashboard", "/tankers", "/tankers/driver", "/garbage", "/vehicles/fuel"]);

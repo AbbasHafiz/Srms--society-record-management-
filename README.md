@@ -131,7 +131,11 @@ Persisted volumes: `pgdata` (database), `uploads` (files).
 
 Do **not** deploy this app to Vercel (or any serverless host) without object storage: uploaded scans live on disk and will disappear. For a housing society in Pakistan, use a Linux VPS, Docker Compose, Caddy, and persistent volumes.
 
-**Guide:** [docs/HOSTING-PAKISTAN.md](docs/HOSTING-PAKISTAN.md) — PKR billing, `.pk` domains, Websouls/local VPS vs Mumbai, env vars, backups.
+**Guide:** [docs/HOSTING-PAKISTAN.md](docs/HOSTING-PAKISTAN.md) — PKR billing, `.pk` domains, Websouls/local VPS vs Mumbai, env vars, backups, LAN/offline.
+
+### Offline (PWA)
+
+Install Society Records from the browser (Add to Home Screen / Install app). After you open a screen once while connected, it can reload from cache if the internet drops. Queued finance entries live on that device until sync. **Transfers are not completed offline** — see the hosting guide. `NEXTAUTH_URL` must match the LAN or public origin.
 
 ```bash
 cp .env.example .env   # set AUTH_SECRET, DATABASE_URL, NEXTAUTH_URL, SRMS_DOMAIN

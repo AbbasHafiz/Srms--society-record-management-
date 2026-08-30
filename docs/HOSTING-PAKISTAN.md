@@ -365,3 +365,21 @@ docker compose up --build
 ```
 
 Env vars the app actually reads: `DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL` / `AUTH_URL`, `UPLOAD_DIR`, `MEMBERSHIP_PREFIX`, `ALLOTMENT_PREFIX`, `TRANSFER_PREFIX`, `FILE_PREFIX`, optional `WHATSAPP_API_URL`, `WHATSAPP_API_TOKEN`. Compose/Caddy also use `POSTGRES_*`, `SRMS_DOMAIN`, `ACME_EMAIL`.
+
+---
+
+## Offline / LAN (no public internet)
+
+After Docker images and `npm` packages are on the machine, the office can run SRMS **without public internet**:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Staff open `https://your-domain` or `http://192.168.x.x` on the society LAN. Set `NEXTAUTH_URL` to that exact origin.
+
+Phones and PCs can **Install** Society Records (PWA). After a first online visit, lists you already opened stay readable if the WAN drops. An **Offline** banner appears. Finance entries saved while offline sit in **Offline queue** and post when the line is back.
+
+**Transfers cannot be completed offline.** Ownership, dues, FBR 236C/236K, and scans must commit on the server. Prepare the file on paper or as a draft; Complete only when the server is reachable.
+
+If the session cookie expires while offline, sign in again when connected.
